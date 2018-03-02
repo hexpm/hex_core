@@ -1,5 +1,10 @@
-% Copied from https://github.com/erlang/otp/blob/OTP-20.0.1/lib/stdlib/src/erl_tar.erl
-% with modifications on module name to `hex_erl_tar`
+%% Copied from https://github.com/erlang/otp/blob/OTP-20.0.1/lib/stdlib/src/erl_tar.erl
+%% with modifications:
+%% - Change module name to `hex_erl_tar`
+%% - Set tar mtimes to 0 and remove dependency on :os.system_time/1
+%% - Preserve modes when building tarball
+%% - Do not crash if failing to write tar
+%% - Allow setting file_info opts on :hex_erl_tar.add
 
 %%
 %% %CopyrightBegin%
@@ -37,7 +42,7 @@
          extract/1, extract/2,
          table/1, table/2, t/1, tt/1,
          open/2, close/1,
-         add/3, add/4,
+         add/3, add/4, add/5,
          format_error/1]).
 
 -include_lib("kernel/include/file.hrl").
@@ -443,12 +448,15 @@ do_create(TarFile, [Name|Rest], Opts) ->
 -spec add(reader(), add_type(), [add_opt()]) -> ok | {error, term()}.
 add(Reader, {NameInArchive, Name}, Opts)
   when is_list(NameInArchive), is_list(Name) ->
-    do_add(Reader, Name, NameInArchive, Opts);
+    do_add(Reader, Name, NameInArchive, undefined, Opts);
 add(Reader, {NameInArchive, Bin}, Opts)
   when is_list(NameInArchive), is_binary(Bin) ->
-    do_add(Reader, Bin, NameInArchive, Opts);
+    do_add(Reader, Bin, NameInArchive, undefined, Opts);
+add(Reader, {NameInArchive, Bin, Mode}, Opts)
+  when is_list(NameInArchive), is_binary(Bin), is_integer(Mode) ->
+    do_add(Reader, Bin, NameInArchive, Mode, Opts);
 add(Reader, Name, Opts) when is_list(Name) ->
-    do_add(Reader, Name, Name, Opts).
+    do_add(Reader, Name, Name, undefined, Opts).
 
 
 -spec add(reader(), string() | binary(), string(), [add_opt()]) ->
@@ -456,31 +464,68 @@ add(Reader, Name, Opts) when is_list(Name) ->
 add(Reader, NameOrBin, NameInArchive, Options)
   when is_list(NameOrBin); is_binary(NameOrBin),
        is_list(NameInArchive), is_list(Options) ->
-    do_add(Reader, NameOrBin, NameInArchive, Options).
+    do_add(Reader, NameOrBin, NameInArchive, undefined, Options).
 
-do_add(#reader{access=write}=Reader, Name, NameInArchive, Options)
+-spec add(reader(), string() | binary(), string(), integer(), [add_opt()]) ->
+                 ok | {error, term()}.
+add(Reader, NameOrBin, NameInArchive, Mode, Options)
+  when is_list(NameOrBin); is_binary(NameOrBin),
+       is_list(NameInArchive), is_integer(Mode), is_list(Options) ->
+    do_add(Reader, NameOrBin, NameInArchive, Mode, Options).
+
+do_add(#reader{access=write}=Reader, Name, NameInArchive, Mode, Options)
   when is_list(NameInArchive), is_list(Options) ->
-    RF = fun(F) -> file:read_link_info(F, [{time, posix}]) end,
+    RF = fun(F) -> apply_file_info_opts(Options, file:read_link_info(F, [{time, posix}])) end,
     Opts = #add_opts{read_info=RF},
-    add1(Reader, Name, NameInArchive, add_opts(Options, Opts));
-do_add(#reader{access=read},_,_,_) ->
+    add1(Reader, Name, NameInArchive, Mode, add_opts(Options, Options, Opts));
+do_add(#reader{access=read},_,_,_,_) ->
     {error, eacces};
-do_add(Reader,_,_,_) ->
+do_add(Reader,_,_,_,_) ->
     {error, {badarg, Reader}}.
 
-add_opts([dereference|T], Opts) ->
-    RF = fun(F) -> file:read_file_info(F, [{time, posix}]) end,
-    add_opts(T, Opts#add_opts{read_info=RF});
-add_opts([verbose|T], Opts) ->
-    add_opts(T, Opts#add_opts{verbose=true});
-add_opts([{chunks,N}|T], Opts) ->
-    add_opts(T, Opts#add_opts{chunk_size=N});
-add_opts([_|T], Opts) ->
-    add_opts(T, Opts);
-add_opts([], Opts) ->
+add_opts([dereference|T], AllOptions, Opts) ->
+    RF = fun(F) -> apply_file_info_opts(AllOptions, file:read_file_info(F, [{time, posix}])) end,
+    add_opts(T, AllOptions, Opts#add_opts{read_info=RF});
+add_opts([verbose|T], AllOptions, Opts) ->
+    add_opts(T, AllOptions, Opts#add_opts{verbose=true});
+add_opts([{chunks,N}|T], AllOptions, Opts) ->
+    add_opts(T, AllOptions, Opts#add_opts{chunk_size=N});
+add_opts([{atime,Value}|T], AllOptions, Opts) ->
+    add_opts(T, AllOptions, Opts#add_opts{atime=Value});
+add_opts([{mtime,Value}|T], AllOptions, Opts) ->
+    add_opts(T, AllOptions, Opts#add_opts{mtime=Value});
+add_opts([{ctime,Value}|T], AllOptions, Opts) ->
+    add_opts(T, AllOptions, Opts#add_opts{ctime=Value});
+add_opts([{uid,Value}|T], AllOptions, Opts) ->
+    add_opts(T, AllOptions, Opts#add_opts{uid=Value});
+add_opts([{gid,Value}|T], AllOptions, Opts) ->
+    add_opts(T, AllOptions, Opts#add_opts{gid=Value});
+add_opts([_|T], AllOptions, Opts) ->
+    add_opts(T, AllOptions, Opts);
+add_opts([], _AllOptions, Opts) ->
     Opts.
 
-add1(#reader{}=Reader, Name, NameInArchive, #add_opts{read_info=ReadInfo}=Opts)
+apply_file_info_opts(Opts, {ok, FileInfo}) ->
+    {ok, do_apply_file_info_opts(Opts, FileInfo)};
+apply_file_info_opts(_Opts, Other) ->
+    Other.
+
+do_apply_file_info_opts([{atime,Value}|T], FileInfo) ->
+    do_apply_file_info_opts(T, FileInfo#file_info{atime=Value});
+do_apply_file_info_opts([{mtime,Value}|T], FileInfo) ->
+    do_apply_file_info_opts(T, FileInfo#file_info{mtime=Value});
+do_apply_file_info_opts([{ctime,Value}|T], FileInfo) ->
+    do_apply_file_info_opts(T, FileInfo#file_info{ctime=Value});
+do_apply_file_info_opts([{uid,Value}|T], FileInfo) ->
+    do_apply_file_info_opts(T, FileInfo#file_info{uid=Value});
+do_apply_file_info_opts([{gid,Value}|T], FileInfo) ->
+    do_apply_file_info_opts(T, FileInfo#file_info{gid=Value});
+do_apply_file_info_opts([_|T], FileInfo) ->
+    do_apply_file_info_opts(T, FileInfo);
+do_apply_file_info_opts([], FileInfo) ->
+    FileInfo.
+
+add1(#reader{}=Reader, Name, NameInArchive, undefined, #add_opts{read_info=ReadInfo}=Opts)
   when is_list(Name) ->
     Res = case ReadInfo(Name) of
               {error, Reason0} ->
@@ -511,17 +556,19 @@ add1(#reader{}=Reader, Name, NameInArchive, #add_opts{read_info=ReadInfo}=Opts)
         {ok, _Reader} -> ok;
         {error, _Reason} = Err -> Err
     end;
-add1(Reader, Bin, NameInArchive, Opts) when is_binary(Bin) ->
+add1(Reader, Bin, NameInArchive, Mode, Opts) when is_binary(Bin) ->
     add_verbose(Opts, "a ~ts~n", [NameInArchive]),
-    Now = os:system_time(seconds),
+    Now = 0,
     Header = #tar_header{
                 name = NameInArchive,
                 size = byte_size(Bin),
                 typeflag = ?TYPE_REGULAR,
-                atime = Now,
-                mtime = Now,
-                ctime = Now,
-                mode = 8#100644},
+                atime = add_opts_time(Opts#add_opts.atime, Now),
+                mtime = add_opts_time(Opts#add_opts.mtime, Now),
+                ctime = add_opts_time(Opts#add_opts.ctime, Now),
+                uid = Opts#add_opts.uid,
+                gid = Opts#add_opts.gid,
+                mode = default_mode(Mode, 8#100644)},
     {ok, Reader2} = add_header(Reader, Header, Opts),
     Padding = skip_padding(byte_size(Bin)),
     Data = [Bin, <<0:Padding/unit:8>>],
@@ -529,6 +576,12 @@ add1(Reader, Bin, NameInArchive, Opts) when is_binary(Bin) ->
         {ok, _Reader3} -> ok;
         {error, Reason} -> {error, {NameInArchive, Reason}}
     end.
+
+add_opts_time(undefined, _Now) -> 0;
+add_opts_time(Time, _Now) -> Time.
+
+default_mode(undefined, Mode) -> Mode;
+default_mode(Mode, _) -> Mode.
 
 add_directory(Reader, DirName, NameInArchive, Info, Opts) ->
     case file:list_dir(DirName) of
@@ -1249,12 +1302,10 @@ convert_header(_Bin, _Reader) ->
 %% If the file is a directory, a slash is appended to the name.
 fileinfo_to_header(Name, #file_info{}=Fi, Link) when is_list(Name) ->
     BaseHeader = #tar_header{name=Name,
-                             mtime=Fi#file_info.mtime,
-                             atime=Fi#file_info.atime,
-                             ctime=Fi#file_info.ctime,
+                             mtime=0,
+                             atime=0,
+                             ctime=0,
                              mode=Fi#file_info.mode,
-                             uid=Fi#file_info.uid,
-                             gid=Fi#file_info.gid,
                              typeflag=?TYPE_REGULAR},
     do_fileinfo_to_header(BaseHeader, Fi, Link).
 
@@ -1595,7 +1646,7 @@ write_extracted_element(#tar_header{name=Name0}=Header, Bin, Opts) ->
 make_safe_path([$/|Path], Opts) ->
     make_safe_path(Path, Opts);
 make_safe_path(Path, #read_opts{cwd=Cwd}) ->
-    case filename:safe_relative_path(Path) of
+    case hex_filename:safe_relative_path(Path) of
         unsafe ->
             throw({error,{Path,unsafe_path}});
         SafePath ->
@@ -1653,8 +1704,12 @@ write_file(Name, Bin) ->
     case file:write_file(Name, Bin) of
         ok -> ok;
         {error,enoent} ->
-            ok = make_dirs(Name, file),
-            write_file(Name, Bin);
+            case make_dirs(Name, file) of
+                ok ->
+                    write_file(Name, Bin);
+                {error,Reason} ->
+                    throw({error, Reason})
+            end;
         {error,Reason} ->
             throw({error, Reason})
     end.
