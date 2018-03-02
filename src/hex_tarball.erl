@@ -154,8 +154,12 @@ unpack_tarball(ContentsBinary, memory) ->
 unpack_tarball(ContentsBinary, Output) ->
     hex_erl_tar:extract({binary, ContentsBinary}, [{cwd, Output}, compressed]).
 
-create_tarball(Files, _Options) ->
-    create_memory_tarball(Files).
+create_tarball(Files, Options) ->
+    Tarball = create_memory_tarball(Files),
+    case proplists:get_bool(compressed, Options) of
+        true -> gzip(Tarball);
+        false -> Tarball
+    end.
 
 create_memory_tarball(Files) ->
     {ok, Fd} = file:open([], [ram, read, write, binary]),
@@ -186,9 +190,61 @@ add_files(Tar, Files) when is_list(Files) ->
     lists:map(fun(File) -> add_file(Tar, File) end, Files).
 
 add_file(Tar, {Filename, Contents}) when is_list(Filename) and is_binary(Contents) ->
-    ok = hex_erl_tar:add(Tar, Contents, Filename, []);
+    ok = hex_erl_tar:add(Tar, Contents, Filename, tar_opts());
 add_file(Tar, Filename) when is_list(Filename) ->
-    ok = hex_erl_tar:add(Tar, Filename, []).
+    {ok, FileInfo} = file:read_link_info(Filename, []),
+
+    case FileInfo#file_info.type of
+        symlink ->
+            ok = hex_erl_tar:add(Tar, Filename, tar_opts());
+        directory ->
+            ok = hex_erl_tar:add(Tar, Filename, tar_opts());
+        _ ->
+            Mode = FileInfo#file_info.mode,
+            {ok, Contents} = file:read_file(Filename),
+            ok = hex_erl_tar:add(Tar, Contents, Filename, Mode, tar_opts())
+    end.
+
+tar_opts() ->
+    NixEpoch = calendar:datetime_to_gregorian_seconds({{1970, 1, 1}, {0, 0, 0}}),
+    Y2kEpoch = calendar:datetime_to_gregorian_seconds({{2000, 1, 1}, {0, 0, 0}}),
+    Epoch = Y2kEpoch - NixEpoch,
+    [{atime, Epoch}, {mtime, Epoch}, {ctime, Epoch}, {uid, 0}, {gid, 0}].
+
+%% Reproducible gzip by not setting mtime and OS
+%%
+%% From https://tools.ietf.org/html/rfc1952
+%%
+%% +---+---+---+---+---+---+---+---+---+---+
+%% |ID1|ID2|CM |FLG|     MTIME     |XFL|OS | (more-->)
+%% +---+---+---+---+---+---+---+---+---+---+
+%%
+%% +=======================+
+%% |...compressed blocks...| (more-->)
+%% +=======================+
+%%
+%% +---+---+---+---+---+---+---+---+
+%% |     CRC32     |     ISIZE     |
+%% +---+---+---+---+---+---+---+---+
+gzip(Uncompressed) ->
+    Compressed = gzip_no_header(Uncompressed),
+    Header = <<31, 139, 8, 0, 0, 0, 0, 0, 0, 0>>,
+    Crc = erlang:crc32(Uncompressed),
+    Size = byte_size(Uncompressed),
+    Trailer = <<Crc:32/little, Size:32/little>>,
+    iolist_to_binary([Header, Compressed, Trailer]).
+
+gzip_no_header(Uncompressed) ->
+    Zstream = zlib:open(),
+
+    try
+        zlib:deflateInit(Zstream, default, deflated, -15, 8, default),
+        Compressed = zlib:deflate(Zstream, Uncompressed, finish),
+        zlib:deflateEnd(Zstream),
+        iolist_to_binary(Compressed)
+    after
+        zlib:close(Zstream)
+    end.
 
 %%====================================================================
 %% Helpers
