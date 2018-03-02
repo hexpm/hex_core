@@ -2,6 +2,13 @@
 -export([create/2, unpack/2, format_checksum/1, format_error/1]).
 -define(VERSION, <<"3">>).
 -define(TARBALL_MAX_SIZE, 8 * 1024 * 1024).
+-define(BUILD_TOOL_FILES, [
+                            {<<"mix.exs">>, "mix"},
+                            {<<"rebar.config">>, <<"rebar">>},
+                            {<<"rebar">>, <<"rebar">>},
+                            {<<"Makefile">>, <<"make">>},
+                            {<<"Makefile.win">>, <<"make">>}
+                           ]).
 -include_lib("kernel/include/file.hrl").
 
 -type checksum() :: binary().
@@ -238,7 +245,7 @@ normalize_metadata(Terms) ->
     Metadata2 = maybe_update_with(<<"requirements">>, fun normalize_requirements/1, Metadata1),
     Metadata3 = maybe_update_with(<<"links">>, fun try_into_map/1, Metadata2),
     Metadata4 = maybe_update_with(<<"extra">>, fun try_into_map/1, Metadata3),
-    Metadata4.
+    guess_build_tools(Metadata4).
 
 normalize_requirements(Requirements) ->
     case is_list(Requirements) andalso (Requirements /= []) andalso is_list(hd(Requirements)) of
@@ -253,6 +260,15 @@ normalize_requirement(Requirement) ->
     {_, Name} = lists:keyfind(<<"name">>, 1, Requirement),
     List = lists:keydelete(<<"name">>, 1, Requirement),
     {Name, maps:from_list(List)}.
+
+guess_build_tools(#{<<"build_tools">> := BuildTools} = Metadata) when is_list(BuildTools) ->
+    Metadata;
+guess_build_tools(#{<<"files">> := Filenames} = Metadata) ->
+    BaseFiles = [Filename || Filename <- Filenames, filename:dirname(binary_to_list(Filename)) == "."],
+    BuildTools = lists:usort([Tool || {Filename, Tool} <- ?BUILD_TOOL_FILES, lists:member(Filename, BaseFiles)]),
+    Metadata#{<<"build_tools">> => BuildTools};
+guess_build_tools(Metadata) ->
+    Metadata.
 
 %%====================================================================
 %% Tar Helpers

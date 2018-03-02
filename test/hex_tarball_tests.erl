@@ -3,7 +3,7 @@
 -include_lib("kernel/include/file.hrl").
 
 memory_test() ->
-    Metadata = #{<<"app">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+    Metadata = #{<<"app">> => <<"foo">>, <<"version">> => <<"1.0.0">>, <<"build_tool">> => <<"rebar3">>},
     Contents = [{"src/foo.erl", <<"-module(foo).">>}],
     {ok, {Tarball, Checksum}} = hex_tarball:create(Metadata, Contents),
     {ok, #{checksum := Checksum, contents := Contents, metadata := Metadata}} = hex_tarball:unpack(Tarball, memory),
@@ -13,10 +13,10 @@ disk_test() ->
     in_tmp(fun() ->
         ok = file:write_file("foo.erl", <<"-module(foo).">>),
 
-        Metadata = #{<<"app">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+        Metadata = #{<<"app">> => <<"foo">>, <<"version">> => <<"1.0.0">>, <<"build_tool">> => <<"rebar3">>},
         Files = ["foo.erl"],
         {ok, {Tarball, Checksum}} = hex_tarball:create(Metadata, Files),
-        <<"90F7D8E898A44226EE61CF7229D49D2620D08EDF88B64230D0FA197F2D8A42B6">> = hex_tarball:format_checksum(Checksum),
+        <<"53787F9D87A09DE9A31FB2F367E75CDE92605643A982E021000A2ECAC6384B21">> = hex_tarball:format_checksum(Checksum),
         {ok, #{checksum := Checksum, metadata := Metadata}} = hex_tarball:unpack(Tarball, "unpack"),
         {ok, <<"-module(foo).">>} = file:read_file("unpack/foo.erl")
     end).
@@ -49,6 +49,22 @@ timestamps_and_permissions_test() ->
         [{{2000,1,1}, {0,0,0}}] = calendar:local_time_to_universal_time_dst(FooErlFileInfo#file_info.mtime),
         [{{2000,1,1}, {0,0,0}}] = calendar:local_time_to_universal_time_dst(FooShFileInfo#file_info.mtime)
     end).
+
+build_tools_test() ->
+    Metadata = #{<<"app">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+    Contents = [],
+
+    {ok, {Tarball1, _}} = hex_tarball:create(maps:put(<<"files">>, [<<"Makefile">>], Metadata), Contents),
+    {ok, #{metadata := #{<<"build_tools">> := [<<"make">>]}}} = hex_tarball:unpack(Tarball1, memory),
+
+    {ok, {Tarball2, _}} = hex_tarball:create(maps:put(<<"build_tools">>, [<<"mix">>], Metadata), Contents),
+    {ok, #{metadata := #{<<"build_tools">> := [<<"mix">>]}}} = hex_tarball:unpack(Tarball2, memory),
+
+    {ok, {Tarball3, _}} = hex_tarball:create(Metadata, Contents),
+    {ok, #{metadata := Metadata2}} = hex_tarball:unpack(Tarball3, memory),
+    false = maps:is_key(<<"build_tools">>, Metadata2),
+
+    ok.
 
 unpack_error_handling_test() ->
     {ok, {Tarball, Checksum}} = hex_tarball:create(#{"name" => <<"foo">>}, [{"rebar.config", <<"">>}]),
