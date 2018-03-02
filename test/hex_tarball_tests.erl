@@ -3,7 +3,12 @@
 -include_lib("kernel/include/file.hrl").
 
 memory_test() ->
-    Metadata = #{<<"app">> => <<"foo">>, <<"version">> => <<"1.0.0">>, <<"build_tool">> => <<"rebar3">>},
+    Metadata = #{
+      <<"app">> => <<"foo">>,
+      <<"version">> => <<"1.0.0">>,
+      <<"maintainers">> => [<<"José">>],
+      <<"build_tool">> => <<"rebar3">>
+     },
     Contents = [{"src/foo.erl", <<"-module(foo).">>}],
     {ok, {Tarball, Checksum}} = hex_tarball:create(Metadata, Contents),
     {ok, #{checksum := Checksum, contents := Contents, metadata := Metadata}} = hex_tarball:unpack(Tarball, memory),
