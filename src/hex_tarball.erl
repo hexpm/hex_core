@@ -1,5 +1,5 @@
 -module(hex_tarball).
--export([create/2, unpack/2, format_checksum/1]).
+-export([create/2, unpack/2, format_checksum/1, format_error/1]).
 -define(VERSION, <<"3">>).
 -define(TARBALL_MAX_SIZE, 8 * 1024 * 1024).
 -include_lib("kernel/include/file.hrl").
@@ -96,6 +96,28 @@ unpack(Tarball, Output) ->
 format_checksum(Checksum) ->
     encode_base16(Checksum).
 
+%% @doc
+%% Converts an error reason term to a human-readable error message string.
+-spec format_error(term()) -> string().
+format_error({tarball, empty}) -> "empty tarball";
+format_error({tarball, too_big}) -> "tarball is too big";
+format_error({tarball, {missing_files, Files}}) -> io_lib:format("missing files: ~p", [Files]);
+format_error({tarball, {invalid_files, Files}}) -> io_lib:format("invalid files: ~p", [Files]);
+format_error({tarball, {bad_version, Vsn}}) -> io_lib:format("unsupported version: ~p", [Vsn]);
+format_error({tarball, invalid_checksum}) -> "invalid tarball checksum";
+format_error({tarball, Reason}) -> "tarball error, " ++ hex_erl_tar:format_error(Reason);
+format_error({inner_tarball, Reason}) -> "inner tarball error, " ++ hex_erl_tar:format_error(Reason);
+format_error({metadata, invalid_terms}) -> "error reading package metadata: invalid terms";
+format_error({metadata, not_key_value}) -> "error reading package metadata: not in key-value format";
+format_error({metadata, Reason}) -> "error reading package metadata" ++ safe_erl_term:format_error(Reason);
+
+format_error({checksum_mismatch, ExpectedChecksum, ActualChecksum}) ->
+    io_lib:format(
+        "tarball checksum mismatch~n~n" ++
+        "Expected (base16-encoded): ~s~n" ++
+        "Actual   (base16-encoded): ~s",
+        [encode_base16(ExpectedChecksum), encode_base16(ActualChecksum)]).
+
 %%====================================================================
 %% Internal functions
 %%====================================================================
@@ -112,10 +134,25 @@ encode_metadata(Meta) ->
     iolist_to_binary(Data).
 
 do_unpack(Files, Output) ->
-    ?VERSION = maps:get("VERSION", Files),
+    State = #{
+        checksum => nil,
+        contents => nil,
+        files => Files,
+        metadata => nil,
+        output => Output
+    },
+    State1 = check_files(State),
+    State2 = check_version(State1),
+    State3 = check_checksum(State2),
+    State4 = decode_metadata(State3),
+    finish_unpack(State4).
+
+finish_unpack({error, _} = Error) ->
+    Error;
+finish_unpack(#{metadata := Metadata, files := Files, output := Output}) ->
+    _Version = maps:get("VERSION", Files),
     Checksum = decode_base16(maps:get("CHECKSUM", Files)),
     ContentsBinary = maps:get("contents.tar.gz", Files),
-    Metadata = decode_metadata(maps:get("metadata.config", Files)),
     case unpack_tarball(ContentsBinary, Output) of
         ok ->
             {ok, #{checksum => Checksum, metadata => Metadata}};
@@ -127,12 +164,63 @@ do_unpack(Files, Output) ->
             {error, {inner_tarball, Reason}}
     end.
 
-decode_metadata(MetadataBinary) ->
-    String = binary_to_list(MetadataBinary),
+check_files({error, _} = Error) ->
+    Error;
+check_files(#{files := Files} = State) ->
+    RequiredFiles = ["VERSION", "CHECKSUM", "metadata.config", "contents.tar.gz"],
+    case diff_keys(Files, RequiredFiles, []) of
+        ok ->
+            State;
+
+        {error, {missing_keys, Keys}} ->
+            {error, {tarball, {missing_files, Keys}}};
+
+        {error, {unknown_keys, Keys}} ->
+            {error, {tarball, {invalid_files, Keys}}}
+    end.
+
+check_version({error, _} = Error) ->
+    Error;
+check_version(#{files := Files} = State) ->
+    case maps:get("VERSION", Files) of
+        <<"3">> ->
+            State;
+
+        Version ->
+            {error, {tarball, {bad_version, Version}}}
+    end.
+
+check_checksum({error, _} = Error) ->
+    Error;
+check_checksum(#{files := Files} = State) ->
+    ChecksumBase16 = maps:get("CHECKSUM", Files),
+    ExpectedChecksum = decode_base16(ChecksumBase16),
+
+    Version = maps:get("VERSION", Files),
+    MetadataBinary = maps:get("metadata.config", Files),
+    ContentsBinary = maps:get("contents.tar.gz", Files),
+    ActualChecksum = checksum(Version, MetadataBinary, ContentsBinary),
+
+    if
+        byte_size(ExpectedChecksum) /= 32 ->
+            {error, {tarball, invalid_checksum}};
+
+        ExpectedChecksum == ActualChecksum ->
+            maps:put(checksum, ExpectedChecksum, State);
+
+        true ->
+            {error, {tarball, {checksum_mismatch, ExpectedChecksum, ActualChecksum}}}
+    end.
+
+decode_metadata({error, _} = Error) ->
+    Error;
+decode_metadata(#{files := #{"metadata.config" := Binary}} = State) when is_binary(Binary) ->
+    String = binary_to_list(Binary),
     case safe_erl_term:string(String) of
         {ok, Tokens, _Line} ->
             try
-                maps:from_list(safe_erl_term:terms(Tokens))
+                Terms = safe_erl_term:terms(Tokens),
+                maps:put(metadata, normalize_metadata(Terms), State)
             catch
                 error:function_clause ->
                     {error, {metadata, invalid_terms}};
@@ -144,6 +232,27 @@ decode_metadata(MetadataBinary) ->
         {error, {_Line, safe_erl_term, Reason}, _Line2} ->
             {error, {metadata, Reason}}
     end.
+
+normalize_metadata(Terms) ->
+    Metadata1 = maps:from_list(Terms),
+    Metadata2 = maybe_update_with(<<"requirements">>, fun normalize_requirements/1, Metadata1),
+    Metadata3 = maybe_update_with(<<"links">>, fun try_into_map/1, Metadata2),
+    Metadata4 = maybe_update_with(<<"extra">>, fun try_into_map/1, Metadata3),
+    Metadata4.
+
+normalize_requirements(Requirements) ->
+    case is_list(Requirements) andalso (Requirements /= []) andalso is_list(hd(Requirements)) of
+        true ->
+            try_into_map(fun normalize_requirement/1, Requirements);
+
+        false ->
+            try_into_map(fun({K, V}) -> {K, try_into_map(V)} end, Requirements)
+    end.
+
+normalize_requirement(Requirement) ->
+    {_, Name} = lists:keyfind(<<"name">>, 1, Requirement),
+    List = lists:keydelete(<<"name">>, 1, Requirement),
+    {Name, maps:from_list(List)}.
 
 %%====================================================================
 %% Tar Helpers
@@ -261,6 +370,40 @@ binarify({Key, Value}) ->
 binarify(Map) when is_map(Map) ->
      List = maps:to_list(Map),
      lists:map(fun({K, V}) -> binarify({K, V}) end, List).
+
+diff_keys(Map, RequiredKeys, OptionalKeys) ->
+    Keys = maps:keys(Map),
+    MissingKeys = RequiredKeys -- Keys,
+    UnknownKeys = Keys -- (RequiredKeys ++ OptionalKeys),
+
+    case {MissingKeys, UnknownKeys} of
+        {[], []} ->
+            ok;
+
+        {_, [_ | _]} ->
+            {error, {unknown_keys, UnknownKeys}};
+
+        _ ->
+            {error, {missing_keys, MissingKeys}}
+    end.
+
+maybe_update_with(Key, Fun, Map) ->
+    case maps:is_key(Key, Map) of
+        true ->
+            Value = maps:get(Key, Map),
+            Map#{Key => apply(Fun, [Value])};
+
+        false ->
+            Map
+    end.
+
+try_into_map(List) ->
+    try_into_map(fun(X) -> X end, List).
+
+try_into_map(Fun, List) when is_list(List) ->
+    maps:from_list(lists:map(Fun, List));
+try_into_map(_Fun, Input) ->
+    Input.
 
 encode_base16(Binary) ->
     <<X:256/big-unsigned-integer>> = Binary,
