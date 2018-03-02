@@ -6,6 +6,7 @@ _*
 *.plt
 *.swp
 *.swo
+/src/safe_erl_term.erl
 .erlang.cookie
 ebin
 log
