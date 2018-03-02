@@ -162,6 +162,7 @@ finish_unpack(#{metadata := Metadata, files := Files, output := Output}) ->
     ContentsBinary = maps:get("contents.tar.gz", Files),
     case unpack_tarball(ContentsBinary, Output) of
         ok ->
+            copy_metadata_config(Output, maps:get("metadata.config", Files)),
             {ok, #{checksum => Checksum, metadata => Metadata}};
 
         {ok, Contents} ->
@@ -170,6 +171,9 @@ finish_unpack(#{metadata := Metadata, files := Files, output := Output}) ->
         {error, Reason} ->
             {error, {inner_tarball, Reason}}
     end.
+
+copy_metadata_config(Output, MetadataBinary) ->
+    ok = file:write_file(Output ++ "/hex_metadata.config", MetadataBinary).
 
 check_files({error, _} = Error) ->
     Error;

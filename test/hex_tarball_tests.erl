@@ -18,7 +18,9 @@ disk_test() ->
         {ok, {Tarball, Checksum}} = hex_tarball:create(Metadata, Files),
         <<"53787F9D87A09DE9A31FB2F367E75CDE92605643A982E021000A2ECAC6384B21">> = hex_tarball:format_checksum(Checksum),
         {ok, #{checksum := Checksum, metadata := Metadata}} = hex_tarball:unpack(Tarball, "unpack"),
-        {ok, <<"-module(foo).">>} = file:read_file("unpack/foo.erl")
+        {ok, <<"-module(foo).">>} = file:read_file("unpack/foo.erl"),
+        {ok, <<"{<<\"app\">>,<<\"foo\">>}.\n{<<\"build_tool\">>,<<\"rebar3\">>}.\n{<<\"version\">>,<<\"1.0.0\">>}.\n">>} =
+            file:read_file("unpack/hex_metadata.config")
     end).
 
 timestamps_and_permissions_test() ->
