@@ -2,3 +2,6 @@ language: erlang
 sudo: false
 otp_release:
   - 20.2
+script:
+  - rebar3 eunit
+  - rebar3 proper
