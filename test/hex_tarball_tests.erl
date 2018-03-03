@@ -73,6 +73,44 @@ build_tools_test() ->
 
     ok.
 
+requirements_test() ->
+    ExpectedRequirements = #{
+        <<"aaa">> => #{
+            <<"app">> => <<"aaa">>,
+            <<"optional">> => true,
+            <<"requirement">> => <<"~> 1.0">>,
+            <<"repository">> => <<"hexpm">>},
+        <<"bbb">> => #{
+            <<"app">> => <<"bbb">>,
+            <<"optional">> => true,
+            <<"requirement">> => <<"~> 1.0">>,
+            <<"repository">> => <<"hexpm">>}},
+
+    Normal = [{<<"aaa">>, [{<<"app">>, <<"aaa">>},
+                           {<<"optional">>, true},
+                           {<<"requirement">>, <<"~> 1.0">>},
+                           {<<"repository">>, <<"hexpm">>}]},
+              {<<"bbb">>, [{<<"app">>, <<"bbb">>},
+                           {<<"optional">>, true},
+                           {<<"requirement">>, <<"~> 1.0">>},
+                           {<<"repository">>, <<"hexpm">>}]}],
+
+    Legacy = [[{<<"name">>, <<"aaa">>},
+               {<<"app">>, <<"aaa">>},
+               {<<"optional">>, true},
+               {<<"requirement">>, <<"~> 1.0">>},
+               {<<"repository">>, <<"hexpm">>}],
+
+              [{<<"name">>, <<"bbb">>},
+               {<<"app">>, <<"bbb">>},
+               {<<"optional">>, true},
+               {<<"requirement">>, <<"~> 1.0">>},
+               {<<"repository">>, <<"hexpm">>}]],
+
+    ExpectedRequirements = hex_tarball:normalize_requirements(Normal),
+    ExpectedRequirements = hex_tarball:normalize_requirements(Legacy),
+    ok.
+
 unpack_error_handling_test() ->
     {ok, {Tarball, Checksum}} = hex_tarball:create(#{"name" => <<"foo">>}, [{"rebar.config", <<"">>}]),
     {ok, #{checksum := Checksum}} = hex_tarball:unpack(Tarball, memory),
@@ -130,7 +168,7 @@ unpack_error_handling_test() ->
 
     Files5 = OuterFiles#{
       "contents.tar.gz" => <<"badtar">>,
-      "CHECKSUM" => <<"77D5649A97731EE82A736E1E16E58094A61BFD38A28D4B6CD9EEAC527D3C4C08">>
+      "CHECKSUM" => <<"9AA6A026CCD93D4E7B3B6083595259D2946709DE8F9EC7FAB69F2E53939DF403">>
     },
     {error,{inner_tarball,eof}} = unpack_files(Files5),
 

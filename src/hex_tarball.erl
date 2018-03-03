@@ -1,5 +1,5 @@
 -module(hex_tarball).
--export([create/2, unpack/2, format_checksum/1, format_error/1, gzip/1]).
+-export([create/2, unpack/2, format_checksum/1, format_error/1, gzip/1, normalize_requirements/1]).
 -define(VERSION, <<"3">>).
 -define(TARBALL_MAX_SIZE, 8 * 1024 * 1024).
 -define(BUILD_TOOL_FILES, [
@@ -261,16 +261,19 @@ normalize_metadata(Terms) ->
 normalize_requirements(Requirements) ->
     case is_list(Requirements) andalso (Requirements /= []) andalso is_list(hd(Requirements)) of
         true ->
-            try_into_map(fun normalize_requirement/1, Requirements);
+            maps:from_list(lists:map(fun normalize_legacy_requirement/1, Requirements));
 
         false ->
-            try_into_map(fun({K, V}) -> {K, try_into_map(V)} end, Requirements)
+            try_into_map(fun normalize_normal_requirement/1, Requirements)
     end.
 
-normalize_requirement(Requirement) ->
-    {_, Name} = lists:keyfind(<<"name">>, 1, Requirement),
-    List = lists:keydelete(<<"name">>, 1, Requirement),
-    {Name, maps:from_list(List)}.
+normalize_normal_requirement({Name, Requirement}) ->
+    {Name, try_into_map(Requirement)}.
+
+normalize_legacy_requirement(Requirement) ->
+    Map = maps:from_list(Requirement),
+    Name = maps:get(<<"name">>, Map),
+    {Name, maps:without([<<"name">>], Map)}.
 
 guess_build_tools(#{<<"build_tools">> := BuildTools} = Metadata) when is_list(BuildTools) ->
     Metadata;
@@ -427,10 +430,11 @@ maybe_update_with(Key, Fun, Map) ->
 try_into_map(List) ->
     try_into_map(fun(X) -> X end, List).
 
-try_into_map(Fun, List) when is_list(List) ->
-    maps:from_list(lists:map(Fun, List));
-try_into_map(_Fun, Input) ->
-    Input.
+try_into_map(Fun, Input) ->
+    case is_list(Input) andalso lists:all(fun(E) -> is_tuple(E) andalso (tuple_size(E) == 2) end, Input) of
+        true -> maps:from_list(lists:map(Fun, Input));
+        false -> Input
+    end.
 
 encode_base16(Binary) ->
     <<X:256/big-unsigned-integer>> = Binary,
