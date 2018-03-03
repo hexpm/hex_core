@@ -181,17 +181,13 @@ unpack_error_handling_test() ->
 in_tmp(F) ->
     Old = file:get_cwd(),
     TmpDir = "tmp",
-    ok = rm_rf(TmpDir),
+    ok = rebar_file_utils:rm_rf(TmpDir),
     ok = file:make_dir(TmpDir),
     Dir = TmpDir ++ "/" ++ integer_to_list(erlang:unique_integer()),
     ok = file:make_dir(Dir),
     file:set_cwd(Dir),
     apply(F, []),
     file:set_cwd(Old).
-
-rm_rf(Path) ->
-    [] = os:cmd("rm -rf " ++ Path),
-    ok.
 
 epoch() ->
     NixEpoch = calendar:datetime_to_gregorian_seconds({{1970, 1, 1}, {0, 0, 0}}),
