@@ -102,7 +102,7 @@ unpack(Tarball, Output) ->
 
 %% @doc
 %% Returns base16-encoded representation of checksum.
--spec format_checksum(checksum()) -> string().
+-spec format_checksum(checksum()) -> binary().
 format_checksum(Checksum) ->
     encode_base16(Checksum).
 
@@ -178,8 +178,6 @@ finish_unpack(#{metadata := Metadata, files := Files, output := Output}) ->
 copy_metadata_config(Output, MetadataBinary) ->
     ok = file:write_file(Output ++ "/hex_metadata.config", MetadataBinary).
 
-check_files({error, _} = Error) ->
-    Error;
 check_files(#{files := Files} = State) ->
     RequiredFiles = ["VERSION", "CHECKSUM", "metadata.config", "contents.tar.gz"],
     case diff_keys(Files, RequiredFiles, []) of
@@ -326,8 +324,6 @@ file_op(position, {Fd, Pos}) -> file:position(Fd, Pos);
 file_op(read2, {Fd, Size}) -> file:read(Fd, Size);
 file_op(close, _Fd) -> ok.
 
-add_files(Tar, Files) when is_map(Files) ->
-    maps:map(fun(Filename, Binary) -> add_file(Tar, {Filename, Binary}) end, Files);
 add_files(Tar, Files) when is_list(Files) ->
     lists:map(fun(File) -> add_file(Tar, File) end, Files).
 
