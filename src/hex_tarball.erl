@@ -1,5 +1,8 @@
 -module(hex_tarball).
--export([create/2, unpack/2, format_checksum/1, format_error/1, gzip/1, normalize_requirements/1]).
+-export([create/2, unpack/2, format_checksum/1, format_error/1]).
+-ifdef(TEST).
+-export([gzip/1, normalize_requirements/1]).
+-endif.
 -define(VERSION, <<"3">>).
 -define(TARBALL_MAX_SIZE, 8 * 1024 * 1024).
 -define(BUILD_TOOL_FILES, [
