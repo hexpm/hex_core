@@ -183,7 +183,7 @@ in_tmp(F) ->
     TmpDir = "tmp",
     ok = rebar_file_utils:rm_rf(TmpDir),
     ok = file:make_dir(TmpDir),
-    Dir = TmpDir ++ "/" ++ integer_to_list(erlang:unique_integer()),
+    Dir = TmpDir ++ "/test",
     ok = file:make_dir(Dir),
     file:set_cwd(Dir),
     apply(F, []),
@@ -198,4 +198,5 @@ unpack_files(Files) ->
     FileList = maps:to_list(Files),
     ok = hex_erl_tar:create("test.tar", FileList, [write]),
     {ok, Binary} = file:read_file("test.tar"),
+    ok = file:delete("test.tar"),
     hex_tarball:unpack(Binary, memory).
