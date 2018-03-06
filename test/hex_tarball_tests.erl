@@ -178,7 +178,7 @@ unpack_error_handling_test() ->
 %% Helpers
 %%====================================================================
 
-in_tmp(F) ->
+in_tmp(Fun) ->
     Old = file:get_cwd(),
     TmpDir = "tmp",
     ok = rebar_file_utils:rm_rf(TmpDir),
@@ -186,7 +186,7 @@ in_tmp(F) ->
     Dir = TmpDir ++ "/test",
     ok = file:make_dir(Dir),
     file:set_cwd(Dir),
-    apply(F, []),
+    Fun(),
     file:set_cwd(Old).
 
 epoch() ->
