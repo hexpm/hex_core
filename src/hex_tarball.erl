@@ -417,13 +417,9 @@ diff_keys(Map, RequiredKeys, OptionalKeys) ->
     end.
 
 maybe_update_with(Key, Fun, Map) ->
-    case maps:is_key(Key, Map) of
-        true ->
-            Value = maps:get(Key, Map),
-            maps:put(Key, apply(Fun, [Value]), Map);
-
-        false ->
-            Map
+    case maps:find(Key, Map) of
+        {ok, Value} -> maps:put(Key, Fun(Value), Map);
+        error -> Map
     end.
 
 try_into_map(List) ->
