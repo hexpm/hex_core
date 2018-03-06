@@ -227,7 +227,7 @@ check_checksum(#{files := Files} = State) ->
 decode_metadata({error, _} = Error) ->
     Error;
 decode_metadata(#{files := #{"metadata.config" := Binary}} = State) when is_binary(Binary) ->
-    String = safe_to_string(Binary),
+    {ok, String} = characters_to_list(Binary),
     case safe_erl_term:string(String) of
         {ok, Tokens, _Line} ->
             try
@@ -245,11 +245,15 @@ decode_metadata(#{files := #{"metadata.config" := Binary}} = State) when is_bina
             {error, {metadata, Reason}}
     end.
 
-safe_to_string(Binary) ->
+characters_to_list(Binary) ->
     case unicode:characters_to_list(Binary) of
-        List when is_list(List) -> List;
-        {error, _, _} -> binary_to_list(Binary);
-        {incomplete, _, _} -> binary_to_list(Binary)
+        List when is_list(List) ->
+            {ok, List};
+        {error, _, _} ->
+            case unicode:characters_to_list(Binary, latin1) of
+                List when is_list(List) -> {ok, List};
+                Other -> Other
+            end
     end.
 
 normalize_metadata(Terms) ->
