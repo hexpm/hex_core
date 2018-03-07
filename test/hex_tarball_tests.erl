@@ -114,6 +114,12 @@ requirements_test() ->
 decode_metadata_test() ->
     #{<<"foo">> := <<"bar">>} = hex_tarball:do_decode_metadata(<<"{<<\"foo\">>, <<\"bar\">>}.">>),
 
+    #{<<"foo">> := <<"bö/utf8">>} = hex_tarball:do_decode_metadata(<<"{<<\"foo\">>, <<\"bö/utf8\">>}.">>),
+
+    %% we should convert invalid latin1 encoded metadata to utf8 so that this becomes:
+    %% #{<<"foo">> := <<"bö/utf8">>} = hex_tarball:do_decode_metadata(<<"{<<\"foo\">>, <<\"bö\">>}.">>),
+    #{<<"foo">> := <<"bö">>} = hex_tarball:do_decode_metadata(<<"{<<\"foo\">>, <<\"bö\">>}.">>),
+
     {error, {metadata, invalid_terms}} = hex_tarball:do_decode_metadata(<<"ok[">>),
 
     {error, {metadata, {user, "illegal atom asdf"}}} = hex_tarball:do_decode_metadata(<<"asdf.">>),
