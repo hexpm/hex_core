@@ -111,6 +111,17 @@ requirements_test() ->
     ExpectedRequirements = hex_tarball:normalize_requirements(Legacy),
     ok.
 
+decode_metadata_test() ->
+    #{<<"foo">> := <<"bar">>} = hex_tarball:do_decode_metadata(<<"{<<\"foo\">>, <<\"bar\">>}.">>),
+
+    {error, {metadata, invalid_terms}} = hex_tarball:do_decode_metadata(<<"ok[">>),
+
+    {error, {metadata, {user, "illegal atom asdf"}}} = hex_tarball:do_decode_metadata(<<"asdf.">>),
+
+    {error, {metadata, not_key_value}} = hex_tarball:do_decode_metadata(<<"ok.">>),
+
+    ok.
+
 unpack_error_handling_test() ->
     {ok, {Tarball, Checksum}} = hex_tarball:create(#{"name" => <<"foo">>}, [{"rebar.config", <<"">>}]),
     {ok, #{checksum := Checksum}} = hex_tarball:unpack(Tarball, memory),
@@ -145,24 +156,6 @@ unpack_error_handling_test() ->
       "CHECKSUM" => <<"1BB37F9A91F9E4A3667A4527930187ACF6B9714C0DE7EADD55DC31BE5CFDD98C">>
     },
     {error, {metadata, {illegal, "$"}}} = unpack_files(Files1),
-
-    Files2 = OuterFiles#{
-      "metadata.config" => <<"ok[">>,
-      "CHECKSUM" => <<"0423D201115A49644F8BD4F216E666AF823CFE759853D9994CE9B652C5E604D9">>
-    },
-    {error, {metadata, invalid_terms}} = unpack_files(Files2),
-
-    Files3 = OuterFiles#{
-      "metadata.config" => <<"asdf.">>,
-      "CHECKSUM" => <<"F80D9B63D52695C6AC165D41F0F42F8D19152BE84D11FC2E5093FEC53CD4E3D9">>
-    },
-    {error, {metadata, {user, "illegal atom asdf"}}} = unpack_files(Files3),
-
-    Files4 = OuterFiles#{
-      "metadata.config" => <<"ok.">>,
-      "CHECKSUM" => <<"5E891D99F011F3DF8AB42E3B16420034C63CEC771B548F5E430057D13B62EF2B">>
-    },
-    {error, {metadata, not_key_value}} = unpack_files(Files4),
 
     %% contents
 

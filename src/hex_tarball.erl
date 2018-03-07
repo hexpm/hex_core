@@ -1,7 +1,7 @@
 -module(hex_tarball).
 -export([create/2, unpack/2, format_checksum/1, format_error/1]).
 -ifdef(TEST).
--export([gzip/1, normalize_requirements/1]).
+-export([do_decode_metadata/1, gzip/1, normalize_requirements/1]).
 -endif.
 -define(VERSION, <<"3">>).
 -define(TARBALL_MAX_SIZE, 8 * 1024 * 1024).
@@ -227,12 +227,19 @@ check_checksum(#{files := Files} = State) ->
 decode_metadata({error, _} = Error) ->
     Error;
 decode_metadata(#{files := #{"metadata.config" := Binary}} = State) when is_binary(Binary) ->
+    case do_decode_metadata(Binary) of
+        #{} = Metadata -> maps:put(metadata, normalize_metadata(Metadata), State);
+        Other -> Other
+    end.
+
+do_decode_metadata(Binary) when is_binary(Binary) ->
     {ok, String} = characters_to_list(Binary),
+
     case safe_erl_term:string(String) of
         {ok, Tokens, _Line} ->
             try
                 Terms = safe_erl_term:terms(Tokens),
-                maps:put(metadata, normalize_metadata(Terms), State)
+                maps:from_list(Terms)
             catch
                 error:function_clause ->
                     {error, {metadata, invalid_terms}};
@@ -256,8 +263,7 @@ characters_to_list(Binary) ->
             end
     end.
 
-normalize_metadata(Terms) ->
-    Metadata1 = maps:from_list(Terms),
+normalize_metadata(Metadata1) ->
     Metadata2 = maybe_update_with(<<"requirements">>, fun normalize_requirements/1, Metadata1),
     Metadata3 = maybe_update_with(<<"links">>, fun try_into_map/1, Metadata2),
     Metadata4 = maybe_update_with(<<"extra">>, fun try_into_map/1, Metadata3),
