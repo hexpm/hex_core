@@ -10,6 +10,7 @@
     decode_signed/1,
     decode_and_verify_signed/2
 ]).
+-include_lib("public_key/include/public_key.hrl").
 
 %%====================================================================
 %% API functions
@@ -60,22 +61,33 @@ decode_signed(Signed) ->
 %% Decode message created with sign_protobuf/2 and verify it with PublicKey.
 decode_and_verify_signed(Signed, PublicKey) ->
     #{payload := Payload, signature := Signature} = decode_signed(Signed),
-
-    case verify(Payload, Signature, PublicKey) of
-        true -> {ok, Payload};
-        false -> {error, unverified}
-    end.
+    verify(Payload, Signature, PublicKey).
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
 
-sign(Binary, PrivateKey) ->
-    public_key:sign(Binary, sha512, key(PrivateKey)).
+sign(Binary, PrivateKeyBinary) ->
+    {ok, PrivateKey} = key(PrivateKeyBinary),
+    public_key:sign(Binary, sha512, PrivateKey).
 
-verify(Binary, Signature, PublicKey) ->
-    public_key:verify(Binary, sha512, Signature, key(PublicKey)).
+verify(Binary, Signature, PublicKeyBinary) ->
+    case key(PublicKeyBinary) of
+        {ok, PublicKey} ->
+            case public_key:verify(Binary, sha512, Signature, PublicKey) of
+                true -> {ok, Binary};
+                false -> {error, unverified}
+            end;
+        {error, Reason} ->
+            {error, Reason}
+    end.
 
+key(#'RSAPublicKey'{} = Key) ->
+    {ok, Key};
+key(#'RSAPrivateKey'{} = Key) ->
+    {ok, Key};
 key(Binary) when is_binary(Binary) ->
-    [Entry | _] = public_key:pem_decode(Binary),
-    public_key:pem_entry_decode(Entry).
+    case public_key:pem_decode(Binary) of
+        [Entry | _] -> {ok, public_key:pem_entry_decode(Entry)};
+        _ -> {error, bad_key}
+    end.

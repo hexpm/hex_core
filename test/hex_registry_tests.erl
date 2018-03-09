@@ -1,5 +1,6 @@
 -module(hex_registry_tests).
 -include_lib("eunit/include/eunit.hrl").
+-include_lib("public_key/include/public_key.hrl").
 
 names_test() ->
     Names = #{
@@ -63,17 +64,25 @@ package_test() ->
     ok.
 
 signed_test() ->
-    PrivateKey = read_fixture("test_priv.pem"),
-    PublicKey = read_fixture("test_pub.pem"),
+    {PublicKey, PrivateKey} = generate_keys(),
     Names = #{packages => []},
     Payload = hex_registry:encode_names(Names),
-
     Signed = hex_registry:sign_protobuf(Payload, PrivateKey),
     #{payload := Payload} = hex_registry:decode_signed(Signed),
+
     {ok, Payload} = hex_registry:decode_and_verify_signed(Signed, PublicKey),
     Names = hex_registry:decode_names(Payload),
+
+    {error, bad_key} = hex_registry:decode_and_verify_signed(Signed, <<"bad">>),
+
+    {PublicKey2, _} = generate_keys(),
+    {error, unverified} = hex_registry:decode_and_verify_signed(Signed, PublicKey2),
+
     ok.
 
-read_fixture(Path) when is_list(Path) ->
-    {ok, Binary} = file:read_file("test/fixtures/" ++ Path),
-    Binary.
+generate_keys() ->
+    PrivateKey = public_key:generate_key({rsa, 1024, 3}),
+    PublicKey = #'RSAPublicKey'{
+                   modulus=PrivateKey#'RSAPrivateKey'.modulus,
+                   publicExponent=PrivateKey#'RSAPrivateKey'.publicExponent},
+    {PublicKey, PrivateKey}.
