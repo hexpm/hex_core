@@ -64,25 +64,23 @@ package_test() ->
     ok.
 
 signed_test() ->
-    {PublicKey, PrivateKey} = generate_keys(),
+    TestPublicKey = read_fixture("test_pub.pem"),
+    TestPrivateKey = read_fixture("test_priv.pem"),
+    HexpmPublicKey = read_fixture("hexpm_pub.pem"),
     Names = #{packages => []},
     Payload = hex_registry:encode_names(Names),
-    Signed = hex_registry:sign_protobuf(Payload, PrivateKey),
-    #{payload := Payload} = hex_registry:decode_signed(Signed),
 
-    {ok, Payload} = hex_registry:decode_and_verify_signed(Signed, PublicKey),
+    Signed = hex_registry:sign_protobuf(Payload, TestPrivateKey),
+    #{payload := Payload} = hex_registry:decode_signed(Signed),
+    {ok, Payload} = hex_registry:decode_and_verify_signed(Signed, TestPublicKey),
     Names = hex_registry:decode_names(Payload),
 
     {error, bad_key} = hex_registry:decode_and_verify_signed(Signed, <<"bad">>),
 
-    {PublicKey2, _} = generate_keys(),
-    {error, unverified} = hex_registry:decode_and_verify_signed(Signed, PublicKey2),
+    {error, unverified} = hex_registry:decode_and_verify_signed(Signed, HexpmPublicKey),
 
     ok.
 
-generate_keys() ->
-    PrivateKey = public_key:generate_key({rsa, 1024, 3}),
-    PublicKey = #'RSAPublicKey'{
-                   modulus=PrivateKey#'RSAPrivateKey'.modulus,
-                   publicExponent=PrivateKey#'RSAPrivateKey'.publicExponent},
-    {PublicKey, PrivateKey}.
+read_fixture(Path) when is_list(Path) ->
+    {ok, Binary} = file:read_file("test/fixtures/" ++ Path),
+    Binary.

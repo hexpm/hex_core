@@ -1,12 +1,13 @@
 -module(hex_repo_tests).
 -include_lib("eunit/include/eunit.hrl").
+-define(fixture(Path), element(2, file:read_file("test/fixtures/" ++ Path))).
 -define(ADAPTER, hex_http_test).
--define(REPO, #{uri => "https://repo.test", public_key => undefined}).
+-define(REPO, #{uri => "https://repo.test", public_key => ?fixture("test_pub.pem")}).
 % -define(ADAPTER, hex_http_httpc).
-% -define(REPO, #{uri => "https://repo.hex.pm", public_key => undefined}).
+% -define(REPO, #{uri => "https://repo.hex.pm", public_key => ?fixture("hexpm_pub.pem")}).
 
 get_names_test() ->
-    {ok, #{packages := Packages}} = hex_repo:get_names(?ADAPTER, ?REPO, [{verify, false}]),
+    {ok, #{packages := Packages}} = hex_repo:get_names(?ADAPTER, ?REPO),
     [#{name := <<"ecto">>}] =
         lists:filter(fun(#{name := Name}) -> Name == <<"ecto">> end, Packages),
     ok.
