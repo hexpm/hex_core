@@ -1098,7 +1098,6 @@ verify_msg(Msg, MsgName, Opts) ->
     end.
 
 
--dialyzer({nowarn_function,v_msg_RetirementStatus/3}).
 v_msg_RetirementStatus(#{reason := F1} = M, Path, _) ->
     v_enum_RetirementReason(F1, [reason | Path]),
     case M of
@@ -1121,7 +1120,6 @@ v_msg_RetirementStatus(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'RetirementStatus'}, X,
 		  Path).
 
--dialyzer({nowarn_function,v_msg_Dependency/3}).
 v_msg_Dependency(#{package := F1, requirement := F2} =
 		     M,
 		 Path, _) ->
@@ -1157,7 +1155,6 @@ v_msg_Dependency(M, Path, _TrUserData) when is_map(M) ->
 v_msg_Dependency(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'Dependency'}, X, Path).
 
--dialyzer({nowarn_function,v_msg_Release/3}).
 v_msg_Release(#{version := F1, checksum := F2} = M,
 	      Path, TrUserData) ->
     v_type_string(F1, [version | Path]),
@@ -1197,7 +1194,6 @@ v_msg_Release(M, Path, _TrUserData) when is_map(M) ->
 v_msg_Release(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'Release'}, X, Path).
 
--dialyzer({nowarn_function,v_msg_Package/3}).
 v_msg_Package(#{} = M, Path, TrUserData) ->
     case M of
       #{releases := F1} ->
@@ -1224,7 +1220,6 @@ v_msg_Package(M, Path, _TrUserData) when is_map(M) ->
 v_msg_Package(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'Package'}, X, Path).
 
--dialyzer({nowarn_function,v_enum_RetirementReason/2}).
 v_enum_RetirementReason('RETIRED_OTHER', _Path) -> ok;
 v_enum_RetirementReason('RETIRED_INVALID', _Path) -> ok;
 v_enum_RetirementReason('RETIRED_SECURITY', _Path) ->
@@ -1238,7 +1233,6 @@ v_enum_RetirementReason(X, Path) ->
     mk_type_error({invalid_enum, 'RetirementReason'}, X,
 		  Path).
 
--dialyzer({nowarn_function,v_type_sint32/2}).
 v_type_sint32(N, _Path)
     when -2147483648 =< N, N =< 2147483647 ->
     ok;
@@ -1249,7 +1243,6 @@ v_type_sint32(X, Path) ->
     mk_type_error({bad_integer, sint32, signed, 32}, X,
 		  Path).
 
--dialyzer({nowarn_function,v_type_bool/2}).
 v_type_bool(false, _Path) -> ok;
 v_type_bool(true, _Path) -> ok;
 v_type_bool(0, _Path) -> ok;
@@ -1257,7 +1250,6 @@ v_type_bool(1, _Path) -> ok;
 v_type_bool(X, Path) ->
     mk_type_error(bad_boolean_value, X, Path).
 
--dialyzer({nowarn_function,v_type_string/2}).
 v_type_string(S, Path) when is_list(S); is_binary(S) ->
     try unicode:characters_to_binary(S) of
       B when is_binary(B) -> ok;
@@ -1270,7 +1262,6 @@ v_type_string(S, Path) when is_list(S); is_binary(S) ->
 v_type_string(X, Path) ->
     mk_type_error(bad_unicode_string, X, Path).
 
--dialyzer({nowarn_function,v_type_bytes/2}).
 v_type_bytes(B, _Path) when is_binary(B) -> ok;
 v_type_bytes(B, _Path) when is_list(B) -> ok;
 v_type_bytes(X, Path) ->

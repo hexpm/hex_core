@@ -634,7 +634,6 @@ verify_msg(Msg, MsgName, Opts) ->
     end.
 
 
--dialyzer({nowarn_function,v_msg_Package/3}).
 v_msg_Package(#{name := F1} = M, Path, _) ->
     v_type_string(F1, [name | Path]),
     case M of
@@ -682,7 +681,6 @@ v_msg_Package(M, Path, _TrUserData) when is_map(M) ->
 v_msg_Package(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'Package'}, X, Path).
 
--dialyzer({nowarn_function,v_msg_Versions/3}).
 v_msg_Versions(#{} = M, Path, TrUserData) ->
     case M of
       #{packages := F1} ->
@@ -709,7 +707,6 @@ v_msg_Versions(M, Path, _TrUserData) when is_map(M) ->
 v_msg_Versions(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'Versions'}, X, Path).
 
--dialyzer({nowarn_function,v_type_int32/2}).
 v_type_int32(N, _Path)
     when -2147483648 =< N, N =< 2147483647 ->
     ok;
@@ -720,7 +717,6 @@ v_type_int32(X, Path) ->
     mk_type_error({bad_integer, int32, signed, 32}, X,
 		  Path).
 
--dialyzer({nowarn_function,v_type_string/2}).
 v_type_string(S, Path) when is_list(S); is_binary(S) ->
     try unicode:characters_to_binary(S) of
       B when is_binary(B) -> ok;

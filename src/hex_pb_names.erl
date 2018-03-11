@@ -454,7 +454,6 @@ verify_msg(Msg, MsgName, Opts) ->
     end.
 
 
--dialyzer({nowarn_function,v_msg_Package/3}).
 v_msg_Package(#{name := F1} = M, Path, _) ->
     v_type_string(F1, [name | Path]),
     case M of
@@ -476,7 +475,6 @@ v_msg_Package(M, Path, _TrUserData) when is_map(M) ->
 v_msg_Package(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'Package'}, X, Path).
 
--dialyzer({nowarn_function,v_msg_Names/3}).
 v_msg_Names(#{} = M, Path, TrUserData) ->
     case M of
       #{packages := F1} ->
@@ -503,7 +501,6 @@ v_msg_Names(M, Path, _TrUserData) when is_map(M) ->
 v_msg_Names(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'Names'}, X, Path).
 
--dialyzer({nowarn_function,v_type_string/2}).
 v_type_string(S, Path) when is_list(S); is_binary(S) ->
     try unicode:characters_to_binary(S) of
       B when is_binary(B) -> ok;
