@@ -1,0 +1,1 @@
+-define(HEX_ERL_VERSION, "0.1.0").

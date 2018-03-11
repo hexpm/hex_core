@@ -1,5 +1,6 @@
 -module(hex_http).
 -export([get/3]).
+-include_lib("hex_erl.hrl").
 
 -type client() :: #{adapter => module(), user_agent_string => string()}.
 -type status() :: non_neg_integer().
@@ -16,7 +17,7 @@ get(#{adapter := Adapter, user_agent_string := UserAgentString}, URI, Headers) -
 
 user_agent(UserAgentString) ->
     OtpVersion = erlang:system_info(otp_release),
-    "hex_erl/0.1.0 " ++ UserAgentString ++ " (OTP/" ++ OtpVersion ++ ")".
+    "hex_erl/" ++ ?HEX_ERL_VERSION ++ " " ++ UserAgentString ++ " (OTP/" ++ OtpVersion ++ ")".
 
 put_new(Key, Value, Map) ->
     case maps:find(Key, Map) of
