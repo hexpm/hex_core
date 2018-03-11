@@ -1,4 +1,3 @@
-%% @private
 -module(hex_http_test).
 -behaviour(hex_http).
 -export([get/2, user_agent_string/0]).
