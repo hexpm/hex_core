@@ -21,7 +21,7 @@ get(#{adapter := Adapter, user_agent_string := UserAgentString}, URI, Headers) -
 user_agent(UserAgentString) ->
     OTPRelease = erlang:system_info(otp_release),
     ERTSVersion = erlang:system_info(version),
-    OTPString = " (OTP/" ++ OTPRelease ++ " erts-" ++ ERTSVersion ++ ")",
+    OTPString = " (OTP/" ++ OTPRelease ++ ") (erts/" ++ ERTSVersion ++ ")",
     "hex_erl/" ++ ?HEX_ERL_VERSION ++ " " ++ UserAgentString ++ OTPString.
 
 put_new(Key, Value, Map) ->
