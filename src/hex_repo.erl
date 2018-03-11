@@ -15,36 +15,36 @@
 %% API functions
 %%====================================================================
 
--spec get_names(hex_http:adapter(), repo()) -> {ok, map()} | {error, term()}.
-get_names(Adapter, Repo) ->
-    get_names(Adapter, Repo, []).
+-spec get_names(hex_http:client(), repo()) -> {ok, map()} | {error, term()}.
+get_names(Client, Repo) ->
+    get_names(Client, Repo, []).
 
--spec get_names(hex_http:adapter(), repo(), [term()]) -> {ok, map()} | {error, term()}.
-get_names(Adapter, Repo, Options) ->
+-spec get_names(hex_http:client(), repo(), [term()]) -> {ok, map()} | {error, term()}.
+get_names(Client, Repo, Options) ->
     Decoder = fun hex_registry:decode_names/1,
-    get_protobuf(Adapter, Repo, "/names", Decoder, Options).
+    get_protobuf(Client, Repo, "/names", Decoder, Options).
 
--spec get_versions(hex_http:adapter(), repo()) -> {ok, map()} | {error, term()}.
-get_versions(Adapter, Repo) ->
-    get_versions(Adapter, Repo, []).
+-spec get_versions(hex_http:client(), repo()) -> {ok, map()} | {error, term()}.
+get_versions(Client, Repo) ->
+    get_versions(Client, Repo, []).
 
--spec get_versions(hex_http:adapter(), repo(), [term()]) -> {ok, map()} | {error, term()}.
-get_versions(Adapter, Repo, Options) ->
+-spec get_versions(hex_http:client(), repo(), [term()]) -> {ok, map()} | {error, term()}.
+get_versions(Client, Repo, Options) ->
     Decoder = fun hex_registry:decode_versions/1,
-    get_protobuf(Adapter, Repo, "/versions", Decoder, Options).
+    get_protobuf(Client, Repo, "/versions", Decoder, Options).
 
--spec get_package(hex_http:adapter(), repo(), binary()) -> {ok, map()} | {error, term()}.
-get_package(Adapter, Repo, Name) ->
-    get_package(Adapter, Repo, Name, []).
+-spec get_package(hex_http:client(), repo(), binary()) -> {ok, map()} | {error, term()}.
+get_package(Client, Repo, Name) ->
+    get_package(Client, Repo, Name, []).
 
--spec get_package(hex_http:adapter(), repo(), binary(), [term()]) -> {ok, map()} | {error, term()}.
-get_package(Adapter, Repo, Name, Options) ->
+-spec get_package(hex_http:client(), repo(), binary(), [term()]) -> {ok, map()} | {error, term()}.
+get_package(Client, Repo, Name, Options) ->
     Decoder = fun hex_registry:decode_package/1,
-    get_protobuf(Adapter, Repo, "/packages/" ++ Name, Decoder, Options).
+    get_protobuf(Client, Repo, "/packages/" ++ Name, Decoder, Options).
 
--spec get_tarball(hex_http:adapter(), repo(), binary(), binary()) -> {ok, map()} | {error, term()}.
-get_tarball(Adapter, Repo, Name, Version) ->
-    case get(Adapter, tarball_uri(Repo, Name, Version)) of
+-spec get_tarball(hex_http:client(), repo(), binary(), binary()) -> {ok, map()} | {error, term()}.
+get_tarball(Client, Repo, Name, Version) ->
+    case get(Client, tarball_uri(Repo, Name, Version)) of
         {ok, {200, _Headers, Tarball}} ->
             {ok, Tarball};
 
@@ -56,12 +56,12 @@ get_tarball(Adapter, Repo, Name, Version) ->
 %% Internal functions
 %%====================================================================
 
-get(Adapter, URI) ->
+get(Client, URI) ->
     Headers = #{},
-    hex_http:get(Adapter, URI, Headers).
+    hex_http:get(Client, URI, Headers).
 
-get_protobuf(Adapter, #{uri := URI, public_key := PublicKey}, Path, Decoder, Options) ->
-    case get(Adapter, URI ++ Path) of
+get_protobuf(Client, #{uri := URI, public_key := PublicKey}, Path, Decoder, Options) ->
+    case get(Client, URI ++ Path) of
         {ok, {200, _Headers, Compressed}} ->
             Signed = zlib:gunzip(Compressed),
             decode(Signed, PublicKey, Decoder, Options);

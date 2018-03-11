@@ -1,6 +1,6 @@
 -module(hex_http_test).
 -behaviour(hex_http).
--export([get/2, user_agent_string/0]).
+-export([get/2]).
 -define(TEST_REPO_URI, "https://repo.test").
 -define(PRIVATE_KEY, element(2, file:read_file("test/fixtures/test_priv.pem"))).
 -define(PUBLIC_KEY, element(2, file:read_file("test/fixtures/test_pub.pem"))).
@@ -11,9 +11,6 @@
 
 get(URI, _Headers) ->
     fixture(URI).
-
-user_agent_string() ->
-    "(test)".
 
 %%====================================================================
 %% Internal functions
