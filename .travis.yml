@@ -1,4 +1,11 @@
 language: erlang
 sudo: false
-otp_release:
-  - 20.2
+matrix:
+  include:
+  - otp_release: 20.2
+  - otp_release: 19.3
+  - otp_release: 18.3
+
+script:
+  - rebar3 eunit
+  - rebar3 proper
