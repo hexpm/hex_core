@@ -302,7 +302,17 @@ guess_build_tools(Metadata) ->
 unpack_tarball(ContentsBinary, memory) ->
     hex_erl_tar:extract({binary, ContentsBinary}, [memory, compressed]);
 unpack_tarball(ContentsBinary, Output) ->
-    hex_erl_tar:extract({binary, ContentsBinary}, [{cwd, Output}, compressed]).
+    case hex_erl_tar:extract({binary, ContentsBinary}, [{cwd, Output}, compressed]) of
+        ok ->
+            [touch(filename:join(Output, Path)) || Path <- filelib:wildcard("**", Output)],
+            ok;
+        Other ->
+            Other
+    end.
+
+touch(Path) ->
+    Time = calendar:universal_time(),
+    ok = file:write_file_info(Path, #file_info{mtime=Time}, [{time, universal}]).
 
 create_tarball(Files, Options) ->
     Tarball = create_memory_tarball(Files),

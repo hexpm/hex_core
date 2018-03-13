@@ -53,8 +53,8 @@ timestamps_and_permissions_test() ->
         {ok, FooShFileInfo} = file:read_file_info(UnpackDir ++ "/foo.sh"),
         8#100644 = FooErlFileInfo#file_info.mode,
         8#100755 = FooShFileInfo#file_info.mode,
-        [{{2000,1,1}, {0,0,0}}] = calendar:local_time_to_universal_time_dst(FooErlFileInfo#file_info.mtime),
-        [{{2000,1,1}, {0,0,0}}] = calendar:local_time_to_universal_time_dst(FooShFileInfo#file_info.mtime)
+        [{{Year, _, _}, _}] = calendar:local_time_to_universal_time_dst(FooErlFileInfo#file_info.mtime),
+        {{Year, _, _}, _} = calendar:local_time()
     end).
 
 build_tools_test() ->
