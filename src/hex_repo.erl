@@ -1,49 +1,75 @@
 -module(hex_repo).
 -export([
-    get_names/2,
-    get_names/3,
-    get_versions/2,
-    get_versions/3,
-    get_package/3,
-    get_package/4,
-    get_tarball/4
+    default_options/0,
+    get_names/0,
+    get_names/1,
+    get_versions/0,
+    get_versions/1,
+    get_package/1,
+    get_package/2,
+    get_tarball/2,
+    get_tarball/3
 ]).
 
+-type options() :: [{client, client()} | {repo, repo()} | {verify, boolean()}].
+-type client() :: #{adapter => module(), user_agent_string => string()}.
 -type repo() :: #{uri => string(), public_key => binary()}.
 
 %%====================================================================
 %% API functions
 %%====================================================================
 
--spec get_names(hex_http:client(), repo()) -> {ok, map()} | {error, term()}.
-get_names(Client, Repo) ->
-    get_names(Client, Repo, []).
+-spec default_options() -> options().
+default_options() ->
+    %% https://hex.pm/docs/public_keys
+    PublicKey = <<"-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApqREcFDt5vV21JVe2QNB
+Edvzk6w36aNFhVGWN5toNJRjRJ6m4hIuG4KaXtDWVLjnvct6MYMfqhC79HAGwyF+
+IqR6Q6a5bbFSsImgBJwz1oadoVKD6ZNetAuCIK84cjMrEFRkELtEIPNHblCzUkkM
+3rS9+DPlnfG8hBvGi6tvQIuZmXGCxF/73hU0/MyGhbmEjIKRtG6b0sJYKelRLTPW
+XgK7s5pESgiwf2YC/2MGDXjAJfpfCd0RpLdvd4eRiXtVlE9qO9bND94E7PgQ/xqZ
+J1i2xWFndWa6nfFnRxZmCStCOZWYYPlaxr+FZceFbpMwzTNs4g3d4tLNUcbKAIH4
+0wIDAQAB
+-----END PUBLIC KEY-----">>,
+    Client = #{adapter => hex_http_httpc, user_agent_string => "(httpc)"},
+    Repo = #{uri => "https://repo.hex.pm", public_key => PublicKey},
+    [{client, Client}, {repo, Repo}, {verify, true}].
 
--spec get_names(hex_http:client(), repo(), [term()]) -> {ok, map()} | {error, term()}.
-get_names(Client, Repo, Options) ->
+-spec get_names() -> {ok, map()} | {error, term()}.
+get_names() ->
+    get_names(default_options()).
+
+-spec get_names(options()) -> {ok, map()} | {error, term()}.
+get_names(Options) ->
     Decoder = fun hex_registry:decode_names/1,
-    get_protobuf(Client, Repo, "/names", Decoder, Options).
+    get_protobuf("/names", Decoder, Options).
 
--spec get_versions(hex_http:client(), repo()) -> {ok, map()} | {error, term()}.
-get_versions(Client, Repo) ->
-    get_versions(Client, Repo, []).
+-spec get_versions() -> {ok, map()} | {error, term()}.
+get_versions() ->
+    get_versions(default_options()).
 
--spec get_versions(hex_http:client(), repo(), [term()]) -> {ok, map()} | {error, term()}.
-get_versions(Client, Repo, Options) ->
+-spec get_versions(options()) -> {ok, map()} | {error, term()}.
+get_versions(Options) ->
     Decoder = fun hex_registry:decode_versions/1,
-    get_protobuf(Client, Repo, "/versions", Decoder, Options).
+    get_protobuf("/versions", Decoder, Options).
 
--spec get_package(hex_http:client(), repo(), binary()) -> {ok, map()} | {error, term()}.
-get_package(Client, Repo, Name) ->
-    get_package(Client, Repo, Name, []).
+-spec get_package(string()) -> {ok, map()} | {error, term()}.
+get_package(Name) ->
+    get_package(Name, default_options()).
 
--spec get_package(hex_http:client(), repo(), binary(), [term()]) -> {ok, map()} | {error, term()}.
-get_package(Client, Repo, Name, Options) ->
+-spec get_package(string(), options()) -> {ok, map()} | {error, term()}.
+get_package(Name, Options) ->
     Decoder = fun hex_registry:decode_package/1,
-    get_protobuf(Client, Repo, "/packages/" ++ Name, Decoder, Options).
+    get_protobuf("/packages/" ++ Name, Decoder, Options).
 
--spec get_tarball(hex_http:client(), repo(), binary(), binary()) -> {ok, map()} | {error, term()}.
-get_tarball(Client, Repo, Name, Version) ->
+-spec get_tarball(string(), string()) -> {ok, hex_tarball:tarball()} | {error, term()}.
+get_tarball(Name, Version) ->
+    get_tarball(Name, Version, default_options()).
+
+-spec get_tarball(string(), string(), options()) -> {ok, hex_tarball:tarball()} | {error, term()}.
+get_tarball(Name, Version, Options) ->
+    Client = proplists:get_value(client, Options),
+    Repo = proplists:get_value(repo, Options),
     case get(Client, tarball_uri(Repo, Name, Version)) of
         {ok, {200, _Headers, Tarball}} ->
             {ok, Tarball};
@@ -60,7 +86,10 @@ get(Client, URI) ->
     Headers = #{},
     hex_http:get(Client, URI, Headers).
 
-get_protobuf(Client, #{uri := URI, public_key := PublicKey}, Path, Decoder, Options) ->
+get_protobuf(Path, Decoder, Options) ->
+    Client = proplists:get_value(client, Options),
+    #{uri := URI, public_key := PublicKey} = proplists:get_value(repo, Options),
+
     case get(Client, URI ++ Path) of
         {ok, {200, _Headers, Compressed}} ->
             Signed = zlib:gunzip(Compressed),
