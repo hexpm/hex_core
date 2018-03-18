@@ -1,3 +1,4 @@
+%% @private
 %% Copied from https://github.com/erlang/otp/blob/OTP-20.0.1/lib/stdlib/src/erl_tar.erl
 %% with modifications:
 %% - Change module name to `hex_erl_tar`
