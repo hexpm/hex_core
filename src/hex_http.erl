@@ -5,7 +5,8 @@
 -endif.
 -include_lib("hex_erl.hrl").
 
--type client() :: #{adapter => module(), user_agent_string => string()}.
+-type adapter() :: module().
+-type client() :: #{adapter => adapter(), user_agent_string => string()}.
 -type status() :: non_neg_integer().
 -type headers() :: map().
 

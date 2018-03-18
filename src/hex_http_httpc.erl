@@ -1,3 +1,5 @@
+%% @doc
+%% httpc-based implementation of `hex_http` behaviour.
 -module(hex_http_httpc).
 -behaviour(hex_http).
 -export([get/2]).

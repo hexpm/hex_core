@@ -12,7 +12,7 @@
 ]).
 
 -type options() :: [{client, client()} | {repo, repo()} | {verify, boolean()}].
--type client() :: #{adapter => module(), user_agent_string => string()}.
+-type client() :: #{adapter => hex_http:adapter(), user_agent_string => string()}.
 -type repo() :: #{uri => string(), public_key => binary()}.
 
 %%====================================================================
