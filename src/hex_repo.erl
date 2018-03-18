@@ -19,6 +19,8 @@
 %% API functions
 %%====================================================================
 
+%% @doc
+%% Default options used to interact with the repository.
 -spec default_options() -> options().
 default_options() ->
     %% https://hex.pm/docs/public_keys
@@ -35,37 +37,108 @@ J1i2xWFndWa6nfFnRxZmCStCOZWYYPlaxr+FZceFbpMwzTNs4g3d4tLNUcbKAIH4
     Repo = #{uri => "https://repo.hex.pm", public_key => PublicKey},
     [{client, Client}, {repo, Repo}, {verify, true}].
 
+%% @doc
+%% Gets names resource from the repository.
+%%
+%% Same as `hex_repo:get_names(hex_repo:default_options())`.
+%%
+%% Examples:
+%%
+%% ```
+%%     hex_repo:get_names().
+%%     %%=> {ok, #{package => [
+%%     %%=>     #{name => <<"package1">>},
+%%     %%=>     #{name => <<"package2">>},
+%%     %%=>     ...]}}
+%% ...
 -spec get_names() -> {ok, map()} | {error, term()}.
 get_names() ->
     get_names(default_options()).
 
+%% @doc
+%% Gets names resource from the repository.
+%%
+%% See `get_names/1` for examples.
 -spec get_names(options()) -> {ok, map()} | {error, term()}.
 get_names(Options) ->
     Decoder = fun hex_registry:decode_names/1,
     get_protobuf("/names", Decoder, Options).
 
+%% @doc
+%% Gets versions resource from the repository.
+%%
+%% Same as `hex_repo:get_versions(hex_repo:default_options())`.
+%%
+%% Examples:
+%%
+%% ```
+%%     hex_repo:get_versions().
+%%     %%=> {ok, #{packages => [
+%%     %%=>     #{name => <<"package1">>, retired => [],
+%%     %%=>       versions => [<<"1.0.0">>]},
+%%     %%=>     #{name => <<"package2">>, retired => [<<"0.5.0>>"],
+%%     %%=>       versions => [<<"0.5.0">>, <<"1.0.0">>]},
+%%     %%=>     ...]}}
+%% ...
 -spec get_versions() -> {ok, map()} | {error, term()}.
 get_versions() ->
     get_versions(default_options()).
 
+%% @doc
+%% Gets versions resource from the repository.
+%%
+%% See `get_versions/1` for examples.
 -spec get_versions(options()) -> {ok, map()} | {error, term()}.
 get_versions(Options) ->
     Decoder = fun hex_registry:decode_versions/1,
     get_protobuf("/versions", Decoder, Options).
 
+%% @doc
+%% Gets package resource from the repository.
+%%
+%% Same as `hex_repo:get_package(Name, hex_repo:default_options())`.
+%%
+%% Examples:
+%%
+%% ```
+%%     hex_repo:get_package("package1").
+%%     %%=> {ok, #{releases => [
+%%     %%=>     #{checksum => ..., version => <<"0.5.0">>, dependencies => []},
+%%     %%=>     #{checksum => ..., version => <<"1.0.0">>, dependencies => [
+%%     %%=>         #{package => <<"package2">>, optional => true, requirement => <<"~> 0.1">>}
+%%     %%=>     ]},
+%%     %%=>     ...]}}
+%% ...
 -spec get_package(string()) -> {ok, map()} | {error, term()}.
 get_package(Name) ->
     get_package(Name, default_options()).
 
+%% @doc
+%% Gets package resource from the repository.
+%%
+%% See `get_package/1` for examples.
 -spec get_package(string(), options()) -> {ok, map()} | {error, term()}.
 get_package(Name, Options) ->
     Decoder = fun hex_registry:decode_package/1,
     get_protobuf("/packages/" ++ Name, Decoder, Options).
 
+%% @doc
+%% Gets tarball from the repository.
+%%
+%% Same as `hex_repo:get_tarball(Name, Version, hex_repo:default_options())`.
+%%
+%% ```
+%%     {ok, Tarball} = hex_repo:get_tarball("package1", "1.0.0"),
+%%     {ok, #{metadata := Metadata}} = hex_tarball:unpack(Tarball, memory).
+%% ...
 -spec get_tarball(string(), string()) -> {ok, hex_tarball:tarball()} | {error, term()}.
 get_tarball(Name, Version) ->
     get_tarball(Name, Version, default_options()).
 
+%% @doc
+%% Gets tarball from the repository.
+%%
+%% See `get_tarball/2` for examples.
 -spec get_tarball(string(), string(), options()) -> {ok, hex_tarball:tarball()} | {error, term()}.
 get_tarball(Name, Version, Options) ->
     Client = proplists:get_value(client, Options),
