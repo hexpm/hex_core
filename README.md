@@ -74,7 +74,7 @@ Add to `rebar.config`:
 
 ### Mix
 
-Add to `mix.exs:
+Add to `mix.exs`:
 
 ```elixir
 defp deps do
