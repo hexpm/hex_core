@@ -17,6 +17,7 @@ memory_test() ->
 disk_test() ->
     in_tmp(fun() ->
         ok = file:write_file("foo.erl", <<"-module(foo).">>),
+        ok = file:change_mode("foo.erl", 8#100644),
 
         Metadata = #{<<"app">> => <<"foo">>, <<"version">> => <<"1.0.0">>, <<"build_tool">> => <<"rebar3">>},
         Files = ["foo.erl"],
@@ -33,8 +34,8 @@ timestamps_and_permissions_test() ->
         Metadata = #{<<"app">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
 
         ok = file:write_file("foo.sh", <<"">>),
-        {ok, FileInfo} = file:read_file_info("foo.sh"),
-        ok = file:write_file_info("foo.sh", FileInfo#file_info{mode=8#100755}),
+        ok = file:change_mode("foo.sh", 8#100755),
+
         {ok, {Tarball, Checksum}} = hex_tarball:create(Metadata, [{"foo.erl", <<"">>}, "foo.sh"]),
 
         %% inside tarball
@@ -42,6 +43,7 @@ timestamps_and_permissions_test() ->
         {_, ContentsBinary} = lists:keyfind("contents.tar.gz", 1, Files),
         {ok, [FooErlEntry, FooShEntry]} = hex_erl_tar:table({binary, ContentsBinary}, [compressed, verbose]),
         Epoch = epoch(),
+
         {"foo.erl", regular, _, Epoch, 8#100644, 0, 0} = FooErlEntry,
         {"foo.sh", regular, _, Epoch, 8#100755, 0, 0} = FooShEntry,
 
