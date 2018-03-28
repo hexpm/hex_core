@@ -35,12 +35,16 @@ timestamps_and_permissions_test() ->
 
         ok = file:write_file("foo.sh", <<"">>),
         ok = file:change_mode("foo.sh", 8#100755),
+        Files = [
+            {"foo.erl", <<"">>},
+            "foo.sh"
+        ],
 
-        {ok, {Tarball, Checksum}} = hex_tarball:create(Metadata, [{"foo.erl", <<"">>}, "foo.sh"]),
+        {ok, {Tarball, Checksum}} = hex_tarball:create(Metadata, Files),
 
         %% inside tarball
-        {ok, Files} = hex_erl_tar:extract({binary, Tarball}, [memory]),
-        {_, ContentsBinary} = lists:keyfind("contents.tar.gz", 1, Files),
+        {ok, Files2} = hex_erl_tar:extract({binary, Tarball}, [memory]),
+        {_, ContentsBinary} = lists:keyfind("contents.tar.gz", 1, Files2),
         {ok, [FooErlEntry, FooShEntry]} = hex_erl_tar:table({binary, ContentsBinary}, [compressed, verbose]),
         Epoch = epoch(),
 
