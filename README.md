@@ -35,7 +35,7 @@ hex_repo:get_versions().
 Get package releases:
 
 ```erlang
-hex_repo:get_package("package1").
+hex_repo:get_package(<<"package1">>).
 %%=> {ok, #{releases => [
 %%=>     #{checksum => ..., version => <<"0.5.0">>, dependencies => []}],
 %%=>     #{checksum => ..., version => <<"1.0.0">>, dependencies => []}],
@@ -45,7 +45,7 @@ hex_repo:get_package("package1").
 Get package tarball:
 
 ```erlang
-{ok, Tarball} = hex_repo:get_tarball("package1", "1.0.0").
+{ok, Tarball} = hex_repo:get_tarball(<<"package1">>, <<"1.0.0">>).
 ```
 
 Unpack package tarball:

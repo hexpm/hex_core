@@ -7,15 +7,15 @@
 
 -type adapter() :: module().
 -type client() :: #{adapter => adapter(), user_agent_fragment => binary()}.
+-type headers() :: #{binary() => binary()}.
 -type status() :: non_neg_integer().
--type headers() :: map().
 
--callback get(URI :: string(), headers()) ->
+-callback get(URI :: binary(), headers()) ->
     {ok, status(), headers(), binary()} |
     {error, term()}.
 
 -spec get(client(), string(), headers()) -> {ok, {status(), headers(), binary()}} | {error, term()}.
-get(#{adapter := Adapter, user_agent_fragment := UserAgentFragment}, URI, Headers) ->
+get(#{adapter := Adapter, user_agent_fragment := UserAgentFragment}, URI, Headers) when is_binary(URI) and is_map(Headers) ->
     Headers2 = put_new(<<"user-agent">>, user_agent(UserAgentFragment), Headers),
     Adapter:get(URI, Headers2).
 
