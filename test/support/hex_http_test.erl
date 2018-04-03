@@ -9,14 +9,14 @@
 %% API functions
 %%====================================================================
 
-get(URI, _Headers) ->
+get(URI, Headers) when is_binary(URI) and is_map(Headers) ->
     fixture(URI).
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
 
-fixture(?TEST_REPO_URI ++ "/names") ->
+fixture(<<?TEST_REPO_URI, "/names">>) ->
     Names = #{
         packages => [
             #{name => <<"ecto">>}
@@ -27,7 +27,7 @@ fixture(?TEST_REPO_URI ++ "/names") ->
     Compressed = zlib:gzip(Signed),
     {ok, {200, [], Compressed}};
 
-fixture(?TEST_REPO_URI ++ "/versions") ->
+fixture(<<?TEST_REPO_URI, "/versions">>) ->
     Versions = #{
         packages => [
             #{name => <<"ecto">>, versions => [<<"1.0.0">>]}
@@ -38,7 +38,7 @@ fixture(?TEST_REPO_URI ++ "/versions") ->
     Compressed = zlib:gzip(Signed),
     {ok, {200, [], Compressed}};
 
-fixture(?TEST_REPO_URI ++ "/packages/ecto") ->
+fixture(<<?TEST_REPO_URI, "/packages/ecto">>) ->
     Package = #{
         releases => [
             #{
@@ -53,11 +53,11 @@ fixture(?TEST_REPO_URI ++ "/packages/ecto") ->
     Compressed = zlib:gzip(Signed),
     {ok, {200, [], Compressed}};
 
-fixture(?TEST_REPO_URI ++ "/tarballs/ecto-1.0.0.tar") ->
+fixture(<<?TEST_REPO_URI, "/tarballs/ecto-1.0.0.tar">>) ->
     {ok, {Tarball, _Checksum}} = hex_tarball:create(#{<<"name">> => <<"ecto">>}, []),
     {ok, {200, [], Tarball}};
 
-fixture(?TEST_REPO_URI ++ _) ->
+fixture(<<?TEST_REPO_URI, _/binary>>) ->
     {ok, {403, [], <<"not found">>}};
 
 fixture(URI) ->

@@ -12,8 +12,8 @@
 ]).
 
 -type options() :: [{client, client()} | {repo, repo()} | {verify, boolean()}].
--type client() :: #{adapter => hex_http:adapter(), user_agent_string => string()}.
--type repo() :: #{uri => string(), public_key => binary()}.
+-type client() :: #{adapter => hex_http:adapter(), user_agent_fragment => binary()}.
+-type repo() :: #{uri => binary(), public_key => binary()}.
 
 %%====================================================================
 %% API functions
@@ -34,8 +34,8 @@ XgK7s5pESgiwf2YC/2MGDXjAJfpfCd0RpLdvd4eRiXtVlE9qO9bND94E7PgQ/xqZ
 J1i2xWFndWa6nfFnRxZmCStCOZWYYPlaxr+FZceFbpMwzTNs4g3d4tLNUcbKAIH4
 0wIDAQAB
 -----END PUBLIC KEY-----">>,
-    Client = #{adapter => hex_http_httpc, user_agent_string => "(httpc)"},
-    Repo = #{uri => "https://repo.hex.pm", public_key => PublicKey},
+    Client = #{adapter => hex_http_httpc, user_agent_fragment => <<"(httpc)">>},
+    Repo = #{uri => <<"https://repo.hex.pm">>, public_key => PublicKey},
     [{client, Client}, {repo, Repo}, {verify, true}].
 
 %% @doc
@@ -63,9 +63,9 @@ get_names() ->
 %% See `get_names/1' for examples.
 %% @end
 -spec get_names(options()) -> {ok, map()} | {error, term()}.
-get_names(Options) ->
+get_names(Options) when is_list(Options) ->
     Decoder = fun hex_registry:decode_names/1,
-    get_protobuf("/names", Decoder, Options).
+    get_protobuf(<<"/names">>, Decoder, Options).
 
 %% @doc
 %% Gets versions resource from the repository.
@@ -94,9 +94,9 @@ get_versions() ->
 %% See `get_versions/1' for examples.
 %% @end
 -spec get_versions(options()) -> {ok, map()} | {error, term()}.
-get_versions(Options) ->
+get_versions(Options) when is_list(Options) ->
     Decoder = fun hex_registry:decode_versions/1,
-    get_protobuf("/versions", Decoder, Options).
+    get_protobuf(<<"/versions">>, Decoder, Options).
 
 %% @doc
 %% Gets package resource from the repository.
@@ -106,7 +106,7 @@ get_versions(Options) ->
 %% Examples:
 %%
 %% ```
-%%     hex_repo:get_package("package1").
+%%     hex_repo:get_package(<<"package1">>).
 %%     %%=> {ok, #{releases => [
 %%     %%=>     #{checksum => ..., version => <<"0.5.0">>, dependencies => []},
 %%     %%=>     #{checksum => ..., version => <<"1.0.0">>, dependencies => [
@@ -115,8 +115,8 @@ get_versions(Options) ->
 %%     %%=>     ...]}}
 %% '''
 %% @end
--spec get_package(string()) -> {ok, map()} | {error, term()}.
-get_package(Name) ->
+-spec get_package(binary()) -> {ok, map()} | {error, term()}.
+get_package(Name) when is_binary(Name) ->
     get_package(Name, default_options()).
 
 %% @doc
@@ -124,10 +124,10 @@ get_package(Name) ->
 %%
 %% See `get_package/1' for examples.
 %% @end
--spec get_package(string(), options()) -> {ok, map()} | {error, term()}.
-get_package(Name, Options) ->
+-spec get_package(binary(), options()) -> {ok, map()} | {error, term()}.
+get_package(Name, Options) when is_binary(Name) and is_list(Options) ->
     Decoder = fun hex_registry:decode_package/1,
-    get_protobuf("/packages/" ++ Name, Decoder, Options).
+    get_protobuf(<<"/packages/", Name/binary>>, Decoder, Options).
 
 %% @doc
 %% Gets tarball from the repository.
@@ -135,12 +135,12 @@ get_package(Name, Options) ->
 %% Same as `hex_repo:get_tarball(Name, Version, hex_repo:default_options())'.
 %%
 %% ```
-%%     {ok, Tarball} = hex_repo:get_tarball("package1", "1.0.0"),
+%%     {ok, Tarball} = hex_repo:get_tarball(<<"package1">>, <<"1.0.0">>),
 %%     {ok, #{metadata := Metadata}} = hex_tarball:unpack(Tarball, memory).
 %% '''
 %% @end
--spec get_tarball(string(), string()) -> {ok, hex_tarball:tarball()} | {error, term()}.
-get_tarball(Name, Version) ->
+-spec get_tarball(binary(), binary()) -> {ok, hex_tarball:tarball()} | {error, term()}.
+get_tarball(Name, Version) when is_binary(Name) and is_binary(Version) ->
     get_tarball(Name, Version, default_options()).
 
 %% @doc
@@ -148,8 +148,8 @@ get_tarball(Name, Version) ->
 %%
 %% See `get_tarball/2' for examples.
 %% @end
--spec get_tarball(string(), string(), options()) -> {ok, hex_tarball:tarball()} | {error, term()}.
-get_tarball(Name, Version, Options) ->
+-spec get_tarball(binary(), binary(), options()) -> {ok, hex_tarball:tarball()} | {error, term()}.
+get_tarball(Name, Version, Options) when is_binary(Name) and is_binary(Version) and is_list(Options) ->
     Client = proplists:get_value(client, Options),
     Repo = proplists:get_value(repo, Options),
     case get(Client, tarball_uri(Repo, Name, Version)) of
@@ -172,7 +172,7 @@ get_protobuf(Path, Decoder, Options) ->
     Client = proplists:get_value(client, Options),
     #{uri := URI, public_key := PublicKey} = proplists:get_value(repo, Options),
 
-    case get(Client, URI ++ Path) of
+    case get(Client, <<URI/binary, Path/binary>>) of
         {ok, {200, _Headers, Compressed}} ->
             Signed = zlib:gunzip(Compressed),
             decode(Signed, PublicKey, Decoder, Options);
@@ -201,4 +201,4 @@ decode(Signed, PublicKey, Decoder, Options) ->
     end.
 
 tarball_uri(#{uri := URI}, Name, Version) ->
-    URI ++ "/tarballs/" ++ Name ++ "-" ++ Version ++ ".tar".
+    <<URI/binary, "/tarballs/", Name/binary, "-", Version/binary, ".tar">>.
