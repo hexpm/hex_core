@@ -11,8 +11,7 @@
     get_tarball/3
 ]).
 
--type options() :: [{client, client()} | {repo, repo()} | {verify, boolean()}].
--type client() :: #{adapter => hex_http:adapter(), user_agent_fragment => binary()}.
+-type options() :: [{client, hex_http:client()} | {repo, repo()} | {verify, boolean()}].
 -type repo() :: #{uri => binary(), public_key => binary()}.
 
 %%====================================================================
