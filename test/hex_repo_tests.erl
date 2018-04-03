@@ -2,7 +2,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -define(fixture(Path), element(2, file:read_file("test/fixtures/" ++ Path))).
 -define(OPTIONS, [
-    {client, #{adapter => hex_http_test, user_agent_string => "(test)"}},
+    {client, #{adapter => hex_http_test, user_agent_fragment => <<"(test)">>}},
     {repo, #{uri => "https://repo.test", public_key => ?fixture("test_pub.pem")}},
     {verify, true}
 ]).

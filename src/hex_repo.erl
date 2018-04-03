@@ -12,7 +12,7 @@
 ]).
 
 -type options() :: [{client, client()} | {repo, repo()} | {verify, boolean()}].
--type client() :: #{adapter => hex_http:adapter(), user_agent_string => string()}.
+-type client() :: #{adapter => hex_http:adapter(), user_agent_fragment => binary()}.
 -type repo() :: #{uri => string(), public_key => binary()}.
 
 %%====================================================================
@@ -34,7 +34,7 @@ XgK7s5pESgiwf2YC/2MGDXjAJfpfCd0RpLdvd4eRiXtVlE9qO9bND94E7PgQ/xqZ
 J1i2xWFndWa6nfFnRxZmCStCOZWYYPlaxr+FZceFbpMwzTNs4g3d4tLNUcbKAIH4
 0wIDAQAB
 -----END PUBLIC KEY-----">>,
-    Client = #{adapter => hex_http_httpc, user_agent_string => "(httpc)"},
+    Client = #{adapter => hex_http_httpc, user_agent_binary => <<"(httpc)">>},
     Repo = #{uri => "https://repo.hex.pm", public_key => PublicKey},
     [{client, Client}, {repo, Repo}, {verify, true}].
 
