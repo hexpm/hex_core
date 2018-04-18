@@ -11,8 +11,11 @@
     get_tarball/3
 ]).
 
--type options() :: [{client, hex_http:client()} | {repo, repo()} | {verify, boolean()}].
--type repo() :: #{uri => binary(), public_key => binary()}.
+-type options() :: [{client, client()} | {repo, repo()} | {verify, boolean()}|
+                    {etag, etag()}     | {cache_dir, file:filename_all()}].
+-type etag() :: binary().
+-type client() :: #{adapter => hex_http:adapter(), user_agent_string => string()}.
+-type repo() :: #{uri => string(), public_key => binary()}.
 
 %%====================================================================
 %% API functions
@@ -134,7 +137,7 @@ get_package(Name, Options) when is_binary(Name) and is_list(Options) ->
 %% Same as `hex_repo:get_tarball(Name, Version, hex_repo:default_options())'.
 %%
 %% ```
-%%     {ok, Tarball} = hex_repo:get_tarball(<<"package1">>, <<"1.0.0">>),
+%%     {ok, Tarball, _Proplist} = hex_repo:get_tarball(<<"package1">>, <<"1.0.0">>),
 %%     {ok, #{metadata := Metadata}} = hex_tarball:unpack(Tarball, memory).
 %% '''
 %% @end
@@ -147,13 +150,26 @@ get_tarball(Name, Version) when is_binary(Name) and is_binary(Version) ->
 %%
 %% See `get_tarball/2' for examples.
 %% @end
--spec get_tarball(binary(), binary(), options()) -> {ok, hex_tarball:tarball()} | {error, term()}.
-get_tarball(Name, Version, Options) when is_binary(Name) and is_binary(Version) and is_list(Options) ->
+-spec get_tarball(string(), string(), options()) -> {ok, hex_tarball:tarball(), proplists:proplist()} |
+                                                    {error, term()}.
+get_tarball(Name, Version, Options) ->
     Client = proplists:get_value(client, Options),
     Repo = proplists:get_value(repo, Options),
-    case get(Client, tarball_uri(Repo, Name, Version)) of
-        {ok, {200, _Headers, Tarball}} ->
-            {ok, Tarball};
+    CacheDir = proplists:get_value(cache_dir, Options),
+
+    case get(Client, tarball_uri(Repo, Name, Version), make_headers(Options)) of
+        {ok, {200, Headers, Tarball}} ->
+            ETag = get_headers([{<<"etag">>, etag}], Headers),
+            ok = maybe_put_cache(CacheDir, tarball_filename(Name, Version), Tarball),
+            {ok, Tarball, ETag};
+
+        {ok, {304, Headers, _Body}} ->
+            ETag = get_headers([{<<"etag">>, etag}], Headers),
+            {ok, Tarball} = get_cache(CacheDir, tarball_filename(Name, Version)),
+            {ok, Tarball, ETag};
+
+        {ok, {403, _Headers, _Body}} ->
+            {error, not_found};
 
         {error, Reason} ->
             {error, Reason}
@@ -163,8 +179,34 @@ get_tarball(Name, Version, Options) when is_binary(Name) and is_binary(Version) 
 %% Internal functions
 %%====================================================================
 
+%% @private
+%% @doc Given a list of tuples of binary header fields and atom
+%% names to use in a proplist as output, along with a map of header key/values,
+%% extract the given fields from the map of headers if they exist and return
+%% them in a proplist.
+%%
+%% <B>N.B.</B>: The proplist may be empty!
+-spec get_headers([{ Field :: binary(), OptionName :: atom()}],
+                  Headers :: map()) -> proplists:proplist().
+get_headers(Fields, Headers) ->
+    lists:foldl(fun(F, Acc) -> extract_field(F, Acc, Headers) end, [], Fields).
+
+extract_field({Field, OptionName}, Acc, Headers) ->
+    case maps:is_key(Field, Headers) of
+        false -> Acc;
+        true -> [{OptionName, maps:get(Field, Headers)} | Acc]
+    end.
+
+make_headers(Options) ->
+    lists:foldl(fun set_header/2, #{}, Options).
+
+set_header({etag, ETag}, Headers) -> maps:put(<<"if-none-match">>, ETag, Headers);
+set_header(_Option, Headers) -> Headers.
+
 get(Client, URI) ->
-    Headers = #{},
+    get(Client, URI, #{}).
+
+get(Client, URI, Headers) ->
     hex_http:get(Client, URI, Headers).
 
 get_protobuf(Path, Decoder, Options) ->
@@ -200,4 +242,23 @@ decode(Signed, PublicKey, Decoder, Options) ->
     end.
 
 tarball_uri(#{uri := URI}, Name, Version) ->
-    <<URI/binary, "/tarballs/", Name/binary, "-", Version/binary, ".tar">>.
+    Filename = tarball_filename(Name, Version),
+    <<URI/binary, "/tarballs/", Filename/binary>>.
+
+tarball_filename(Name, Version) ->
+    <<Name/binary, "-", Version/binary, ".tar">>.
+
+maybe_put_cache(undefined, _Filename, _Data) ->
+    ok;
+maybe_put_cache(CacheDir, Filename, Data) ->
+    put_cache(CacheDir, Filename, Data).
+
+put_cache(CacheDir, Filename, Data) ->
+    Path = filename:join(CacheDir, Filename),
+    file:write_file(Path, Data).
+
+get_cache(undefined, _Filename) ->
+    {error, no_cache_dir};
+get_cache(CacheDir, Filename) ->
+    Path = filename:join(CacheDir, Filename),
+    file:read_file(Path).
