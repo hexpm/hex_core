@@ -45,7 +45,7 @@ hex_repo:get_package(<<"package1">>).
 Get package tarball:
 
 ```erlang
-{ok, Tarball} = hex_repo:get_tarball(<<"package1">>, <<"1.0.0">>).
+{ok, Tarball, _Opts} = hex_repo:get_tarball(<<"package1">>, <<"1.0.0">>).
 ```
 
 Unpack package tarball:
