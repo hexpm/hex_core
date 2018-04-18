@@ -29,6 +29,6 @@ get_package_test() ->
     ok.
 
 get_tarball_test() ->
-    {ok, Tarball} = hex_repo:get_tarball(<<"ecto">>, <<"1.0.0">>, ?OPTIONS),
+    {ok, Tarball, [{etag, _}]} = hex_repo:get_tarball(<<"ecto">>, <<"1.0.0">>, ?OPTIONS),
     {ok, _} = hex_tarball:unpack(Tarball, memory),
     ok.

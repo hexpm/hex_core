@@ -11,8 +11,8 @@
     get_tarball/3
 ]).
 
--type options() :: [ {client, client()} | {repo, repo()} | {verify, boolean()} |
-                     {etag, etag()}     | {cache_dir, file:filename_all()} ].
+-type options() :: [{client, client()} | {repo, repo()} | {verify, boolean()}|
+                    {etag, etag()}     | {cache_dir, file:filename_all()}].
 -type etag() :: binary().
 -type client() :: #{adapter => hex_http:adapter(), user_agent_string => string()}.
 -type repo() :: #{uri => string(), public_key => binary()}.
@@ -159,13 +159,13 @@ get_tarball(Name, Version, Options) ->
 
     case get(Client, tarball_uri(Repo, Name, Version), make_headers(Options)) of
         {ok, {200, Headers, Tarball}} ->
-            ETag = get_headers([{<<"ETag">>, etag}], Headers),
-            ok = maybe_write_cache(CacheDir, Name, Version, Tarball),
+            ETag = get_headers([{<<"etag">>, etag}], Headers),
+            ok = maybe_put_cache(CacheDir, tarball_filename(Name, Version), Tarball),
             {ok, Tarball, ETag};
 
         {ok, {304, Headers, _Body}} ->
-            ETag = get_headers([{<<"ETag">>, etag}], Headers),
-            Tarball = hex_cache:load_from_cache(Name, Version, CacheDir),
+            ETag = get_headers([{<<"etag">>, etag}], Headers),
+            {ok, Tarball} = get_cache(CacheDir, tarball_filename(Name, Version)),
             {ok, Tarball, ETag};
 
         {ok, {403, _Headers, _Body}} ->
@@ -186,7 +186,7 @@ get_tarball(Name, Version, Options) ->
 %% them in a proplist.
 %%
 %% <B>N.B.</B>: The proplist may be empty!
--spec get_headers([ { Field :: binary(), OptionName :: atom() } ],
+-spec get_headers([{ Field :: binary(), OptionName :: atom()}],
                   Headers :: map()) -> proplists:proplist().
 get_headers(Fields, Headers) ->
     lists:foldl(fun(F, Acc) -> extract_field(F, Acc, Headers) end, [], Fields).
@@ -194,13 +194,13 @@ get_headers(Fields, Headers) ->
 extract_field({Field, OptionName}, Acc, Headers) ->
     case maps:is_key(Field, Headers) of
         false -> Acc;
-        true -> [ {OptionName, maps:get(Field, Headers)} | Acc ]
+        true -> [{OptionName, maps:get(Field, Headers)} | Acc]
     end.
 
 make_headers(Options) ->
     lists:foldl(fun set_header/2, #{}, Options).
 
-set_header({etag, ETag}, Headers) -> maps:put(<<"If-None-Match">>, ETag, Headers);
+set_header({etag, ETag}, Headers) -> maps:put(<<"if-none-match">>, ETag, Headers);
 set_header(_Option, Headers) -> Headers.
 
 get(Client, URI) ->
@@ -242,9 +242,23 @@ decode(Signed, PublicKey, Decoder, Options) ->
     end.
 
 tarball_uri(#{uri := URI}, Name, Version) ->
-    Name = list_to_binary(hex_util:tarball_name(Name, Version)),
-    <<URI/binary, "/tarballs/", Name/binary>>.
+    Filename = tarball_filename(Name, Version),
+    <<URI/binary, "/tarballs/", Filename/binary>>.
 
-maybe_write_cache(undefined, _Name, _Version, _Data) -> ok;
-maybe_write_cache(CacheDir, Name, Version, Data) ->
-    hex_cache:write_cache(CacheDir, hex_util:tarball_name(Name, Version), Data).
+tarball_filename(Name, Version) ->
+    <<Name/binary, "-", Version/binary, ".tar">>.
+
+maybe_put_cache(undefined, _Filename, _Data) ->
+    ok;
+maybe_put_cache(CacheDir, Filename, Data) ->
+    put_cache(CacheDir, Filename, Data).
+
+put_cache(CacheDir, Filename, Data) ->
+    Path = filename:join(CacheDir, Filename),
+    file:write_file(Path, Data).
+
+get_cache(undefined, _Filename) ->
+    {error, no_cache_dir};
+get_cache(CacheDir, Filename) ->
+    Path = filename:join(CacheDir, Filename),
+    file:read_file(Path).

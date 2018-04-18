@@ -25,7 +25,7 @@ fixture(<<?TEST_REPO_URI, "/names">>) ->
     Payload = hex_registry:encode_names(Names),
     Signed = hex_registry:sign_protobuf(Payload, ?PRIVATE_KEY),
     Compressed = zlib:gzip(Signed),
-    {ok, {200, [], Compressed}};
+    {ok, {200, #{}, Compressed}};
 
 fixture(<<?TEST_REPO_URI, "/versions">>) ->
     Versions = #{
@@ -36,7 +36,7 @@ fixture(<<?TEST_REPO_URI, "/versions">>) ->
     Payload = hex_registry:encode_versions(Versions),
     Signed = hex_registry:sign_protobuf(Payload, ?PRIVATE_KEY),
     Compressed = zlib:gzip(Signed),
-    {ok, {200, [], Compressed}};
+    {ok, {200, #{}, Compressed}};
 
 fixture(<<?TEST_REPO_URI, "/packages/ecto">>) ->
     Package = #{
@@ -51,14 +51,17 @@ fixture(<<?TEST_REPO_URI, "/packages/ecto">>) ->
     Payload = hex_registry:encode_package(Package),
     Signed = hex_registry:sign_protobuf(Payload, ?PRIVATE_KEY),
     Compressed = zlib:gzip(Signed),
-    {ok, {200, [], Compressed}};
+    {ok, {200, #{}, Compressed}};
 
 fixture(<<?TEST_REPO_URI, "/tarballs/ecto-1.0.0.tar">>) ->
+    Headers = #{
+      <<"etag">> => <<"\"dummy\"">>
+    },
     {ok, {Tarball, _Checksum}} = hex_tarball:create(#{<<"name">> => <<"ecto">>}, []),
-    {ok, {200, [], Tarball}};
+    {ok, {200, Headers, Tarball}};
 
 fixture(<<?TEST_REPO_URI, _/binary>>) ->
-    {ok, {403, [], <<"not found">>}};
+    {ok, {403, #{}, <<"not found">>}};
 
 fixture(URI) ->
     error({no_fixture, URI}).
