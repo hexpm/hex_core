@@ -204,7 +204,7 @@ unpack_error_handling_test() ->
 %%====================================================================
 
 in_tmp(Fun) ->
-    Old = file:get_cwd(),
+    {ok, Old} = file:get_cwd(),
     TmpDir = "tmp",
     ok = rebar_file_utils:rm_rf(TmpDir),
     ok = file:make_dir(TmpDir),
