@@ -1,13 +1,14 @@
 #!/bin/bash
 set -e
 
-if [ "$1" = "" ]; then
-  echo "Usage: vendor.sh TARGET_DIR"
+if [[ -z "$1" || -z "$2" ]]; then
+  echo "Usage: vendor.sh TARGET_DIR PREFIX"
   exit 1
 fi
 
 source_dir=`dirname $0`/src
 target_dir=$1
+prefix=$2
 hex_erl_version=`cat $source_dir/hex_erl.hrl | grep HEX_ERL_VERSION | cut -d'"' -f2`
 
 filenames="hex_erl.hrl \
@@ -29,18 +30,18 @@ search_to_replace="hex_erl.hrl \
                    hex_tarball \
                    safe_erl_term"
 
-rm -f $target_dir/vendored_*
+rm -f $target_dir/$prefix*
 
 for filename in $filenames; do
   source_path=$source_dir/$filename
-  target_path=$target_dir/vendored_$filename
+  target_path=$target_dir/$prefix$filename
 
   echo "%% Vendored from hex_erl v$hex_erl_version, do not edit manually" > $target_path
   echo >> $target_path
   cat $source_path >> $target_path
 
   for word in $search_to_replace; do
-    sed -i .bak s/$word/vendored_$word/g $target_path
+    sed -i .bak s/$word/$prefix$word/g $target_path
     rm $target_path.bak
   done
 done
