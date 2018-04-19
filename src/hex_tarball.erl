@@ -305,27 +305,17 @@ unpack_tarball(ContentsBinary, memory) ->
 unpack_tarball(ContentsBinary, Output) ->
     case hex_erl_tar:extract({binary, ContentsBinary}, [{cwd, Output}, compressed]) of
         ok ->
-            [touch(filename:join(Output, Path)) || Path <- filelib:wildcard("**", Output)],
+            [try_updating_mtime(filename:join(Output, Path)) || Path <- filelib:wildcard("**", Output)],
             ok;
         Other ->
             Other
     end.
 
-touch(Path) ->
-    case do_touch(Path) of
-        ok -> ok;
-        {error, enoent} -> touch_new(Path)
-    end.
-
-touch_new(Path) ->
-    case file:write_file(Path, <<"">>, [append]) of
-        ok -> do_touch(Path);
-        {error, _} = Error -> Error
-    end.
-
-do_touch(Path) ->
+%% let it silently fail for bad symlinks
+try_updating_mtime(Path) ->
     Time = calendar:universal_time(),
-    file:write_file_info(Path, #file_info{mtime=Time}, [{time, universal}]).
+    _ = file:write_file_info(Path, #file_info{mtime=Time}, [{time, universal}]),
+    ok.
 
 create_tarball(Files, Options) ->
     Tarball = create_memory_tarball(Files),
