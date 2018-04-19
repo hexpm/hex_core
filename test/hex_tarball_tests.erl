@@ -63,6 +63,26 @@ timestamps_and_permissions_test() ->
         {{Year, _, _}, _} = calendar:local_time()
     end).
 
+symlinks_test() ->
+    in_tmp(fun() ->
+        Metadata = #{<<"app">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+
+        ok = file:make_dir("dir"),
+        ok = file:write_file("dir/foo.sh", <<"foo">>),
+        ok = file:make_symlink("dir/foo.sh", "dir/bar.sh"),
+
+        Files = [
+            "dir/foo.sh",
+            "dir/bar.sh"
+        ],
+
+        {ok, {Tarball, Checksum}} = hex_tarball:create(Metadata, Files),
+        UnpackDir = "symlinks",
+        {ok, #{checksum := Checksum}} = hex_tarball:unpack(Tarball, UnpackDir),
+        {ok, _} = file:read_link_info(UnpackDir ++ "/dir/bar.sh"),
+        ok
+    end).
+
 build_tools_test() ->
     Metadata = #{<<"app">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
     Contents = [],
