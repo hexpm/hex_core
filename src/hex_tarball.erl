@@ -6,12 +6,12 @@
 -define(VERSION, <<"3">>).
 -define(TARBALL_MAX_SIZE, 8 * 1024 * 1024).
 -define(BUILD_TOOL_FILES, [
-                            {<<"mix.exs">>, <<"mix">>},
-                            {<<"rebar.config">>, <<"rebar">>},
-                            {<<"rebar">>, <<"rebar">>},
-                            {<<"Makefile">>, <<"make">>},
-                            {<<"Makefile.win">>, <<"make">>}
-                           ]).
+    {<<"mix.exs">>, <<"mix">>},
+    {<<"rebar.config">>, <<"rebar">>},
+    {<<"rebar">>, <<"rebar">>},
+    {<<"Makefile">>, <<"make">>},
+    {<<"Makefile.win">>, <<"make">>}
+]).
 -include_lib("kernel/include/file.hrl").
 
 -type checksum() :: binary().
@@ -48,10 +48,10 @@ create(Metadata, Files) ->
     ChecksumBase16 = encode_base16(Checksum),
 
     OuterFiles = [
-      {"VERSION", ?VERSION},
-      {"CHECKSUM", ChecksumBase16},
-      {"metadata.config", MetadataBinary},
-      {"contents.tar.gz", ContentsBinary}
+       {"VERSION", ?VERSION},
+       {"CHECKSUM", ChecksumBase16},
+       {"metadata.config", MetadataBinary},
+       {"contents.tar.gz", ContentsBinary}
     ],
 
     Tarball = create_tarball(OuterFiles, []),
@@ -137,10 +137,11 @@ checksum(Version, MetadataBinary, ContentsBinary) ->
     crypto:hash(sha256, Blob).
 
 encode_metadata(Meta) ->
-    Data = lists:map(fun(MetaPair) ->
-        String = io_lib_pretty:print(binarify(MetaPair), [{encoding, utf8}]),
-        unicode:characters_to_binary([String, ".\n"])
-      end, maps:to_list(Meta)),
+    Data = lists:map(
+        fun(MetaPair) ->
+            String = io_lib_pretty:print(binarify(MetaPair), [{encoding, utf8}]),
+            unicode:characters_to_binary([String, ".\n"])
+        end, maps:to_list(Meta)),
     iolist_to_binary(Data).
 
 do_unpack(Files, Output) ->
