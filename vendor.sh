@@ -2,13 +2,13 @@
 set -e
 
 if [ "$1" = "" ]; then
-  echo "Usage: vendor.sh VENDOR_TO_PATH"
+  echo "Usage: vendor.sh TARGET_DIR"
   exit 1
 fi
 
-original_src=`dirname $0`/src
-vendored_src=$1
-hex_erl_version=`cat $original_src/hex_erl.hrl | grep HEX_ERL_VERSION | cut -d'"' -f2`
+source_dir=`dirname $0`/src
+target_dir=$1
+hex_erl_version=`cat $source_dir/hex_erl.hrl | grep HEX_ERL_VERSION | cut -d'"' -f2`
 
 filenames="hex_erl.hrl \
            hex_erl_tar.erl \
@@ -29,18 +29,18 @@ search_to_replace="hex_erl.hrl \
                    hex_tarball \
                    safe_erl_term"
 
-rm -f $vendored_src/vendored_*
+rm -f $target_dir/vendored_*
 
 for filename in $filenames; do
-  original_path=$original_src/$filename
-  vendored_path=$vendored_src/vendored_$filename
+  source_path=$source_dir/$filename
+  target_path=$target_dir/vendored_$filename
 
-  echo "%% Vendored from hex_erl v$hex_erl_version, do not edit manually" > $vendored_path
-  echo >> $vendored_path
-  cat $original_path >> $vendored_path
+  echo "%% Vendored from hex_erl v$hex_erl_version, do not edit manually" > $target_path
+  echo >> $target_path
+  cat $source_path >> $target_path
 
   for word in $search_to_replace; do
-    sed -i .bak s/$word/vendored_$word/g $vendored_path
-    rm $vendored_path.bak
+    sed -i .bak s/$word/vendored_$word/g $target_path
+    rm $target_path.bak
   done
 done
