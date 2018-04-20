@@ -29,6 +29,16 @@ get_package_test() ->
     ok.
 
 get_tarball_test() ->
-    {ok, Tarball, [{etag, _}]} = hex_repo:get_tarball(<<"ecto">>, <<"1.0.0">>, ?OPTIONS),
+    {ok, Tarball, _} = hex_repo:get_tarball(<<"ecto">>, <<"1.0.0">>, ?OPTIONS),
     {ok, _} = hex_tarball:unpack(Tarball, memory),
     ok.
+
+get_tarball_caching_test() ->
+    hex_test_helpers:in_tmp(fun() ->
+        Options = [{cache_dir, "cache/tarballs"} | ?OPTIONS],
+        {ok, _, [{cache, miss}, {etag, ETag}]} = hex_repo:get_tarball(<<"ecto">>, <<"1.0.0">>, Options),
+
+        Options2 = [{etag, ETag} | Options],
+        {ok, _, [{cache, hit}, {etag, ETag}]} = hex_repo:get_tarball(<<"ecto">>, <<"1.0.0">>, Options2),
+        ok
+    end).

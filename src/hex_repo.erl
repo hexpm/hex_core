@@ -170,14 +170,14 @@ get_tarball(Name, Version, Options) ->
 
     case get(Client, tarball_uri(Repo, Name, Version), make_headers(Options2)) of
         {ok, {200, Headers, Tarball}} ->
-            ETag = get_headers([{<<"etag">>, etag}], Headers),
+            ReturnOpts = get_headers([{<<"etag">>, etag}], Headers),
             ok = maybe_put_cache(CacheDir, tarball_filename(Name, Version), Tarball),
-            {ok, Tarball, ETag};
+            {ok, Tarball, [{cache, miss} | ReturnOpts]};
 
         {ok, {304, Headers, _Body}} ->
-            ETag = get_headers([{<<"etag">>, etag}], Headers),
+            ReturnOpts = get_headers([{<<"etag">>, etag}], Headers),
             {ok, Tarball} = get_cache(CacheDir, tarball_filename(Name, Version)),
-            {ok, Tarball, ETag};
+            {ok, Tarball, [{cache, hit} | ReturnOpts]};
 
         {ok, {403, _Headers, _Body}} ->
             {error, not_found};
@@ -266,6 +266,7 @@ maybe_put_cache(CacheDir, Filename, Data) ->
 
 put_cache(CacheDir, Filename, Data) ->
     Path = filename:join(CacheDir, Filename),
+    ok = filelib:ensure_dir(Path),
     file:write_file(Path, Data).
 
 get_cache(undefined, _Filename) ->
