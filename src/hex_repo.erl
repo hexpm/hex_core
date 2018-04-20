@@ -38,7 +38,7 @@ J1i2xWFndWa6nfFnRxZmCStCOZWYYPlaxr+FZceFbpMwzTNs4g3d4tLNUcbKAIH4
 default_options() ->
     Client = #{adapter => hex_http_httpc, user_agent_fragment => <<"(httpc)">>},
     Repo = #{uri => <<"https://repo.hex.pm">>, public_key => ?HEXPM_PUBLIC_KEY},
-    [{client, Client}, {repo, Repo}, {verify, true}].
+    lists:sort([{client, Client}, {repo, Repo}, {verify, true}]).
 
 %% @doc
 %% Gets names resource from the repository.
@@ -275,4 +275,4 @@ get_cache(CacheDir, Filename) ->
     file:read_file(Path).
 
 merge_with_default_options(Options) when is_list(Options) ->
-    lists:ukeymerge(1, Options, default_options()).
+    lists:ukeymerge(1, lists:sort(Options), default_options()).
