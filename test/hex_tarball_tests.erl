@@ -15,7 +15,7 @@ memory_test() ->
     ok.
 
 disk_test() ->
-    in_tmp(fun() ->
+    hex_test_helpers:in_tmp(fun() ->
         ok = file:write_file("foo.erl", <<"-module(foo).">>),
         ok = file:change_mode("foo.erl", 8#100644),
 
@@ -30,7 +30,7 @@ disk_test() ->
     end).
 
 timestamps_and_permissions_test() ->
-    in_tmp(fun() ->
+    hex_test_helpers:in_tmp(fun() ->
         Metadata = #{<<"app">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
 
         ok = file:write_file("foo.sh", <<"">>),
@@ -64,7 +64,7 @@ timestamps_and_permissions_test() ->
     end).
 
 symlinks_test() ->
-    in_tmp(fun() ->
+    hex_test_helpers:in_tmp(fun() ->
         Metadata = #{<<"app">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
 
         ok = file:make_dir("dir"),
@@ -202,17 +202,6 @@ unpack_error_handling_test() ->
 %%====================================================================
 %% Helpers
 %%====================================================================
-
-in_tmp(Fun) ->
-    {ok, Old} = file:get_cwd(),
-    TmpDir = "tmp",
-    ok = rebar_file_utils:rm_rf(TmpDir),
-    ok = file:make_dir(TmpDir),
-    Dir = TmpDir ++ "/test",
-    ok = file:make_dir(Dir),
-    file:set_cwd(Dir),
-    Fun(),
-    file:set_cwd(Old).
 
 epoch() ->
     NixEpoch = calendar:datetime_to_gregorian_seconds({{1970, 1, 1}, {0, 0, 0}}),
