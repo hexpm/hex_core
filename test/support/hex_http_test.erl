@@ -10,13 +10,13 @@
 %%====================================================================
 
 get(URI, Headers) when is_binary(URI) and is_map(Headers) ->
-    fixture(URI).
+    fixture(URI, Headers).
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
 
-fixture(<<?TEST_REPO_URI, "/names">>) ->
+fixture(<<?TEST_REPO_URI, "/names">>, _) ->
     Names = #{
         packages => [
             #{name => <<"ecto">>}
@@ -27,7 +27,7 @@ fixture(<<?TEST_REPO_URI, "/names">>) ->
     Compressed = zlib:gzip(Signed),
     {ok, {200, #{}, Compressed}};
 
-fixture(<<?TEST_REPO_URI, "/versions">>) ->
+fixture(<<?TEST_REPO_URI, "/versions">>, _) ->
     Versions = #{
         packages => [
             #{name => <<"ecto">>, versions => [<<"1.0.0">>]}
@@ -38,7 +38,7 @@ fixture(<<?TEST_REPO_URI, "/versions">>) ->
     Compressed = zlib:gzip(Signed),
     {ok, {200, #{}, Compressed}};
 
-fixture(<<?TEST_REPO_URI, "/packages/ecto">>) ->
+fixture(<<?TEST_REPO_URI, "/packages/ecto">>, _) ->
     Package = #{
         releases => [
             #{
@@ -53,15 +53,21 @@ fixture(<<?TEST_REPO_URI, "/packages/ecto">>) ->
     Compressed = zlib:gzip(Signed),
     {ok, {200, #{}, Compressed}};
 
-fixture(<<?TEST_REPO_URI, "/tarballs/ecto-1.0.0.tar">>) ->
+fixture(<<?TEST_REPO_URI, "/tarballs/ecto-1.0.0.tar">>, #{<<"if-none-match">> := <<"\"dummy\"">> = ETag}) ->
+    Headers = #{
+      <<"etag">> => ETag
+    },
+    {ok, {304, Headers, <<"">>}};
+
+fixture(<<?TEST_REPO_URI, "/tarballs/ecto-1.0.0.tar">>, _) ->
     Headers = #{
       <<"etag">> => <<"\"dummy\"">>
     },
     {ok, {Tarball, _Checksum}} = hex_tarball:create(#{<<"name">> => <<"ecto">>}, []),
     {ok, {200, Headers, Tarball}};
 
-fixture(<<?TEST_REPO_URI, _/binary>>) ->
+fixture(<<?TEST_REPO_URI, _/binary>>, _) ->
     {ok, {403, #{}, <<"not found">>}};
 
-fixture(URI) ->
+fixture(URI, _) ->
     error({no_fixture, URI}).
