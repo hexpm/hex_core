@@ -90,7 +90,14 @@ fixture(<<?TEST_API_URI, "/packages/ecto">>, _) ->
 
 fixture(<<?TEST_API_URI, "/packages/ecto/releases/1.0.0">>, _) ->
     Payload = #{
-        <<"version">> => <<"1.0.0">>
+        <<"version">> => <<"1.0.0">>,
+        <<"requirements">> => #{
+            <<"decimal">> => #{
+                <<"requirement">> => <<"~> 1.0">>,
+                <<"optional">> => false,
+                <<"app">> => <<"decimal">>
+            }
+        }
     },
     {ok, {200, [], term_to_binary(Payload)}};
 
