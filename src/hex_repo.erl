@@ -52,12 +52,10 @@ default_options() ->
 %%     %%=>     #{name => <<"package2">>},
 %%     %%=>     ...]}}
 %% '''
-%%
-%% Same as `get_names(hex_repo:default_options())'.
 %% @end
 -spec get_names() -> {ok, map()} | {error, term()}.
 get_names() ->
-    get_names(default_options()).
+    get_names([]).
 
 %% @doc
 %% Gets names resource from the repository.
@@ -85,12 +83,10 @@ get_names(Options) when is_list(Options) ->
 %%     %%=>       versions => [<<"0.5.0">>, <<"1.0.0">>]},
 %%     %%=>     ...]}}
 %% '''
-%%
-%% Same as `get_versions(hex_repo:default_options())'.
 %% @end
 -spec get_versions() -> {ok, map()} | {error, term()}.
 get_versions() ->
-    get_versions(default_options()).
+    get_versions([]).
 
 %% @doc
 %% Gets versions resource from the repository.
@@ -107,8 +103,6 @@ get_versions(Options) when is_list(Options) ->
 %% @doc
 %% Gets package resource from the repository.
 %%
-%% Same as `get_package(Name, hex_repo:default_options())'.
-%%
 %% Examples:
 %%
 %% ```
@@ -123,7 +117,7 @@ get_versions(Options) when is_list(Options) ->
 %% @end
 -spec get_package(binary()) -> {ok, map()} | {error, term()}.
 get_package(Name) when is_binary(Name) ->
-    get_package(Name, default_options()).
+    get_package(Name, []).
 
 %% @doc
 %% Gets package resource from the repository.
@@ -146,12 +140,10 @@ get_package(Name, Options) when is_binary(Name) and is_list(Options) ->
 %%     {ok, Tarball, _Proplist} = hex_repo:get_tarball(<<"package1">>, <<"1.0.0">>),
 %%     {ok, #{metadata := Metadata}} = hex_tarball:unpack(Tarball, memory).
 %% '''
-%%
-%% Same as `get_tarball(Name, Version, hex_repo:default_options())'.
 %% @end
 -spec get_tarball(binary(), binary()) -> {ok, hex_tarball:tarball()} | {error, term()}.
 get_tarball(Name, Version) when is_binary(Name) and is_binary(Version) ->
-    get_tarball(Name, Version, default_options()).
+    get_tarball(Name, Version, []).
 
 %% @doc
 %% Gets tarball from the repository.
