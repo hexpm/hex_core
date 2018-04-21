@@ -11,7 +11,7 @@
     get_user/2
 ]).
 
--type options() :: [{client, hex_http:client()} | {uri, string()}].
+-type options() :: [{client, hex_http:client()} | {uri, binary()}].
 
 %% @doc
 %% Default options used to interact with the API.
