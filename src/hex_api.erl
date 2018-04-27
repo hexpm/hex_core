@@ -52,22 +52,7 @@ get_package(Name) when is_binary(Name) ->
 
 -spec get_package(binary(), options()) -> {ok, map()} | {error, term()}.
 get_package(Name, Options) when is_binary(Name) and is_list(Options) ->
-    Fields = [
-        name,
-        repository,
-        url,
-        docs_html_url,
-        html_url,
-        {releases, [url, version]},
-        retirements,
-        {meta, [maintainers, links, licenses, description]},
-        {owners, [username, url, email]},
-        {downloads, [week, recent, day, all]},
-        inserted_at,
-        updated_at
-    ],
-    Body = get(<<"/packages/", Name/binary>>, merge_with_default_options(Options)),
-    decode_body(Body, Fields).
+    get(<<"/packages/", Name/binary>>, merge_with_default_options(Options)).
 
 %% @doc
 %% Gets package release.
@@ -78,22 +63,7 @@ get_release(Name, Version) when is_binary(Name) and is_binary(Version) ->
 
 -spec get_release(binary(), binary(), options()) -> {ok, map()} | {error, term()}.
 get_release(Name, Version, Options) when is_binary(Name) and is_binary(Version) and is_list(Options) ->
-    Fields = [
-        version,
-        url,
-        package_url,
-        html_url,
-        docs_html_url,
-        {retirement, [reason, message]},
-        {requirements, {map, [app, optional, requirement]}},
-        {meta, [elixir, build_tools, app]},
-        has_docs,
-        downloads,
-        inserted_at,
-        updated_at
-    ],
-    Body = get(<<"/packages/", Name/binary, "/releases/", Version/binary>>, merge_with_default_options(Options)),
-    decode_body(Body, Fields).
+    get(<<"/packages/", Name/binary, "/releases/", Version/binary>>, merge_with_default_options(Options)).
 
 %% @doc
 %% Gets user.
@@ -104,48 +74,11 @@ get_user(Username) when is_binary(Username) ->
 
 -spec get_user(binary(), options()) -> {ok, map()} | {error, term()}.
 get_user(Username, Options) when is_binary(Username) and is_list(Options) ->
-    Fields = [
-        username,
-        url,
-        {packages, [name, repository, url, html_url]},
-        handles,
-        full_name,
-        email,
-        inserted_at,
-        updated_at
-    ],
-    Body = get(<<"/users/", Username/binary>>, merge_with_default_options(Options)),
-    decode_body(Body, Fields).
+    get(<<"/users/", Username/binary>>, merge_with_default_options(Options)).
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
-
-decode_body({ok, Body}, Fields) ->
-    {ok, decode(Body, Fields)};
-decode_body(Other, _) ->
-    Other.
-
-decode(Map, Fields) when is_map(Map), is_list(Fields) ->
-    lists:foldl(fun(Key, Acc) -> put_value(Key, Map, Acc) end, #{}, Fields);
-decode(List, Fields) when is_list(List), is_list(Fields) ->
-    List2 = lists:foldl(fun(Value, Acc) -> [decode(Value, Fields) | Acc] end, [], List),
-    lists:reverse(List2);
-decode(Map, {map, Fields}) ->
-    maps:fold(fun(Key, Value, Acc) -> maps:put(Key, decode(Value, Fields), Acc) end, #{}, Map);
-decode(nil, _Fields) ->
-    nil.
-
-put_value({Key, InnerFields}, Map, Acc) ->
-    case maps:find(atom_to_binary(Key, utf8), Map) of
-        {ok, Value} -> maps:put(Key, decode(Value, InnerFields), Acc);
-        error -> Acc
-    end;
-put_value(Key, Map, Acc) ->
-    case maps:find(atom_to_binary(Key, utf8), Map) of
-        {ok, Value} -> maps:put(Key, Value, Acc);
-        error -> Acc
-    end.
 
 merge_with_default_options(Options) when is_list(Options) ->
     lists:ukeymerge(1, lists:sort(Options), default_options()).
