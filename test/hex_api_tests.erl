@@ -24,6 +24,6 @@ get_user_test() ->
     ok.
 
 search_test() ->
-    {ok, [Package | _]} = hex_api:search(<<"ecto">>, #{sort => downloads, page => 1}, ?OPTIONS),
+    {ok, [Package | _]} = hex_api:search(<<"ecto">>, [{sort, downloads}, {page, 1}], ?OPTIONS),
     #{<<"name">> := <<"ecto">>, <<"releases">> := _} = Package,
     ok.

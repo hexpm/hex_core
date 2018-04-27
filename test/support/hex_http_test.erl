@@ -101,7 +101,7 @@ fixture(<<?TEST_API_URI, "/packages/ecto/releases/1.0.0">>, _) ->
     },
     {ok, {200, [], term_to_binary(Payload)}};
 
-fixture(<<?TEST_API_URI, "/packages?", _/binary>>, _) ->
+fixture(<<?TEST_API_URI, "/packages?search=ecto", _/binary>>, _) ->
     Payload = [
         #{
             <<"name">> => <<"ecto">>,

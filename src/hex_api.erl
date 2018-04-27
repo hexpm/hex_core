@@ -16,12 +16,12 @@
 
 -type options() :: [{client, hex_http:client()} | {uri, binary()}].
 
--type search_params() :: #{
-    sort => atom(),
-    page => non_neg_integer(),
-    description => binary(),
-    extra => binary()
-}.
+-type search_params() :: [
+    {sort, atom()} |
+    {page, non_neg_integer()} |
+    {description, binary()} |
+    {extra, binary()}
+].
 
 %% @doc
 %% Default options used to interact with the API.
@@ -170,7 +170,7 @@ search(Query) when is_binary(Query) ->
 %% @doc
 %% Searches packages.
 -spec search(binary(), search_params()) -> {ok, [map()]} | {error, term()}.
-search(Query, SearchParams) when is_binary(Query) and is_map(SearchParams) ->
+search(Query, SearchParams) when is_binary(Query) and is_list(SearchParams) ->
     search(Query, SearchParams, []).
 
 %% @doc
@@ -180,16 +180,15 @@ search(Query, SearchParams) when is_binary(Query) and is_map(SearchParams) ->
 %%
 %% See `search/2' for examples.
 -spec search(binary(), search_params(), options()) -> {ok, [map()]} | {error, term()}.
-search(Query, SearchParams, Options) when is_binary(Query) and is_map(SearchParams) and is_list(Options) ->
-    SearchParams2 = maps:put(search, Query, SearchParams),
-    QueryString = encode_query_string(SearchParams2),
+search(Query, SearchParams, Options) when is_binary(Query) and is_list(SearchParams) and is_list(Options) ->
+    QueryString = encode_query_string([{search, Query} | SearchParams]),
     get(<<"/packages?", QueryString/binary>>, merge_with_default_options(Options)).
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
 
-encode_query_string(Map) ->
+encode_query_string(List) ->
     QueryString =
         join("&",
             lists:map(fun
@@ -199,7 +198,7 @@ encode_query_string(Map) ->
                     atom_to_list(K) ++ "=" ++ binary_to_list(V);
                 ({K, V}) when is_integer(V) ->
                     atom_to_list(K) ++ "=" ++ integer_to_list(V)
-            end, maps:to_list(Map))),
+            end, List)),
     Encoded = http_uri:encode(QueryString),
     list_to_binary(Encoded).
 
