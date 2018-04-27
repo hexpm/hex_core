@@ -22,3 +22,8 @@ get_user_test() ->
     {ok, User} = hex_api:get_user(<<"josevalim">>, ?OPTIONS),
     #{<<"username">> := <<"josevalim">>, <<"packages">> := _} = User,
     ok.
+
+search_test() ->
+    {ok, [Package | _]} = hex_api:search(<<"ecto">>, #{sort => downloads, page => 1}, ?OPTIONS),
+    #{<<"name">> := <<"ecto">>, <<"releases">> := _} = Package,
+    ok.
