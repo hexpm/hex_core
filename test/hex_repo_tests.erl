@@ -6,7 +6,7 @@
     {repo, #{uri => <<"https://repo.test">>, public_key => ?fixture("test_pub.pem")}},
     {verify, true}
 ]).
-% -define(OPTIONS, hex_repo:default_options()).
+% -define(OPTIONS, []).
 
 get_names_test() ->
     {ok, #{packages := Packages}} = hex_repo:get_names(?OPTIONS),

@@ -10,36 +10,61 @@ Get all package names:
 
 ```erlang
 hex_repo:get_names().
-%%=> {ok, #{package => [
-%%=>     #{name => <<"package1">>},
-%%=>     #{name => <<"package2">>},
-%%=>     ...]}}
+%%=> {ok, #{
+%%=>     package => [
+%%=>         #{name => <<"package1">>},
+%%=>         #{name => <<"package2">>},
+%%=>         ...
+%%=>     ]
+%%=> }}
 ```
 
 Note: By default, we fetch data from repo.hex.pm using built-in httpc-based adapter.
 See `hex_repo:default_options()` for available configuration options.
 Custom HTTP adapter must implement `hex_http` behaviour.
 
-Get all package versions:
+Get all package versions from repository:
 
 ```erlang
 hex_repo:get_versions().
-%%=> {ok, #{packages => [
-%%=>     #{name => <<"package1">>, retired => [],
-%%=>       versions => [<<"1.0.0">>]},
-%%=>     #{name => <<"package2">>, retired => [],
-%%=>       versions => [<<"0.5.0">>]},
-%%=>     ...]}}
+%%=> {ok, #{
+%%=>     packages => [
+%%=>         #{name => <<"package1">>, retired => [], versions => [<<"1.0.0">>]},
+%%=>         #{name => <<"package2">>, retired => [], versions => [<<"0.5.0">>]},
+%%=>     ]
+%%=> }}
 ```
 
-Get package releases:
+Get package releases from repository:
 
 ```erlang
 hex_repo:get_package(<<"package1">>).
-%%=> {ok, #{releases => [
-%%=>     #{checksum => ..., version => <<"0.5.0">>, dependencies => []}],
-%%=>     #{checksum => ..., version => <<"1.0.0">>, dependencies => []}],
-%%=>     ...]}}
+%%=> {ok, #{
+%%=>     releases => [
+%%=>         #{checksum => ..., version => <<"0.5.0">>, dependencies => []}],
+%%=>         #{checksum => ..., version => <<"1.0.0">>, dependencies => []}],
+%%=>     ]
+%%=> }}
+```
+
+Get package from HTTP API:
+
+```erlang
+hex_api:get_package(<<"package1">>).
+%%=> {ok, #{
+%%=>     <<"name">> => <<"package1">>,
+%%=>     <<"meta">> => #{
+%%=>        <<"description">> => ...,
+%%=>        <<"licenses">> => ...,
+%%=>        <<"links">> => ...,
+%%=>        <<"maintainers">> => ...,
+%%=>     },
+%%=>     ...,
+%%=>     <<"releases">> => [
+%%=>         #{<<"url">> => ..., <<"version">> => <<"0.5.0">>}],
+%%=>         #{<<"url">> => ..., <<"version">> => <<"1.0.0">>}],
+%%=>         ...
+%%=>     ]}}
 ```
 
 Get package tarball:
