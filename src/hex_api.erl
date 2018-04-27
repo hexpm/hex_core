@@ -191,7 +191,7 @@ search(Query, SearchParams, Options) when is_binary(Query) and is_map(SearchPara
 
 encode_query_string(Map) ->
     QueryString =
-        lists:join("&",
+        join("&",
             lists:map(fun
                 ({K, V}) when is_atom(V) ->
                     atom_to_list(K) ++ "=" ++ atom_to_list(V);
@@ -202,6 +202,13 @@ encode_query_string(Map) ->
             end, maps:to_list(Map))),
     Encoded = http_uri:encode(QueryString),
     list_to_binary(Encoded).
+
+%% https://github.com/erlang/otp/blob/OTP-20.3/lib/stdlib/src/lists.erl#L1449:L1453
+join(_Sep, []) -> [];
+join(Sep, [H|T]) -> [H|join_prepend(Sep, T)].
+
+join_prepend(_Sep, []) -> [];
+join_prepend(Sep, [H|T]) -> [Sep,H|join_prepend(Sep,T)].
 
 merge_with_default_options(Options) when is_list(Options) ->
     lists:ukeymerge(1, lists:sort(Options), default_options()).
