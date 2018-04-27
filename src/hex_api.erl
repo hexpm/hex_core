@@ -45,17 +45,58 @@ get(Path, Options) when is_binary(Path) and is_list(Options) ->
 
 %% @doc
 %% Gets package.
+%%
+%% Examples:
+%%
+%% ```
+%%     hex_api:get_package(<<"package">>).
+%%     %%=> {ok, #{
+%%     %%=>     <<"name">> => <<"package1">>,
+%%     %%=>     <<"meta">> => #{
+%%     %%=>         <<"description">> => ...,
+%%     %%=>         <<"licenses">> => ...,
+%%     %%=>         <<"links">> => ...,
+%%     %%=>         <<"maintainers">> => ...
+%%     %%=>     },
+%%     %%=>     ...,
+%%     %%=>     <<"releases">> => [
+%%     %%=>         #{<<"url">> => ..., <<"version">> => <<"0.5.0">>}],
+%%     %%=>         #{<<"url">> => ..., <<"version">> => <<"1.0.0">>}],
+%%     %%=>         ...
+%%     %%=>     ]}}
+%% '''
 %% @end
 -spec get_package(binary()) -> {ok, map()} | {error, term()}.
 get_package(Name) when is_binary(Name) ->
     get_package(Name, []).
 
+%% @doc
+%% Gets package.
+%%
+%% `Options` is merged with `default_options/0`.
+%%
+%% See `get_package/1' for examples.
 -spec get_package(binary(), options()) -> {ok, map()} | {error, term()}.
 get_package(Name, Options) when is_binary(Name) and is_list(Options) ->
     get(<<"/packages/", Name/binary>>, merge_with_default_options(Options)).
 
 %% @doc
 %% Gets package release.
+%%
+%% Examples:
+%%
+%% ```
+%%     hex_api:get_release(<<"package">>, <<"1.0.0">>).
+%%     %%=> {ok, #{
+%%     %%=>     <<"version">> => <<"1.0.0">>,
+%%     %%=>     <<"meta">> => #{
+%%     %%=>         <<"description">> => ...,
+%%     %%=>         <<"licenses">> => ...,
+%%     %%=>         <<"links">> => ...,
+%%     %%=>         <<"maintainers">> => ...
+%%     %%=>     },
+%%     %%=>     ...}}
+%% '''
 %% @end
 -spec get_release(binary(), binary()) -> {ok, map()} | {error, term()}.
 get_release(Name, Version) when is_binary(Name) and is_binary(Version) ->
@@ -67,11 +108,34 @@ get_release(Name, Version, Options) when is_binary(Name) and is_binary(Version) 
 
 %% @doc
 %% Gets user.
+%%
+%% Examples:
+%%
+%% ```
+%%     hex_api:get_user(<<"user">>).
+%%     %%=> {ok, #{
+%%     %%=>     <<"username">> => <<"user">>,
+%%     %%=>     <<"packages">> => [
+%%     %%=>         #{
+%%     %%=>             <<"name">> => ...,
+%%     %%=>             <<"url">> => ...,
+%%     %%=>             ...
+%%     %%=>         },
+%%     %%=>         ...
+%%     %%=>     ],
+%%     %%=>     ...}}
+%% '''
 %% @end
 -spec get_user(binary()) -> {ok, map()} | {error, term()}.
 get_user(Username) when is_binary(Username) ->
     get_user(Username, []).
 
+%% @doc
+%% Gets user.
+%%
+%% `Options` is merged with `default_options/0`.
+%%
+%% See `get_user/1' for examples.
 -spec get_user(binary(), options()) -> {ok, map()} | {error, term()}.
 get_user(Username, Options) when is_binary(Username) and is_list(Options) ->
     get(<<"/users/", Username/binary>>, merge_with_default_options(Options)).
