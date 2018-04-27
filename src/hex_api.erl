@@ -20,7 +20,7 @@
     sort => atom(),
     page => non_neg_integer(),
     description => binary(),
-    extra => #{binary() => binary()}
+    extra => binary()
 }.
 
 %% @doc
