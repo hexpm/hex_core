@@ -20,8 +20,7 @@ hex_repo:get_names().
 ```
 
 Note: By default, we fetch data from repo.hex.pm using built-in httpc-based adapter.
-See `hex_repo:default_options()` for available configuration options.
-Custom HTTP adapter must implement `hex_http` behaviour.
+See section below about configuring HTTP client.
 
 Get all package versions from repository:
 
@@ -83,6 +82,24 @@ Create package tarball:
 
 ```erlang
 {ok, {Tarball, Checksum}} = hex_tarball:create(Metadata, Contents).
+```
+
+## Configuring HTTP client
+
+By default, `hex_repo` and `hex_api` functions are using built-in httpc-based adapter and are calling
+<https://repo.hex.pm> and <https://hex.pm/api> respectively.
+
+See `hex_repo:default_options()` and `hex_api:default_options()` for available configuration options.
+
+HTTP client configuration can be overriden as follows:
+
+```erlang
+Options = [{client, #{adapter => my_hackney_adapter, user_agent_fragment => <<"(hackney/1.12.1) (my_app/0.1.0)">>}}].
+hex_repo:get_names(Options).
+
+%% my_hackney_adapter.erl
+-module(my_hackney_adapter).
+-behaviour(hex_http).
 ```
 
 ## Installation
