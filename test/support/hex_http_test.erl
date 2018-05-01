@@ -17,6 +17,12 @@ get(URI, Headers) when is_binary(URI) and is_map(Headers) ->
 %% Internal functions
 %%====================================================================
 
+fixture(_, #{<<"if-none-match">> := <<"\"dummy\"">> = ETag}) ->
+    Headers = #{
+      <<"etag">> => ETag
+    },
+    {ok, {304, Headers, <<"">>}};
+
 %% Repo API
 
 fixture(<<?TEST_REPO_URI, "/names">>, _) ->
@@ -28,7 +34,10 @@ fixture(<<?TEST_REPO_URI, "/names">>, _) ->
     Payload = hex_registry:encode_names(Names),
     Signed = hex_registry:sign_protobuf(Payload, ?PRIVATE_KEY),
     Compressed = zlib:gzip(Signed),
-    {ok, {200, #{}, Compressed}};
+    Headers = #{
+      <<"etag">> => <<"\"dummy\"">>
+    },
+    {ok, {200, Headers, Compressed}};
 
 fixture(<<?TEST_REPO_URI, "/versions">>, _) ->
     Versions = #{
@@ -39,7 +48,10 @@ fixture(<<?TEST_REPO_URI, "/versions">>, _) ->
     Payload = hex_registry:encode_versions(Versions),
     Signed = hex_registry:sign_protobuf(Payload, ?PRIVATE_KEY),
     Compressed = zlib:gzip(Signed),
-    {ok, {200, #{}, Compressed}};
+    Headers = #{
+      <<"etag">> => <<"\"dummy\"">>
+    },
+    {ok, {200, Headers, Compressed}};
 
 fixture(<<?TEST_REPO_URI, "/packages/ecto">>, _) ->
     Package = #{
@@ -54,13 +66,10 @@ fixture(<<?TEST_REPO_URI, "/packages/ecto">>, _) ->
     Payload = hex_registry:encode_package(Package),
     Signed = hex_registry:sign_protobuf(Payload, ?PRIVATE_KEY),
     Compressed = zlib:gzip(Signed),
-    {ok, {200, #{}, Compressed}};
-
-fixture(<<?TEST_REPO_URI, "/tarballs/ecto-1.0.0.tar">>, #{<<"if-none-match">> := <<"\"dummy\"">> = ETag}) ->
     Headers = #{
-      <<"etag">> => ETag
+      <<"etag">> => <<"\"dummy\"">>
     },
-    {ok, {304, Headers, <<"">>}};
+    {ok, {200, Headers, Compressed}};
 
 fixture(<<?TEST_REPO_URI, "/tarballs/ecto-1.0.0.tar">>, _) ->
     Headers = #{

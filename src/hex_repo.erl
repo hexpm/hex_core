@@ -47,13 +47,15 @@ default_options() ->
 %%
 %% ```
 %%     hex_repo:get_names().
-%%     %%=> {ok, #{package => [
-%%     %%=>     #{name => <<"package1">>},
-%%     %%=>     #{name => <<"package2">>},
-%%     %%=>     ...]}}
+%%     %%=> {ok,
+%%     %%=>     #{package => [
+%%     %%=>         #{name => <<"package1">>},
+%%     %%=>         #{name => <<"package2">>},
+%%     %%=>     ]},
+%%     %%=>     [{etag, ...}, ...]}
 %% '''
 %% @end
--spec get_names() -> {ok, map()} | {error, term()}.
+-spec get_names() -> {ok, map(), proplists:proplist()} | {error, term()}.
 get_names() ->
     get_names([]).
 
@@ -64,7 +66,7 @@ get_names() ->
 %%
 %% See `get_names/0' for examples.
 %% @end
--spec get_names(options()) -> {ok, map()} | {error, term()}.
+-spec get_names(options()) -> {ok, map(), proplists:proplist()} | {error, term()}.
 get_names(Options) when is_list(Options) ->
     Decoder = fun hex_registry:decode_names/1,
     get_protobuf(<<"/names">>, Decoder, merge_with_default_options(Options)).
@@ -76,15 +78,17 @@ get_names(Options) when is_list(Options) ->
 %%
 %% ```
 %%     hex_repo:get_versions().
-%%     %%=> {ok, #{packages => [
-%%     %%=>     #{name => <<"package1">>, retired => [],
-%%     %%=>       versions => [<<"1.0.0">>]},
-%%     %%=>     #{name => <<"package2">>, retired => [<<"0.5.0>>"],
-%%     %%=>       versions => [<<"0.5.0">>, <<"1.0.0">>]},
-%%     %%=>     ...]}}
+%%     %%=> {ok,
+%%     %%=>     #{packages => [
+%%     %%=>         #{name => <<"package1">>, retired => [],
+%%     %%=>           versions => [<<"1.0.0">>]},
+%%     %%=>         #{name => <<"package2">>, retired => [<<"0.5.0>>"],
+%%     %%=>           versions => [<<"0.5.0">>, <<"1.0.0">>]},
+%%     %%=>     ]},
+%%     %%=>     [{etag, ...}, ...]}
 %% '''
 %% @end
--spec get_versions() -> {ok, map()} | {error, term()}.
+-spec get_versions() -> {ok, map(), proplists:proplist()} | {error, term()}.
 get_versions() ->
     get_versions([]).
 
@@ -95,7 +99,7 @@ get_versions() ->
 %%
 %% See `get_versions/0' for examples.
 %% @end
--spec get_versions(options()) -> {ok, map()} | {error, term()}.
+-spec get_versions(options()) -> {ok, map(), proplists:proplist()} | {error, term()}.
 get_versions(Options) when is_list(Options) ->
     Decoder = fun hex_registry:decode_versions/1,
     get_protobuf(<<"/versions">>, Decoder, merge_with_default_options(Options)).
@@ -107,15 +111,17 @@ get_versions(Options) when is_list(Options) ->
 %%
 %% ```
 %%     hex_repo:get_package(<<"package1">>).
-%%     %%=> {ok, #{releases => [
-%%     %%=>     #{checksum => ..., version => <<"0.5.0">>, dependencies => []},
-%%     %%=>     #{checksum => ..., version => <<"1.0.0">>, dependencies => [
-%%     %%=>         #{package => <<"package2">>, optional => true, requirement => <<"~> 0.1">>}
+%%     %%=> {ok,
+%%     %%=>     #{releases => [
+%%     %%=>         #{checksum => ..., version => <<"0.5.0">>, dependencies => []},
+%%     %%=>         #{checksum => ..., version => <<"1.0.0">>, dependencies => [
+%%     %%=>             #{package => <<"package2">>, optional => true, requirement => <<"~> 0.1">>}
+%%     %%=>         ]},
 %%     %%=>     ]},
-%%     %%=>     ...]}}
+%%     %%=>     [{etag, ...}, ...]}
 %% '''
 %% @end
--spec get_package(binary()) -> {ok, map()} | {error, term()}.
+-spec get_package(binary()) -> {ok, map(), proplists:proplist()} | {error, term()}.
 get_package(Name) when is_binary(Name) ->
     get_package(Name, []).
 
@@ -126,7 +132,7 @@ get_package(Name) when is_binary(Name) ->
 %%
 %% See `get_package/1' for examples.
 %% @end
--spec get_package(binary(), options()) -> {ok, map()} | {error, term()}.
+-spec get_package(binary(), options()) -> {ok, map(), proplists:proplist()} | {error, term()}.
 get_package(Name, Options) when is_binary(Name) and is_list(Options) ->
     Decoder = fun hex_registry:decode_package/1,
     get_protobuf(<<"/packages/", Name/binary>>, Decoder, merge_with_default_options(Options)).
@@ -141,7 +147,7 @@ get_package(Name, Options) when is_binary(Name) and is_list(Options) ->
 %%     {ok, #{metadata := Metadata}} = hex_tarball:unpack(Tarball, memory).
 %% '''
 %% @end
--spec get_tarball(binary(), binary()) -> {ok, hex_tarball:tarball()} | {error, term()}.
+-spec get_tarball(binary(), binary()) -> {ok, hex_tarball:tarball(), proplists:proplist()} | {error, term()}.
 get_tarball(Name, Version) when is_binary(Name) and is_binary(Version) ->
     get_tarball(Name, Version, []).
 
@@ -152,26 +158,26 @@ get_tarball(Name, Version) when is_binary(Name) and is_binary(Version) ->
 %%
 %% See `get_tarball/2' for examples.
 %% @end
--spec get_tarball(string(), string(), options()) -> {ok, hex_tarball:tarball(), proplists:proplist()} |
-                                                    {error, term()}.
+-spec get_tarball(string(), string(), options()) -> {ok, hex_tarball:tarball(), proplists:proplist()} | {error, term()}.
 get_tarball(Name, Version, Options) ->
     Options2 = merge_with_default_options(Options),
     Client = proplists:get_value(client, Options2),
     Repo = proplists:get_value(repo, Options2),
     CacheDir = proplists:get_value(cache_dir, Options2),
+    ReqHeaders = make_headers(Options2),
 
-    case get(Client, tarball_uri(Repo, Name, Version), make_headers(Options2)) of
-        {ok, {200, Headers, Tarball}} ->
-            ReturnOpts = get_headers([{<<"etag">>, etag}], Headers),
+    case get(Client, tarball_uri(Repo, Name, Version), ReqHeaders) of
+        {ok, {200, RespHeaders, Tarball}} ->
+            ReturnOpts = get_headers([{<<"etag">>, etag}], RespHeaders),
             ok = maybe_put_cache(CacheDir, tarball_filename(Name, Version), Tarball),
             {ok, Tarball, [{cache, miss} | ReturnOpts]};
 
-        {ok, {304, Headers, _Body}} ->
-            ReturnOpts = get_headers([{<<"etag">>, etag}], Headers),
+        {ok, {304, RespHeaders, _Body}} ->
+            ReturnOpts = get_headers([{<<"etag">>, etag}], RespHeaders),
             {ok, Tarball} = get_cache(CacheDir, tarball_filename(Name, Version)),
             {ok, Tarball, [{cache, hit} | ReturnOpts]};
 
-        {ok, {403, _Headers, _Body}} ->
+        {ok, {403, _RespHeaders, _Body}} ->
             {error, not_found};
 
         {error, Reason} ->
@@ -206,20 +212,38 @@ make_headers(Options) ->
 set_header({etag, ETag}, Headers) -> maps:put(<<"if-none-match">>, ETag, Headers);
 set_header(_Option, Headers) -> Headers.
 
-get(Client, URI) ->
-    get(Client, URI, #{}).
-
 get(Client, URI, Headers) ->
     hex_http:get(Client, URI, Headers).
 
 get_protobuf(Path, Decoder, Options) ->
     Client = proplists:get_value(client, Options),
     #{uri := URI, public_key := PublicKey} = proplists:get_value(repo, Options),
+    CacheDir = proplists:get_value(cache_dir, Options),
+    CachePath = filename:basename(Path),
+    ReqHeaders = make_headers(Options),
 
-    case get(Client, <<URI/binary, Path/binary>>) of
-        {ok, {200, _Headers, Compressed}} ->
+    case get(Client, <<URI/binary, Path/binary>>, ReqHeaders) of
+        {ok, {200, RespHeaders, Compressed}} ->
+            ReturnOpts = get_headers([{<<"etag">>, etag}], RespHeaders),
+            ok = maybe_put_cache(CacheDir, CachePath, Compressed),
             Signed = zlib:gunzip(Compressed),
-            decode(Signed, PublicKey, Decoder, Options);
+            case decode(Signed, PublicKey, Decoder, Options) of
+                {ok, Decoded} ->
+                    {ok, Decoded, [{cache, miss} | ReturnOpts]};
+                {error, _} = Error ->
+                    Error
+            end;
+
+        {ok, {304, RespHeaders, _Body}} ->
+            ReturnOpts = get_headers([{<<"etag">>, etag}], RespHeaders),
+            {ok, Compressed} = get_cache(CacheDir, CachePath),
+            Signed = zlib:gunzip(Compressed),
+            case decode(Signed, PublicKey, Decoder, Options) of
+                {ok, Decoded} ->
+                    {ok, Decoded, [{cache, hit} | ReturnOpts]};
+                {error, _} = Error ->
+                    Error
+            end;
 
         {ok, {403, _, _}} ->
             {error, not_found};

@@ -10,13 +10,13 @@ Get all package names:
 
 ```erlang
 hex_repo:get_names().
-%%=> {ok, #{
-%%=>     package => [
+%%=> {ok,
+%%=>     #{package => [
 %%=>         #{name => <<"package1">>},
 %%=>         #{name => <<"package2">>},
 %%=>         ...
-%%=>     ]
-%%=> }}
+%%=>     ]},
+%%=>     [{etag, ...}, ...]}
 ```
 
 Note: By default, we fetch data from repo.hex.pm using built-in httpc-based adapter.
@@ -26,44 +26,47 @@ Get all package versions from repository:
 
 ```erlang
 hex_repo:get_versions().
-%%=> {ok, #{
-%%=>     packages => [
+%%=> {ok,
+%%=>     #{packages => [
 %%=>         #{name => <<"package1">>, retired => [], versions => [<<"1.0.0">>]},
 %%=>         #{name => <<"package2">>, retired => [], versions => [<<"0.5.0">>]},
-%%=>     ]
-%%=> }}
+%%=>     ]},
+%%=>     [{etag, ...}, ...]}
 ```
 
 Get package releases from repository:
 
 ```erlang
 hex_repo:get_package(<<"package1">>).
-%%=> {ok, #{
-%%=>     releases => [
+%%=> {ok,
+%%=>     #{releases => [
 %%=>         #{checksum => ..., version => <<"0.5.0">>, dependencies => []}],
 %%=>         #{checksum => ..., version => <<"1.0.0">>, dependencies => []}],
-%%=>     ]
-%%=> }}
+%%=>     ]},
+%%=>     [{etag, ...}, ...]}
 ```
 
 Get package from HTTP API:
 
 ```erlang
 hex_api:get_package(<<"package1">>).
-%%=> {ok, #{
-%%=>     <<"name">> => <<"package1">>,
-%%=>     <<"meta">> => #{
-%%=>        <<"description">> => ...,
-%%=>        <<"licenses">> => ...,
-%%=>        <<"links">> => ...,
-%%=>        <<"maintainers">> => ...,
+%%=> {ok,
+%%=>     #{
+%%=>         <<"name">> => <<"package1">>,
+%%=>         <<"meta">> => #{
+%%=>            <<"description">> => ...,
+%%=>            <<"licenses">> => ...,
+%%=>            <<"links">> => ...,
+%%=>            <<"maintainers">> => ...,
+%%=>         },
+%%=>         ...,
+%%=>         <<"releases">> => [
+%%=>             #{<<"url">> => ..., <<"version">> => <<"0.5.0">>}],
+%%=>             #{<<"url">> => ..., <<"version">> => <<"1.0.0">>}],
+%%=>             ...
+%%=>         ]
 %%=>     },
-%%=>     ...,
-%%=>     <<"releases">> => [
-%%=>         #{<<"url">> => ..., <<"version">> => <<"0.5.0">>}],
-%%=>         #{<<"url">> => ..., <<"version">> => <<"1.0.0">>}],
-%%=>         ...
-%%=>     ]}}
+%%=>     [{etag, ...}, ...]}
 ```
 
 Get package tarball:
