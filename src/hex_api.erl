@@ -8,10 +8,20 @@
     get_release/2,
     get_release/3,
     get_user/1,
-    get_user/2
+    get_user/2,
+    search/1,
+    search/2,
+    search/3
 ]).
 
 -type options() :: [{client, hex_http:client()} | {uri, binary()}].
+
+-type search_params() :: [
+    {sort, atom()} |
+    {page, non_neg_integer()} |
+    {description, binary()} |
+    {extra, binary()}
+].
 
 %% @doc
 %% Default options used to interact with the API.
@@ -140,9 +150,64 @@ get_user(Username) when is_binary(Username) ->
 get_user(Username, Options) when is_binary(Username) and is_list(Options) ->
     get(<<"/users/", Username/binary>>, merge_with_default_options(Options)).
 
+%% @doc
+%% Searches packages.
+%%
+%% Examples:
+%%
+%% ```
+%%     hex_api:search(<<"package">>).
+%%     %%=> {ok, [
+%%     %%=>     #{<<"name">> => <<"package1">>, ...},
+%%     %%=>     ...
+%%     %%=> ]
+%% '''
+%% See `search/2' for examples.
+-spec search(binary()) -> {ok, [map()]} | {error, term()}.
+search(Query) when is_binary(Query) ->
+    search(Query, #{}, []).
+
+%% @doc
+%% Searches packages.
+-spec search(binary(), search_params()) -> {ok, [map()]} | {error, term()}.
+search(Query, SearchParams) when is_binary(Query) and is_list(SearchParams) ->
+    search(Query, SearchParams, []).
+
+%% @doc
+%% Searches packages.
+%%
+%% `Options` is merged with `default_options/0`.
+%%
+%% See `search/2' for examples.
+-spec search(binary(), search_params(), options()) -> {ok, [map()]} | {error, term()}.
+search(Query, SearchParams, Options) when is_binary(Query) and is_list(SearchParams) and is_list(Options) ->
+    QueryString = encode_query_string([{search, Query} | SearchParams]),
+    get(<<"/packages?", QueryString/binary>>, merge_with_default_options(Options)).
+
 %%====================================================================
 %% Internal functions
 %%====================================================================
+
+encode_query_string(List) ->
+    QueryString =
+        join("&",
+            lists:map(fun
+                ({K, V}) when is_atom(V) ->
+                    atom_to_list(K) ++ "=" ++ atom_to_list(V);
+                ({K, V}) when is_binary(V) ->
+                    atom_to_list(K) ++ "=" ++ binary_to_list(V);
+                ({K, V}) when is_integer(V) ->
+                    atom_to_list(K) ++ "=" ++ integer_to_list(V)
+            end, List)),
+    Encoded = http_uri:encode(QueryString),
+    list_to_binary(Encoded).
+
+%% https://github.com/erlang/otp/blob/OTP-20.3/lib/stdlib/src/lists.erl#L1449:L1453
+join(_Sep, []) -> [];
+join(Sep, [H|T]) -> [H|join_prepend(Sep, T)].
+
+join_prepend(_Sep, []) -> [];
+join_prepend(Sep, [H|T]) -> [Sep,H|join_prepend(Sep,T)].
 
 merge_with_default_options(Options) when is_list(Options) ->
     lists:ukeymerge(1, lists:sort(Options), default_options()).
