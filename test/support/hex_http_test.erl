@@ -119,5 +119,16 @@ fixture(<<?TEST_API_URI, "/packages?search=ecto", _/binary>>, _) ->
     ],
     {ok, {200, [], term_to_binary(Payload)}};
 
+fixture(<<?TEST_API_URI, "/packages/decimal/owners", _/binary>>, #{<<"authorization">> := Token}) when is_binary(Token) ->
+    Payload = [
+        #{
+            <<"username">> => <<"ericmj">>
+        }
+    ],
+    {ok, {200, [], term_to_binary(Payload)}};
+
+fixture(<<?TEST_API_URI, "/packages/decimal/owners", _/binary>>, _) ->
+    {ok, {401, [], <<"">>}};
+
 fixture(URI, _) ->
     error({no_fixture, URI}).

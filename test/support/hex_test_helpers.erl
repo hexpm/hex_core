@@ -1,5 +1,5 @@
 -module(hex_test_helpers).
--export([in_tmp/1, fixture/1]).
+-export([in_tmp/1, fixture/1, api_key/0]).
 
 in_tmp(Fun) ->
     {ok, Old} = file:get_cwd(),
@@ -18,3 +18,9 @@ fixture(Path) ->
     Path2 = filename:join(FixtureDir, Path),
     {ok, Binary} = file:read_file(Path2),
     Binary.
+
+api_key() ->
+    case os:getenv("TEST_API_KEY") of
+        false -> nil;
+        Token -> list_to_binary(Token)
+    end.

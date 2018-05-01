@@ -11,7 +11,9 @@
     get_user/2,
     search/1,
     search/2,
-    search/3
+    search/3,
+    get_owners/1,
+    get_owners/2
 ]).
 
 -type options() :: [{client, hex_http:client()} | {uri, binary()}].
@@ -40,13 +42,17 @@ get(Path) when is_binary(Path) ->
 get(Path, Options) when is_binary(Path) and is_list(Options) ->
     Client = proplists:get_value(client, Options),
     URI = proplists:get_value(uri, Options),
-    Headers = #{<<"accept">> => <<"application/vnd.hex+erlang">>},
+    DefaultHeaders = make_headers(Options),
+    ReqHeaders = maps:put(<<"accept">>, <<"application/vnd.hex+erlang">>, DefaultHeaders),
 
-    case hex_http:get(Client, <<URI/binary, Path/binary>>, Headers) of
-        {ok, {200, _, Body}} ->
+    case hex_http:get(Client, <<URI/binary, Path/binary>>, ReqHeaders) of
+        {ok, {200, _RespHeaders, Body}} ->
             {ok, binary_to_term(Body)};
 
-        {ok, {404, _, _Body}} ->
+        {ok, {401, _RespHeaders, _Body}} ->
+            {error, unauthorized};
+
+        {ok, {404, _RespHeaders, _Body}} ->
             {error, not_found};
 
         Other ->
@@ -160,15 +166,18 @@ get_user(Username, Options) when is_binary(Username) and is_list(Options) ->
 %%     %%=> {ok, [
 %%     %%=>     #{<<"name">> => <<"package1">>, ...},
 %%     %%=>     ...
-%%     %%=> ]
+%%     %%=> ]}
 %% '''
-%% See `search/2' for examples.
 -spec search(binary()) -> {ok, [map()]} | {error, term()}.
 search(Query) when is_binary(Query) ->
     search(Query, #{}, []).
 
 %% @doc
 %% Searches packages.
+%%
+%% `Options` is merged with `default_options/0`.
+%%
+%% See `search/2' for examples.
 -spec search(binary(), search_params()) -> {ok, [map()]} | {error, term()}.
 search(Query, SearchParams) when is_binary(Query) and is_list(SearchParams) ->
     search(Query, SearchParams, []).
@@ -183,6 +192,29 @@ search(Query, SearchParams) when is_binary(Query) and is_list(SearchParams) ->
 search(Query, SearchParams, Options) when is_binary(Query) and is_list(SearchParams) and is_list(Options) ->
     QueryString = encode_query_string([{search, Query} | SearchParams]),
     get(<<"/packages?", QueryString/binary>>, merge_with_default_options(Options)).
+
+%% Examples:
+%%
+%% ```
+%%     hex_api:get_owners(<<"package">>).
+%%     %%=> {ok, [
+%%     %%=>     #{<<"username">> => <<"alice">>, ...},
+%%     %%=>     ...
+%%     %%=> ]}
+%% '''
+-spec get_owners(binary()) -> {ok, [map()]} | {error, term()}.
+get_owners(Name) when is_binary(Name) ->
+    get_owners(Name, []).
+
+%% @doc
+%% Gets package owners.
+%%
+%% `Options` is merged with `default_options/0`.
+%%
+%% See `get_owners/2' for examples.
+-spec get_owners(binary(), options()) -> {ok, [map()]} | {error, term()}.
+get_owners(Name, Options) when is_binary(Name) and is_list(Options) ->
+    get(<<"/packages/", Name/binary, "/owners">>, merge_with_default_options(Options)).
 
 %%====================================================================
 %% Internal functions
@@ -208,6 +240,13 @@ join(Sep, [H|T]) -> [H|join_prepend(Sep, T)].
 
 join_prepend(_Sep, []) -> [];
 join_prepend(Sep, [H|T]) -> [Sep,H|join_prepend(Sep,T)].
+
+%% TODO: copy-pasted from hex_repo
+make_headers(Options) ->
+    lists:foldl(fun set_header/2, #{}, Options).
+
+set_header({api_key, Token}, Headers) -> maps:put(<<"authorization">>, Token, Headers);
+set_header(_Option, Headers) -> Headers.
 
 merge_with_default_options(Options) when is_list(Options) ->
     lists:ukeymerge(1, lists:sort(Options), default_options()).
