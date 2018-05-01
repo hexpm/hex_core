@@ -3,8 +3,8 @@
 -export([get/2]).
 -define(TEST_REPO_URI, "https://repo.test").
 -define(TEST_API_URI, "https://api.test").
--define(PRIVATE_KEY, element(2, file:read_file("test/fixtures/test_priv.pem"))).
--define(PUBLIC_KEY, element(2, file:read_file("test/fixtures/test_pub.pem"))).
+-define(PRIVATE_KEY, hex_test_helpers:fixture("test_priv.pem")).
+-define(PUBLIC_KEY, hex_test_helpers:fixture("test_pub.pem")).
 
 %%====================================================================
 %% API functions
