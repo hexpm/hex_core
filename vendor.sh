@@ -41,7 +41,7 @@ for filename in $filenames; do
   cat $source_path >> $target_path
 
   for word in $search_to_replace; do
-    sed -i .bak s/$word/$prefix$word/g $target_path
+    sed -i.bak s/$word/$prefix$word/g $target_path
     rm $target_path.bak
   done
 done
