@@ -210,6 +210,7 @@ make_headers(Options) ->
     lists:foldl(fun set_header/2, #{}, Options).
 
 set_header({etag, ETag}, Headers) -> maps:put(<<"if-none-match">>, ETag, Headers);
+set_header({api_key, Token}, Headers) -> maps:put(<<"authorization">>, Token, Headers);
 set_header(_Option, Headers) -> Headers.
 
 get(Client, URI, Headers) ->
