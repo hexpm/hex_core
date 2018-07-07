@@ -8,4 +8,4 @@ matrix:
 
 script:
   - rebar3 eunit
-  - rebar3 proper
+  - rebar3 as test proper
