@@ -5,6 +5,7 @@
 -endif.
 -define(VERSION, <<"3">>).
 -define(TARBALL_MAX_SIZE, 8 * 1024 * 1024).
+-define(TARBALL_MAX_UNCOMPRESSED_SIZE, 64 * 1024 * 1024).
 -define(BUILD_TOOL_FILES, [
     {<<"mix.exs">>, <<"mix">>},
     {<<"rebar.config">>, <<"rebar">>},
@@ -43,20 +44,23 @@
 -spec create(metadata(), files()) -> {ok, {tarball(), checksum()}}.
 create(Metadata, Files) ->
     MetadataBinary = encode_metadata(Metadata),
-    ContentsBinary = create_tarball(Files, [compressed]),
-    Checksum = checksum(?VERSION, MetadataBinary, ContentsBinary),
+    ContentsTarball = create_memory_tarball(Files),
+    ContentsTarballCompressed = gzip(ContentsTarball),
+    Checksum = checksum(?VERSION, MetadataBinary, ContentsTarballCompressed),
     ChecksumBase16 = encode_base16(Checksum),
 
     OuterFiles = [
        {"VERSION", ?VERSION},
        {"CHECKSUM", ChecksumBase16},
        {"metadata.config", MetadataBinary},
-       {"contents.tar.gz", ContentsBinary}
+       {"contents.tar.gz", ContentsTarballCompressed}
     ],
 
-    Tarball = create_tarball(OuterFiles, []),
+    Tarball = create_memory_tarball(OuterFiles),
 
-    case byte_size(Tarball) > ?TARBALL_MAX_SIZE of
+    UncompressedSize = byte_size(ContentsTarball),
+
+    case(byte_size(Tarball) > ?TARBALL_MAX_SIZE) or (UncompressedSize > ?TARBALL_MAX_UNCOMPRESSED_SIZE) of
         true ->
             {error, {tarball, too_big}};
 
@@ -316,13 +320,6 @@ try_updating_mtime(Path) ->
     Time = calendar:universal_time(),
     _ = file:write_file_info(Path, #file_info{mtime=Time}, [{time, universal}]),
     ok.
-
-create_tarball(Files, Options) ->
-    Tarball = create_memory_tarball(Files),
-    case proplists:get_bool(compressed, Options) of
-        true -> gzip(Tarball);
-        false -> Tarball
-    end.
 
 create_memory_tarball(Files) ->
     {ok, Fd} = file:open([], [ram, read, write, binary]),
