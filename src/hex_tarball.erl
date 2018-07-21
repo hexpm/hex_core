@@ -44,21 +44,21 @@
 -spec create(metadata(), files()) -> {ok, {tarball(), checksum()}}.
 create(Metadata, Files) ->
     MetadataBinary = encode_metadata(Metadata),
-    ContentsBinaryBuild = build_tarball(Files),
-    ContentsBinary = compress_tarball(ContentsBinaryBuild),
-    Checksum = checksum(?VERSION, MetadataBinary, ContentsBinary),
+    ContentsTarball = create_memory_tarball(Files),
+    ContentsTarballCompressed = gzip(ContentsTarball),
+    Checksum = checksum(?VERSION, MetadataBinary, ContentsTarballCompressed),
     ChecksumBase16 = encode_base16(Checksum),
 
     OuterFiles = [
        {"VERSION", ?VERSION},
        {"CHECKSUM", ChecksumBase16},
        {"metadata.config", MetadataBinary},
-       {"contents.tar.gz", ContentsBinary}
+       {"contents.tar.gz", ContentsTarballCompressed}
     ],
 
-    Tarball = build_tarball(OuterFiles),
+    Tarball = create_memory_tarball(OuterFiles),
 
-    UncompressedSize = byte_size(Tarball) - byte_size(ContentsBinary) + byte_size(ContentsBinaryBuild),
+    UncompressedSize = byte_size(ContentsTarball),
 
     case(byte_size(Tarball) > ?TARBALL_MAX_SIZE) or (UncompressedSize > ?TARBALL_MAX_UNCOMPRESSED_SIZE) of
         true ->
@@ -320,12 +320,6 @@ try_updating_mtime(Path) ->
     Time = calendar:universal_time(),
     _ = file:write_file_info(Path, #file_info{mtime=Time}, [{time, universal}]),
     ok.
-
-build_tarball(Files) ->
-    create_memory_tarball(Files).
-
-compress_tarball(Tarball) ->
-    gzip(Tarball).
 
 create_memory_tarball(Files) ->
     {ok, Fd} = file:open([], [ram, read, write, binary]),
