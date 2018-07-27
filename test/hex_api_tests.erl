@@ -33,3 +33,9 @@ get_owners_test() ->
     {ok, [Owner | _]} = hex_api:get_owners(<<"decimal">>, ?OPTIONS),
     <<"ericmj">> = maps:get(<<"username">>, Owner),
     ok.
+
+keys_test() ->
+    {ok, [Key | _]} = hex_api:get_keys(?OPTIONS),
+    #{<<"name">> := Name} = Key,
+    {ok, Key} = hex_api:get_key(Name, ?OPTIONS),
+    ok.

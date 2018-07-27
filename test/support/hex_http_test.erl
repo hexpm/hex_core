@@ -90,12 +90,16 @@ fixture(<<?TEST_API_URI, "/users/josevalim">>, _) ->
     },
     {ok, {200, [], term_to_binary(Payload)}};
 
+%% /packages/:package
+
 fixture(<<?TEST_API_URI, "/packages/ecto">>, _) ->
     Payload = #{
         <<"name">> => <<"ecto">>,
         <<"releases">> => []
     },
     {ok, {200, [], term_to_binary(Payload)}};
+
+%% /packages/:package/releases/:version
 
 fixture(<<?TEST_API_URI, "/packages/ecto/releases/1.0.0">>, _) ->
     Payload = #{
@@ -110,6 +114,8 @@ fixture(<<?TEST_API_URI, "/packages/ecto/releases/1.0.0">>, _) ->
     },
     {ok, {200, [], term_to_binary(Payload)}};
 
+%% /packages
+
 fixture(<<?TEST_API_URI, "/packages?search=ecto", _/binary>>, _) ->
     Payload = [
         #{
@@ -118,6 +124,8 @@ fixture(<<?TEST_API_URI, "/packages?search=ecto", _/binary>>, _) ->
         }
     ],
     {ok, {200, [], term_to_binary(Payload)}};
+
+%% /packages/:package/owners
 
 fixture(<<?TEST_API_URI, "/packages/decimal/owners", _/binary>>, #{<<"authorization">> := Token}) when is_binary(Token) ->
     Payload = [
@@ -129,6 +137,29 @@ fixture(<<?TEST_API_URI, "/packages/decimal/owners", _/binary>>, #{<<"authorizat
 
 fixture(<<?TEST_API_URI, "/packages/decimal/owners", _/binary>>, _) ->
     {ok, {401, [], <<"">>}};
+
+%% /keys
+
+fixture(<<?TEST_API_URI, "/keys">>, #{<<"authorization">> := Token}) when is_binary(Token) ->
+    Payload = [
+        #{
+            <<"name">> => <<"key-1">>
+        }
+    ],
+    {ok, {200, [], term_to_binary(Payload)}};
+
+%% /keys/:name
+
+fixture(<<?TEST_API_URI, "/keys/", Name/binary>>, #{<<"authorization">> := Token}) when is_binary(Token) ->
+    Payload = #{
+        <<"name">> => Name
+    },
+    {ok, {200, [], term_to_binary(Payload)}};
+
+fixture(<<?TEST_API_URI, "/keys", _/binary>>, _) ->
+    {ok, {401, [], <<"">>}};
+
+%% Other
 
 fixture(URI, _) ->
     error({no_fixture, URI}).

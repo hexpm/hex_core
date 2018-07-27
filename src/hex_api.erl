@@ -9,6 +9,10 @@
     get_release/3,
     get_user/1,
     get_user/2,
+    get_keys/0,
+    get_keys/1,
+    get_key/1,
+    get_key/2,
     search/1,
     search/2,
     search/3,
@@ -215,6 +219,22 @@ get_owners(Name) when is_binary(Name) ->
 -spec get_owners(binary(), options()) -> {ok, [map()]} | {error, term()}.
 get_owners(Name, Options) when is_binary(Name) and is_list(Options) ->
     get(<<"/packages/", Name/binary, "/owners">>, merge_with_default_options(Options)).
+
+-spec get_keys() -> {ok, [map()]} | {error, term()}.
+get_keys() ->
+    hex_api:get_keys([]).
+
+-spec get_keys(options()) -> {ok, [map()]} | {error, term()}.
+get_keys(Options) when is_list(Options) ->
+    get(<<"/keys">>, merge_with_default_options(Options)).
+
+-spec get_key(binary()) -> {ok, [map()]} | {error, term()}.
+get_key(Name) ->
+    hex_api:get_keys(Name, []).
+
+-spec get_key(binary(), options()) -> {ok, [map()]} | {error, term()}.
+get_key(Name, Options) when is_list(Options) ->
+    get(<<"/keys/", Name/binary>>, merge_with_default_options(Options)).
 
 %%====================================================================
 %% Internal functions
