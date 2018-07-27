@@ -19,6 +19,8 @@ filenames="hex_erl.hrl \
            hex_pb_signed.erl \
            hex_tarball.erl \
            hex_registry.erl \
+           hex_repo.erl \
+           hex_api.erl \
            safe_erl_term.xrl"
 
 search_to_replace="hex_erl.hrl \
@@ -28,6 +30,8 @@ search_to_replace="hex_erl.hrl \
                    hex_pb_signed \
                    hex_registry \
                    hex_tarball \
+                   hex_repo \
+                   hex_api \
                    safe_erl_term"
 
 rm -f $target_dir/$prefix*
