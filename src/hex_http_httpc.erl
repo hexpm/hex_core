@@ -1,18 +1,18 @@
 -module(hex_http_httpc).
 -behaviour(hex_http).
--export([get/2]).
+-export([request/3]).
 
 %%====================================================================
 %% API functions
 %%====================================================================
 
-get(URI, RequestHeaders) ->
+request(Method, URI, ReqHeaders) ->
     URI2 = binary_to_list(URI),
-    RequestHeaders2 = headers_map_to_list(RequestHeaders),
-    {ok, {{_, StatusCode, _}, ResponseHeaders, ResponseBody}} =
-        httpc:request(get, {URI2, RequestHeaders2}, [], [{body_format, binary}]),
-    ResponseHeaders2 = headers_list_to_map(ResponseHeaders),
-    {ok, {StatusCode, ResponseHeaders2, ResponseBody}}.
+    ReqHeaders2 = headers_map_to_list(ReqHeaders),
+    {ok, {{_, StatusCode, _}, RespHeaders, RespBody}} =
+        httpc:request(Method, {URI2, ReqHeaders2}, [], [{body_format, binary}]),
+    RespHeaders2 = headers_list_to_map(RespHeaders),
+    {ok, {StatusCode, RespHeaders2, RespBody}}.
 
 %%====================================================================
 %% Internal functions

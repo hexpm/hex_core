@@ -214,7 +214,7 @@ set_header({api_key, Token}, Headers) -> maps:put(<<"authorization">>, Token, He
 set_header(_Option, Headers) -> Headers.
 
 get(Client, URI, Headers) ->
-    hex_http:get(Client, URI, Headers).
+    hex_http:request(Client, get, URI, Headers).
 
 get_protobuf(Path, Decoder, Options) ->
     Client = proplists:get_value(client, Options),

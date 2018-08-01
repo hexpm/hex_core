@@ -49,7 +49,7 @@ get(Path, Options) when is_binary(Path) and is_list(Options) ->
     DefaultHeaders = make_headers(Options),
     ReqHeaders = maps:put(<<"accept">>, <<"application/vnd.hex+erlang">>, DefaultHeaders),
 
-    case hex_http:get(Client, <<URI/binary, Path/binary>>, ReqHeaders) of
+    case hex_http:request(Client, get, <<URI/binary, Path/binary>>, ReqHeaders) of
         {ok, {200, _RespHeaders, Body}} ->
             {ok, binary_to_term(Body)};
 

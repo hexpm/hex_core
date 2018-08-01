@@ -1,6 +1,6 @@
 -module(hex_http_test).
 -behaviour(hex_http).
--export([get/2]).
+-export([request/3]).
 -define(TEST_REPO_URI, "https://repo.test").
 -define(TEST_API_URI, "https://api.test").
 -define(PRIVATE_KEY, hex_test_helpers:fixture("test_priv.pem")).
@@ -10,12 +10,17 @@
 %% API functions
 %%====================================================================
 
-get(URI, Headers) when is_binary(URI) and is_map(Headers) ->
+request(_Method, URI, Headers) when is_binary(URI) and is_map(Headers) ->
     fixture(URI, Headers).
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
+
+api_headers() ->
+    #{
+        <<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>
+    }.
 
 fixture(_, #{<<"if-none-match">> := <<"\"dummy\"">> = ETag}) ->
     Headers = #{
@@ -88,7 +93,7 @@ fixture(<<?TEST_API_URI, "/users/josevalim">>, _) ->
         <<"username">> => <<"josevalim">>,
         <<"packages">> => []
     },
-    {ok, {200, [], term_to_binary(Payload)}};
+    {ok, {200, api_headers(), term_to_binary(Payload)}};
 
 %% /packages/:package
 
@@ -97,7 +102,7 @@ fixture(<<?TEST_API_URI, "/packages/ecto">>, _) ->
         <<"name">> => <<"ecto">>,
         <<"releases">> => []
     },
-    {ok, {200, [], term_to_binary(Payload)}};
+    {ok, {200, api_headers(), term_to_binary(Payload)}};
 
 %% /packages/:package/releases/:version
 
@@ -112,7 +117,7 @@ fixture(<<?TEST_API_URI, "/packages/ecto/releases/1.0.0">>, _) ->
             }
         }
     },
-    {ok, {200, [], term_to_binary(Payload)}};
+    {ok, {200, api_headers(), term_to_binary(Payload)}};
 
 %% /packages
 
@@ -123,7 +128,7 @@ fixture(<<?TEST_API_URI, "/packages?search=ecto", _/binary>>, _) ->
             <<"releases">> => []
         }
     ],
-    {ok, {200, [], term_to_binary(Payload)}};
+    {ok, {200, api_headers(), term_to_binary(Payload)}};
 
 %% /packages/:package/owners
 
@@ -133,10 +138,10 @@ fixture(<<?TEST_API_URI, "/packages/decimal/owners", _/binary>>, #{<<"authorizat
             <<"username">> => <<"ericmj">>
         }
     ],
-    {ok, {200, [], term_to_binary(Payload)}};
+    {ok, {200, api_headers(), term_to_binary(Payload)}};
 
 fixture(<<?TEST_API_URI, "/packages/decimal/owners", _/binary>>, _) ->
-    {ok, {401, [], <<"">>}};
+    {ok, {401, api_headers(), <<"">>}};
 
 %% /keys
 
@@ -146,7 +151,7 @@ fixture(<<?TEST_API_URI, "/keys">>, #{<<"authorization">> := Token}) when is_bin
             <<"name">> => <<"key-1">>
         }
     ],
-    {ok, {200, [], term_to_binary(Payload)}};
+    {ok, {200, api_headers(), term_to_binary(Payload)}};
 
 %% /keys/:name
 
@@ -154,10 +159,10 @@ fixture(<<?TEST_API_URI, "/keys/", Name/binary>>, #{<<"authorization">> := Token
     Payload = #{
         <<"name">> => Name
     },
-    {ok, {200, [], term_to_binary(Payload)}};
+    {ok, {200, api_headers(), term_to_binary(Payload)}};
 
 fixture(<<?TEST_API_URI, "/keys", _/binary>>, _) ->
-    {ok, {401, [], <<"">>}};
+    {ok, {401, api_headers(), <<"">>}};
 
 %% Other
 
