@@ -116,7 +116,7 @@ request(Method, URI, ReqHeaders) ->
 It's recommended to write a wrapper module because a lot of decisions are left to the user, e.g.:
 where to get configuration from, how to handle caching, failures etc.
 
-For a sample, see: <examples/myapp_hex.erl>. Here's an excerpt:
+For a sample, see: [`examples/myapp_hex.erl`](examples/myapp_hex.erl). Here's an excerpt:
 
 ```erlang
 -module(myapp_hex).
