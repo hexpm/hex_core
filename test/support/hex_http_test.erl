@@ -104,6 +104,13 @@ fixture(<<?TEST_API_URI, "/packages/ecto">>, _) ->
     },
     {ok, {200, api_headers(), term_to_binary(Payload)}};
 
+fixture(<<?TEST_API_URI, "/packages/nonexisting">>, _) ->
+    Payload = #{
+        <<"message">> => <<"Page not found">>,
+        <<"status">> => 404
+    },
+    {ok, {404, api_headers(), term_to_binary(Payload)}};
+
 %% /packages/:package/releases/:version
 
 fixture(<<?TEST_API_URI, "/packages/ecto/releases/1.0.0">>, _) ->

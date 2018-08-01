@@ -1,0 +1,35 @@
+-module(hex_erl).
+-export([default_options/0]).
+
+%% https://hex.pm/docs/public_keys
+-define(HEXPM_PUBLIC_KEY, <<"-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApqREcFDt5vV21JVe2QNB
+Edvzk6w36aNFhVGWN5toNJRjRJ6m4hIuG4KaXtDWVLjnvct6MYMfqhC79HAGwyF+
+IqR6Q6a5bbFSsImgBJwz1oadoVKD6ZNetAuCIK84cjMrEFRkELtEIPNHblCzUkkM
+3rS9+DPlnfG8hBvGi6tvQIuZmXGCxF/73hU0/MyGhbmEjIKRtG6b0sJYKelRLTPW
+XgK7s5pESgiwf2YC/2MGDXjAJfpfCd0RpLdvd4eRiXtVlE9qO9bND94E7PgQ/xqZ
+J1i2xWFndWa6nfFnRxZmCStCOZWYYPlaxr+FZceFbpMwzTNs4g3d4tLNUcbKAIH4
+0wIDAQAB
+-----END PUBLIC KEY-----">>).
+
+-type options() :: [
+    {client, hex_http:client()} |
+    {api_uri, binary()} |
+    {api_key, binary()} |
+    {repo_uri, binary()} |
+    {repo_public_key, binary()} |
+    {repo_verify, boolean()}
+].
+
+-spec default_options() -> options().
+default_options() ->
+    [
+        {client, #{
+            adapter => hex_http_httpc,
+            user_agent_fragment => <<"(httpc)">>
+        }},
+        {api_uri, <<"https://hex.pm/api">>},
+        {repo_uri, <<"https://repo.hex.pm">>},
+        {repo_public_key, ?HEXPM_PUBLIC_KEY},
+        {repo_verify, true}
+    ].
