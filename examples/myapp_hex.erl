@@ -10,37 +10,40 @@
 %%====================================================================
 
 get_api_package(Name) ->
-    with_http_cache({api_package, Name}, fun(Options) ->
-        case hex_api:get_package(Name, maps:merge(Options, options())) of
-            {ok, {200, _Headers, Payload}} ->
-                {ok, Payload};
+    Result = with_http_cache({api_package, Name}, fun(Options) ->
+        hex_api:get_package(Name, maps:merge(Options, options()))
+    end),
+    case Result of
+        {ok, {200, _Headers, Payload}} ->
+            {ok, Payload};
 
-            Other ->
-                Other
-        end
-    end).
+        Other ->
+            Other
+    end.
 
 get_repo_versions() ->
-    with_http_cache(repo_versions, fun(Options) ->
-        case hex_repo:get_versions(maps:merge(Options, options())) of
-            {ok, {200, _Headers, Payload}} ->
-                {ok, maps:get(packages, Payload)};
+    Result = with_http_cache(repo_versions, fun(Options) ->
+        hex_repo:get_versions(maps:merge(Options, options()))
+    end),
+    case Result of
+        {ok, {200, _Headers, Payload}} ->
+            {ok, maps:get(packages, Payload)};
 
-            Other ->
-                Other
-        end
-    end).
+        Other ->
+            Other
+    end.
 
 get_repo_tarball(Name, Version) ->
-    with_http_cache({repo_tarball, Name, Version}, fun(Options) ->
-        case hex_repo:get_tarball(Name, Version, maps:merge(Options, options())) of
-            {ok, {200, _Headers, Tarball}} ->
-                {ok, Tarball};
+    Result = with_http_cache({repo_tarball, Name, Version}, fun(Options) ->
+        hex_repo:get_tarball(Name, Version, maps:merge(Options, options()))
+    end),
+    case Result of
+        {ok, {200, _Headers, Tarball}} ->
+            {ok, Tarball};
 
-            Other ->
-                Other
-        end
-    end).
+        Other ->
+            Other
+    end.
 
 %%====================================================================
 %% Internal functions
@@ -66,10 +69,9 @@ with_http_cache(Key, Fun) ->
     Options = #{http_etag => ETag},
     case Fun(Options) of
         {ok, {200, Headers, Body}} ->
-            ETag = maps:get(<<"etag">>, Headers),
             ok = put_cache({etag, Key}, ETag),
             ok = put_cache({body, Key}, Body),
-            {200, Headers, get_cache({body, Key}, undefined)};
+            {200, Headers, Body};
 
         {ok, {304, Headers, _Body}} ->
             {200, Headers, get_cache({body, Key}, undefined)};
@@ -78,8 +80,15 @@ with_http_cache(Key, Fun) ->
             Other
     end.
 
+%% naive, process dictionary based cache. Don't use in production!
 get_cache(Key, Default) ->
-    application:get_env(myapp_hex, {cache, Key}, Default).
+    case erlang:get({cache, Key}) of
+        undefined ->
+            Default;
+        Other ->
+            Other
+    end.
 
 put_cache(Key, Value) ->
-    application:set_env(myapp_hex, {cache, Key}, Value).
+    erlang:put({cache, Key}, Value),
+    ok.
