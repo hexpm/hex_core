@@ -20,8 +20,10 @@ disk_test() ->
         ok = file:change_mode("foo.erl", 8#100644),
         ok = file:write_file("bad.erl", <<"bad">>),
 
-        Metadata = #{<<"app">> => <<"foo">>, <<"version">> => <<"1.0.0">>, <<"build_tool">> => <<"rebar3">>},
+        %% "." - we simulate adding whole directory but we expect that ./bad.erl
+        %% is not added to tarball because it's not whitelisted
         Files = [".", "foo.erl"],
+        Metadata = #{<<"app">> => <<"foo">>, <<"version">> => <<"1.0.0">>, <<"build_tool">> => <<"rebar3">>},
         {ok, {Tarball, Checksum}} = hex_tarball:create(Metadata, Files),
         <<"53787F9D87A09DE9A31FB2F367E75CDE92605643A982E021000A2ECAC6384B21">> = hex_tarball:format_checksum(Checksum),
         {ok, #{checksum := Checksum, metadata := Metadata}} = hex_tarball:unpack(Tarball, "unpack"),
