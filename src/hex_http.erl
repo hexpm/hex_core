@@ -5,8 +5,6 @@
 -endif.
 -include_lib("hex_erl.hrl").
 
--type adapter() :: module().
--type client() :: #{adapter => adapter(), user_agent_fragment => binary()}.
 -type method() :: get | post | put | patch | delete.
 -type status() :: non_neg_integer().
 -type headers() :: #{binary() => binary()}.
@@ -15,9 +13,11 @@
     {ok, status(), headers(), binary()} |
     {error, term()}.
 
--spec request(client(), method(), string(), headers()) ->
+-spec request(hex_erl:options(), method(), string(), headers()) ->
     {ok, {status(), headers(), binary()}} | {error, term()}.
-request(#{adapter := Adapter, user_agent_fragment := UserAgentFragment}, Method, URI, Headers) when is_binary(URI) and is_map(Headers) ->
+request(Options, Method, URI, Headers) when is_binary(URI) and is_map(Headers) ->
+    Adapter = proplists:get_value(http_adapter, Options),
+    UserAgentFragment = proplists:get_value(http_user_agent_fragment, Options),
     Headers2 = put_new(<<"user-agent">>, user_agent(UserAgentFragment), Headers),
     Adapter:request(Method, URI, Headers2).
 

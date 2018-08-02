@@ -1,7 +1,8 @@
 -module(hex_repo_tests).
 -include_lib("eunit/include/eunit.hrl").
 -define(OPTIONS, [
-    {client, #{adapter => hex_http_test, user_agent_fragment => <<"(test)">>}},
+    {http_adapter, hex_http_test},
+    {http_user_agent_fragment, <<"(test)">>},
     {repo_uri, <<"https://repo.test">>},
     {repo_public_key, hex_test_helpers:fixture("test_pub.pem")},
     {repo_verify, true}

@@ -12,10 +12,12 @@ J1i2xWFndWa6nfFnRxZmCStCOZWYYPlaxr+FZceFbpMwzTNs4g3d4tLNUcbKAIH4
 0wIDAQAB
 -----END PUBLIC KEY-----">>).
 
+
 -type options() :: [
-    {client, hex_http:client()} |
     {api_uri, binary()} |
     {api_key, binary()} |
+    {http_adapter, module()} |
+    {http_user_agent_fragment, binary()} |
     {repo_uri, binary()} |
     {repo_public_key, binary()} |
     {repo_verify, boolean()}
@@ -24,11 +26,9 @@ J1i2xWFndWa6nfFnRxZmCStCOZWYYPlaxr+FZceFbpMwzTNs4g3d4tLNUcbKAIH4
 -spec default_options() -> options().
 default_options() ->
     [
-        {client, #{
-            adapter => hex_http_httpc,
-            user_agent_fragment => <<"(httpc)">>
-        }},
         {api_uri, <<"https://hex.pm/api">>},
+        {http_adapter, hex_http_httpc},
+        {http_user_agent_fragment, <<"(httpc)">>},
         {repo_uri, <<"https://repo.hex.pm">>},
         {repo_public_key, ?HEXPM_PUBLIC_KEY},
         {repo_verify, true}

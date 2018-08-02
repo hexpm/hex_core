@@ -133,12 +133,11 @@ get_key(Name, Options) when is_list(Options) ->
 %%====================================================================
 
 get(Path, Options) when is_binary(Path) and is_list(Options) ->
-    Client = proplists:get_value(client, Options),
     URI = proplists:get_value(api_uri, Options),
     DefaultHeaders = make_headers(Options),
     ReqHeaders = maps:put(<<"accept">>, ?CONTENT_TYPE, DefaultHeaders),
 
-    case hex_http:request(Client, get, <<URI/binary, Path/binary>>, ReqHeaders) of
+    case hex_http:request(Options, get, <<URI/binary, Path/binary>>, ReqHeaders) of
         {ok, {Status, RespHeaders, Body} = Response} ->
             ContentType = maps:get(<<"content-type">>, RespHeaders),
             case binary:match(ContentType, ?CONTENT_TYPE) of

@@ -1,7 +1,8 @@
 -module(hex_api_tests).
 -include_lib("eunit/include/eunit.hrl").
 -define(OPTIONS, [
-    {client, #{adapter => hex_http_test, user_agent_fragment => <<"(test)">>}},
+    {http_adapter, hex_http_test},
+    {http_user_agent_fragment, <<"(test)">>},
     {api_uri, <<"https://api.test">>},
     {api_key, <<"dummy">>}
 ]).

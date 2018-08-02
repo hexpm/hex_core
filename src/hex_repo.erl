@@ -79,11 +79,10 @@ get_package(Name, Options) when is_binary(Name) and is_list(Options) ->
 %% '''
 %% @end
 get_tarball(Name, Version, Options) ->
-    Client = proplists:get_value(client, Options),
     URI = proplists:get_value(repo_uri, Options),
     ReqHeaders = make_headers(Options),
 
-    case get(Client, tarball_uri(URI, Name, Version), ReqHeaders) of
+    case get(Options, tarball_uri(URI, Name, Version), ReqHeaders) of
         {ok, {200, RespHeaders, Tarball}} ->
             {ok, {200, RespHeaders, Tarball}};
 
@@ -95,16 +94,15 @@ get_tarball(Name, Version, Options) ->
 %% Internal functions
 %%====================================================================
 
-get(Client, URI, Headers) ->
-    hex_http:request(Client, get, URI, Headers).
+get(Options, URI, Headers) ->
+    hex_http:request(Options, get, URI, Headers).
 
 get_protobuf(Path, Decoder, Options) ->
-    Client = proplists:get_value(client, Options),
     URI = proplists:get_value(repo_uri, Options),
     PublicKey = proplists:get_value(repo_public_key, Options),
     ReqHeaders = make_headers(Options),
 
-    case get(Client, <<URI/binary, Path/binary>>, ReqHeaders) of
+    case get(Options, <<URI/binary, Path/binary>>, ReqHeaders) of
         {ok, {200, RespHeaders, Compressed}} ->
             Signed = zlib:gunzip(Compressed),
             case decode(Signed, PublicKey, Decoder, Options) of

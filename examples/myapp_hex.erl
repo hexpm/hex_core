@@ -48,14 +48,13 @@ get_repo_tarball(Name, Version) ->
 
 options() ->
     Options1 = hex_erl:default_options(),
-    Options2 = put_client(Options1),
+    Options2 = put_http_options(Options1),
     Options3 = maybe_put_api_key(Options2),
     Options3.
 
-put_client(Options) ->
-    Client1 = proplists:get_value(client, Options),
-    Client2 = maps:put(user_agent_fragment, <<"(myapp/1.0.0) (httpc)">>, Client1),
-    lists:keystore(client, 1, Options, {client, Client2}).
+put_http_options(Options) ->
+    Fragment = <<"(myapp/1.0.0) (httpc)">>,
+    lists:keystore(http_user_agent_fragment, 1, Options, {http_user_agent_fragment, Fragment}).
 
 maybe_put_api_key(Options) ->
     case os:getenv("HEX_API_KEY") of
