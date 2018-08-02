@@ -390,7 +390,7 @@ add_file(Tar, Filename) when is_list(Filename) ->
         symlink ->
             ok = hex_erl_tar:add(Tar, Filename, tar_opts());
         directory ->
-            ok = hex_erl_tar:add(Tar, Filename, tar_opts());
+            ok;
         _ ->
             Mode = FileInfo#file_info.mode,
             {ok, Contents} = file:read_file(Filename),

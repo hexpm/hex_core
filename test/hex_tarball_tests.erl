@@ -18,12 +18,16 @@ disk_test() ->
     hex_test_helpers:in_tmp(fun() ->
         ok = file:write_file("foo.erl", <<"-module(foo).">>),
         ok = file:change_mode("foo.erl", 8#100644),
+        ok = file:write_file("bad.erl", <<"bad">>),
 
+        %% "." - we simulate adding whole directory but we expect that ./bad.erl
+        %% is not added to tarball because it's not whitelisted
+        Files = [".", "foo.erl"],
         Metadata = #{<<"app">> => <<"foo">>, <<"version">> => <<"1.0.0">>, <<"build_tool">> => <<"rebar3">>},
-        Files = ["foo.erl"],
         {ok, {Tarball, Checksum}} = hex_tarball:create(Metadata, Files),
         <<"53787F9D87A09DE9A31FB2F367E75CDE92605643A982E021000A2ECAC6384B21">> = hex_tarball:format_checksum(Checksum),
         {ok, #{checksum := Checksum, metadata := Metadata}} = hex_tarball:unpack(Tarball, "unpack"),
+        {ok, ["foo.erl", "hex_metadata.config"]} = file:list_dir("unpack/"),
         {ok, <<"-module(foo).">>} = file:read_file("unpack/foo.erl"),
         {ok, <<"{<<\"app\">>,<<\"foo\">>}.\n{<<\"build_tool\">>,<<\"rebar3\">>}.\n{<<\"version\">>,<<\"1.0.0\">>}.\n">>} =
             file:read_file("unpack/hex_metadata.config")
