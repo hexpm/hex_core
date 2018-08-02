@@ -16,8 +16,8 @@
 -spec request(hex_erl:options(), method(), string(), headers()) ->
     {ok, {status(), headers(), binary()}} | {error, term()}.
 request(Options, Method, URI, Headers) when is_binary(URI) and is_map(Headers) ->
-    Adapter = proplists:get_value(http_adapter, Options),
-    UserAgentFragment = proplists:get_value(http_user_agent_fragment, Options),
+    Adapter = maps:get(http_adapter, Options),
+    UserAgentFragment = maps:get(http_user_agent_fragment, Options),
     Headers2 = put_new(<<"user-agent">>, user_agent(UserAgentFragment), Headers),
     Adapter:request(Method, URI, Headers2).
 

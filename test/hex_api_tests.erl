@@ -1,12 +1,12 @@
 -module(hex_api_tests).
 -include_lib("eunit/include/eunit.hrl").
--define(OPTIONS, [
-    {http_adapter, hex_http_test},
-    {http_user_agent_fragment, <<"(test)">>},
-    {api_uri, <<"https://api.test">>},
-    {api_key, <<"dummy">>}
-]).
-% -define(OPTIONS, [{api_key, hex_test_helpers:api_key()} | hex_erl:default_options()]).
+-define(OPTIONS, #{
+    http_adapter => hex_http_test,
+    http_user_agent_fragment => <<"(test)">>,
+    api_uri => <<"https://api.test">>,
+    api_key => <<"dummy">>
+}).
+% -define(OPTIONS, maps:put(api_key, hex_test_helpers:api_key(), hex_erl:default_options())).
 
 get_package_test() ->
     {ok, {200, _, Package}} = hex_api:get_package(<<"ecto">>, ?OPTIONS),

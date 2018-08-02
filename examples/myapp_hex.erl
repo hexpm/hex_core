@@ -11,7 +11,7 @@
 
 get_api_package(Name) ->
     with_http_cache({api_package, Name}, fun(Options) ->
-        case hex_api:get_package(Name, Options ++ options()) of
+        case hex_api:get_package(Name, maps:merge(Options, options())) of
             {ok, {200, _Headers, Payload}} ->
                 {ok, Payload};
 
@@ -22,7 +22,7 @@ get_api_package(Name) ->
 
 get_repo_versions() ->
     with_http_cache(repo_versions, fun(Options) ->
-        case hex_repo:get_versions(Options ++ options()) of
+        case hex_repo:get_versions(maps:merge(Options, options())) of
             {ok, {200, _Headers, Payload}} ->
                 {ok, maps:get(packages, Payload)};
 
@@ -33,7 +33,7 @@ get_repo_versions() ->
 
 get_repo_tarball(Name, Version) ->
     with_http_cache({repo_tarball, Name, Version}, fun(Options) ->
-        case hex_repo:get_tarball(Name, Version, Options ++ options()) of
+        case hex_repo:get_tarball(Name, Version, maps:merge(Options, options())) of
             {ok, {200, _Headers, Tarball}} ->
                 {ok, Tarball};
 
@@ -53,18 +53,17 @@ options() ->
     Options3.
 
 put_http_options(Options) ->
-    Fragment = <<"(myapp/1.0.0) (httpc)">>,
-    lists:keystore(http_user_agent_fragment, 1, Options, {http_user_agent_fragment, Fragment}).
+    maps:put(http_user_agent_fragment, <<"(myapp/1.0.0) (httpc)">>, Options).
 
 maybe_put_api_key(Options) ->
     case os:getenv("HEX_API_KEY") of
         false -> Options;
-        Key -> lists:keystore(api_key, 1, Options, {api_key, Key})
+        Key -> maps:put(api_key, Options, Key)
     end.
 
 with_http_cache(Key, Fun) ->
     ETag = get_cache({etag, Key}, <<"">>),
-    Options = [{etag, ETag}],
+    Options = #{etag => ETag},
     case Fun(Options) of
         {ok, {200, Headers, Body}} ->
             ETag = maps:get(<<"etag">>, Headers),

@@ -41,7 +41,7 @@
 %% '''
 %% @end
 -spec get_package(binary(), hex_erl:options()) -> {ok, map()} | {error, term()}.
-get_package(Name, Options) when is_binary(Name) and is_list(Options) ->
+get_package(Name, Options) when is_binary(Name) and is_map(Options) ->
     get(<<"/packages/", Name/binary>>, Options).
 
 %% @doc
@@ -63,7 +63,7 @@ get_package(Name, Options) when is_binary(Name) and is_list(Options) ->
 %% '''
 %% @end
 -spec get_release(binary(), binary(), hex_erl:options()) -> {ok, map()} | {error, term()}.
-get_release(Name, Version, Options) when is_binary(Name) and is_binary(Version) and is_list(Options) ->
+get_release(Name, Version, Options) when is_binary(Name) and is_binary(Version) and is_map(Options) ->
     get(<<"/packages/", Name/binary, "/releases/", Version/binary>>, Options).
 
 %% @doc
@@ -87,7 +87,7 @@ get_release(Name, Version, Options) when is_binary(Name) and is_binary(Version) 
 %% '''
 %% @end
 -spec get_user(binary(), hex_erl:options()) -> {ok, map()} | {error, term()}.
-get_user(Username, Options) when is_binary(Username) and is_list(Options) ->
+get_user(Username, Options) when is_binary(Username) and is_map(Options) ->
     get(<<"/users/", Username/binary>>, Options).
 
 %% @doc
@@ -103,7 +103,7 @@ get_user(Username, Options) when is_binary(Username) and is_list(Options) ->
 %%     %%=> ]}}
 %% '''
 -spec search(binary(), search_params(), hex_erl:options()) -> {ok, [map()]} | {error, term()}.
-search(Query, SearchParams, Options) when is_binary(Query) and is_list(SearchParams) and is_list(Options) ->
+search(Query, SearchParams, Options) when is_binary(Query) and is_list(SearchParams) and is_map(Options) ->
     QueryString = encode_query_string([{search, Query} | SearchParams]),
     get(<<"/packages?", QueryString/binary>>, Options).
 
@@ -117,23 +117,23 @@ search(Query, SearchParams, Options) when is_binary(Query) and is_list(SearchPar
 %%     %%=> ]}}
 %% '''
 -spec get_owners(binary(), hex_erl:options()) -> {ok, [map()]} | {error, term()}.
-get_owners(Name, Options) when is_binary(Name) and is_list(Options) ->
+get_owners(Name, Options) when is_binary(Name) and is_map(Options) ->
     get(<<"/packages/", Name/binary, "/owners">>, Options).
 
 -spec get_keys(hex_erl:options()) -> {ok, [map()]} | {error, term()}.
-get_keys(Options) when is_list(Options) ->
+get_keys(Options) when is_map(Options) ->
     get(<<"/keys">>, Options).
 
 -spec get_key(binary(), hex_erl:options()) -> {ok, [map()]} | {error, term()}.
-get_key(Name, Options) when is_list(Options) ->
+get_key(Name, Options) when is_map(Options) ->
     get(<<"/keys/", Name/binary>>, Options).
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
 
-get(Path, Options) when is_binary(Path) and is_list(Options) ->
-    URI = proplists:get_value(api_uri, Options),
+get(Path, Options) when is_binary(Path) and is_map(Options) ->
+    URI = maps:get(api_uri, Options),
     DefaultHeaders = make_headers(Options),
     ReqHeaders = maps:put(<<"accept">>, ?CONTENT_TYPE, DefaultHeaders),
 
@@ -175,7 +175,7 @@ join_prepend(Sep, [H|T]) -> [Sep,H|join_prepend(Sep,T)].
 
 %% TODO: copy-pasted from hex_repo
 make_headers(Options) ->
-    lists:foldl(fun set_header/2, #{}, Options).
+    maps:fold(fun set_header/3, #{}, Options).
 
-set_header({api_key, Token}, Headers) -> maps:put(<<"authorization">>, Token, Headers);
-set_header(_Option, Headers) -> Headers.
+set_header(api_key, Token, Headers) -> maps:put(<<"authorization">>, Token, Headers);
+set_header(_, _, Headers) -> Headers.

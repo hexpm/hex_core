@@ -24,7 +24,7 @@
 %%     %%=>     ]}}}
 %% '''
 %% @end
-get_names(Options) when is_list(Options) ->
+get_names(Options) when is_map(Options) ->
     Decoder = fun hex_registry:decode_names/1,
     get_protobuf(<<"/names">>, Decoder, Options).
 
@@ -44,7 +44,7 @@ get_names(Options) when is_list(Options) ->
 %%     %%=>     ]}}}
 %% '''
 %% @end
-get_versions(Options) when is_list(Options) ->
+get_versions(Options) when is_map(Options) ->
     Decoder = fun hex_registry:decode_versions/1,
     get_protobuf(<<"/versions">>, Decoder, Options).
 
@@ -64,7 +64,7 @@ get_versions(Options) when is_list(Options) ->
 %%     %%=>     ]}}}
 %% '''
 %% @end
-get_package(Name, Options) when is_binary(Name) and is_list(Options) ->
+get_package(Name, Options) when is_binary(Name) and is_map(Options) ->
     Decoder = fun hex_registry:decode_package/1,
     get_protobuf(<<"/packages/", Name/binary>>, Decoder, Options).
 
@@ -79,7 +79,7 @@ get_package(Name, Options) when is_binary(Name) and is_list(Options) ->
 %% '''
 %% @end
 get_tarball(Name, Version, Options) ->
-    URI = proplists:get_value(repo_uri, Options),
+    URI = maps:get(repo_uri, Options),
     ReqHeaders = make_headers(Options),
 
     case get(Options, tarball_uri(URI, Name, Version), ReqHeaders) of
@@ -98,8 +98,8 @@ get(Options, URI, Headers) ->
     hex_http:request(Options, get, URI, Headers).
 
 get_protobuf(Path, Decoder, Options) ->
-    URI = proplists:get_value(repo_uri, Options),
-    PublicKey = proplists:get_value(repo_public_key, Options),
+    URI = maps:get(repo_uri, Options),
+    PublicKey = maps:get(repo_public_key, Options),
     ReqHeaders = make_headers(Options),
 
     case get(Options, <<URI/binary, Path/binary>>, ReqHeaders) of
@@ -118,7 +118,7 @@ get_protobuf(Path, Decoder, Options) ->
     end.
 
 decode(Signed, PublicKey, Decoder, Options) ->
-    Verify = proplists:get_value(verify, Options, true),
+    Verify = maps:get(repo_verify, Options, true),
 
     case Verify of
         true ->
@@ -141,8 +141,8 @@ tarball_filename(Name, Version) ->
     <<Name/binary, "-", Version/binary, ".tar">>.
 
 make_headers(Options) ->
-    lists:foldl(fun set_header/2, #{}, Options).
+    maps:fold(fun set_header/3, #{}, Options).
 
-set_header({etag, ETag}, Headers) -> maps:put(<<"if-none-match">>, ETag, Headers);
-set_header({api_key, Token}, Headers) -> maps:put(<<"authorization">>, Token, Headers);
-set_header(_Option, Headers) -> Headers.
+set_header(etag, ETag, Headers) -> maps:put(<<"if-none-match">>, ETag, Headers);
+set_header(api_key, Token, Headers) -> maps:put(<<"authorization">>, Token, Headers);
+set_header(_, _, Headers) -> Headers.

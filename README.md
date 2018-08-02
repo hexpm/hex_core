@@ -94,11 +94,9 @@ The default configuration, provided by `hex_erl:default_options/0`, uses built-i
 HTTP client configuration can be overriden as follows:
 
 ```erlang
-Adapter = my_hackney_adapter,
-Fragment = <<"(my_app/0.1.0) (hackney/1.12.1) ">>,
 Options1 = hex_erl:default_options(),
-Options2 = lists:keystore(http_adapter, 1, Options1, Adapter),
-Options3 = lists:keystore(http_user_agent_fragment, 1, Options2, {http_user_agent_fragment, Fragment}),
+Options2 = maps:put(http_adapter, my_hackney_adapter, Options1),
+Options3 = maps:put(http_user_agent_fragment, <<"(my_app/0.1.0) (hackney/1.12.1) ">>, Options2),
 hex_repo:get_names(Options3).
 
 %% my_hackney_adapter.erl
@@ -158,13 +156,12 @@ options() ->
     Options3.
 
 put_http_options(Options) ->
-    Fragment = <<"(myapp/1.0.0) (httpc)">>,
-    lists:keystore(http_user_agent_fragment, 1, Options, {http_user_agent_fragment, Fragment}).
+    maps:put(http_user_agent_fragment, <<"(myapp/1.0.0) (httpc)">>, Options).
 
 maybe_put_api_key(Options) ->
     case os:getenv("HEX_API_KEY") of
         false -> Options;
-        Key -> lists:keystore(api_key, 1, Options, {api_key, Key})
+        Key -> maps:put(api_key, Key, Options)
     end.
 ```
 
