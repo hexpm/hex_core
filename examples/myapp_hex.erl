@@ -63,7 +63,7 @@ maybe_put_api_key(Options) ->
 
 with_http_cache(Key, Fun) ->
     ETag = get_cache({etag, Key}, <<"">>),
-    Options = #{etag => ETag},
+    Options = #{http_etag => ETag},
     case Fun(Options) of
         {ok, {200, Headers, Body}} ->
             ETag = maps:get(<<"etag">>, Headers),

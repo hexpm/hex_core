@@ -33,7 +33,7 @@ get_tarball_test() ->
     {ok, {200, #{<<"etag">> := ETag}, Tarball}} = hex_repo:get_tarball(<<"ecto">>, <<"1.0.0">>, ?OPTIONS),
     {ok, _} = hex_tarball:unpack(Tarball, memory),
 
-    {ok, {304, _, _}} = hex_repo:get_tarball(<<"ecto">>, <<"1.0.0">>, maps:put(etag, ETag, ?OPTIONS)),
+    {ok, {304, _, _}} = hex_repo:get_tarball(<<"ecto">>, <<"1.0.0">>, maps:put(http_etag, ETag, ?OPTIONS)),
 
     {ok, {403, _, _}} = hex_repo:get_tarball(<<"ecto">>, <<"9.9.9">>, ?OPTIONS),
     ok.
