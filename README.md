@@ -17,7 +17,7 @@ Get all package names:
 ```erlang
 hex_repo:get_names(Options).
 %%=> {ok, {200, ...,
-%%=>     #{package => [
+%%=>     #{packages => [
 %%=>         #{name => <<"package1">>},
 %%=>         #{name => <<"package2">>},
 %%=>         ...

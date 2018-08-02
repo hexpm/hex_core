@@ -18,7 +18,7 @@
 %% ```
 %%     hex_repo:get_names(hex_erl:default_options()).
 %%     %%=> {ok, {200, ...,
-%%     %%=>     #{package => [
+%%     %%=>     #{packages => [
 %%     %%=>         #{name => <<"package1">>},
 %%     %%=>         #{name => <<"package2">>},
 %%     %%=>     ]}}}
