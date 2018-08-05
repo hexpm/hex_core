@@ -16,19 +16,23 @@ memory_test() ->
 
 disk_test() ->
     hex_test_helpers:in_tmp(fun() ->
-        ok = file:write_file("foo.erl", <<"-module(foo).">>),
-        ok = file:change_mode("foo.erl", 8#100644),
-        ok = file:write_file("bad.erl", <<"bad">>),
+        ok = file:make_dir("src"),
+        ok = file:make_dir("empty"),
+        ok = file:write_file("src/foo.erl", <<"-module(foo).">>),
+        ok = file:change_mode("src/foo.erl", 8#100644),
+        ok = file:write_file("src/not_whitelisted.erl", <<"">>),
 
-        %% "." - we simulate adding whole directory but we expect that ./bad.erl
-        %% is not added to tarball because it's not whitelisted
-        Files = [".", "foo.erl"],
+        Files = ["empty", "src", "src/foo.erl"],
         Metadata = #{<<"app">> => <<"foo">>, <<"version">> => <<"1.0.0">>, <<"build_tool">> => <<"rebar3">>},
         {ok, {Tarball, Checksum}} = hex_tarball:create(Metadata, Files),
-        <<"53787F9D87A09DE9A31FB2F367E75CDE92605643A982E021000A2ECAC6384B21">> = hex_tarball:format_checksum(Checksum),
+        <<"34597B7933F4533C1BAFDD2053F2FBB398CF5D979BAC9F6E1F83A106FAE4491E">> = hex_tarball:format_checksum(Checksum),
         {ok, #{checksum := Checksum, metadata := Metadata}} = hex_tarball:unpack(Tarball, "unpack"),
-        {ok, ["foo.erl", "hex_metadata.config"]} = file:list_dir("unpack/"),
-        {ok, <<"-module(foo).">>} = file:read_file("unpack/foo.erl"),
+        ["unpack/empty",
+         "unpack/hex_metadata.config",
+         "unpack/src",
+         "unpack/src/foo.erl"
+        ] = filelib:wildcard("unpack/**/*"),
+        {ok, <<"-module(foo).">>} = file:read_file("unpack/src/foo.erl"),
         {ok, <<"{<<\"app\">>,<<\"foo\">>}.\n{<<\"build_tool\">>,<<\"rebar3\">>}.\n{<<\"version\">>,<<\"1.0.0\">>}.\n">>} =
             file:read_file("unpack/hex_metadata.config")
     end).
