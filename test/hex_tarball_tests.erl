@@ -32,8 +32,6 @@ disk_test() ->
          "unpack/src",
          "unpack/src/foo.erl"
         ] = filelib:wildcard("unpack/**/*"),
-        {ok, ["empty", "hex_metadata.config", "src"]} = file:list_dir("unpack/"),
-        {ok, ["foo.erl"]} = file:list_dir("unpack/src/"),
         {ok, <<"-module(foo).">>} = file:read_file("unpack/src/foo.erl"),
         {ok, <<"{<<\"app\">>,<<\"foo\">>}.\n{<<\"build_tool\">>,<<\"rebar3\">>}.\n{<<\"version\">>,<<\"1.0.0\">>}.\n">>} =
             file:read_file("unpack/hex_metadata.config")
