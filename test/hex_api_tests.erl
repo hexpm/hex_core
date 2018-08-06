@@ -15,14 +15,14 @@
 % -define(OPTIONS, maps:put(api_key, hex_test_helpers:api_key(), hex_erl:default_options())).
 
 get_package_test() ->
-    {ok, {200, _, Package}} = hex_api:get_package(<<"ecto">>, ?OPTIONS),
+    {ok, {200, _, Package}} = hex_api:get_package(nil, <<"ecto">>, ?OPTIONS),
     #{<<"name">> := <<"ecto">>, <<"releases">> := _} = Package,
 
-    {ok, {404, _, #{}}} = hex_api:get_package(<<"nonexisting">>, ?OPTIONS),
+    {ok, {404, _, #{}}} = hex_api:get_package(nil, <<"nonexisting">>, ?OPTIONS),
     ok.
 
 get_release_test() ->
-    {ok, {200, _, Release}} = hex_api:get_release(<<"ecto">>, <<"1.0.0">>, ?OPTIONS),
+    {ok, {200, _, Release}} = hex_api:get_release(nil, <<"ecto">>, <<"1.0.0">>, ?OPTIONS),
     #{<<"version">> := <<"1.0.0">>, <<"requirements">> := Requirements} = Release,
     #{<<"decimal">> := #{
         <<"app">> := <<"decimal">>, <<"optional">> := false, <<"requirement">> := <<"~> 1.0">>}} = Requirements,
@@ -34,12 +34,12 @@ get_user_test() ->
     ok.
 
 search_test() ->
-    {ok, {200, _, [Package | _]}} = hex_api:search(<<"ecto">>, [{sort, downloads}, {page, 1}], ?OPTIONS),
+    {ok, {200, _, [Package | _]}} = hex_api:search(nil, <<"ecto">>, [{sort, downloads}, {page, 1}], ?OPTIONS),
     #{<<"name">> := <<"ecto">>, <<"releases">> := _} = Package,
     ok.
 
 owner_test() ->
-    {ok, {200, _, [Owner | _]}} = hex_api:get_owners(<<"decimal">>, ?OPTIONS),
+    {ok, {200, _, [Owner | _]}} = hex_api:get_owners(nil, <<"decimal">>, ?OPTIONS),
     <<"ericmj">> = maps:get(<<"username">>, Owner),
     ok.
 
