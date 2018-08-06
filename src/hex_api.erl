@@ -132,17 +132,20 @@ get_key(Name, Options) when is_map(Options) ->
 %% Internal functions
 %%====================================================================
 
-get(Path, Options) when is_binary(Path) and is_map(Options) ->
+get(Path, Options) ->
+    request(get, Path, nil, Options).
+
+request(Method, Path, Body, Options) when is_binary(Path) and is_map(Options) ->
     URI = maps:get(api_uri, Options),
     DefaultHeaders = make_headers(Options),
     ReqHeaders = maps:put(<<"accept">>, ?CONTENT_TYPE, DefaultHeaders),
 
-    case hex_http:request(Options, get, <<URI/binary, Path/binary>>, ReqHeaders) of
-        {ok, {Status, RespHeaders, Body} = Response} ->
+    case hex_http:request(Options, Method, <<URI/binary, Path/binary>>, ReqHeaders, Body) of
+        {ok, {Status, RespHeaders, RespBody} = Response} ->
             ContentType = maps:get(<<"content-type">>, RespHeaders),
             case binary:match(ContentType, ?CONTENT_TYPE) of
                 {_, _} ->
-                    {ok, {Status, RespHeaders, binary_to_term(Body)}};
+                    {ok, {Status, RespHeaders, binary_to_term(RespBody)}};
 
                 nomatch ->
                     Response

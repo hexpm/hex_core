@@ -95,7 +95,7 @@ get_tarball(Name, Version, Options) ->
 %%====================================================================
 
 get(Options, URI, Headers) ->
-    hex_http:request(Options, get, URI, Headers).
+    hex_http:request(Options, get, URI, Headers, nil).
 
 get_protobuf(Path, Decoder, Options) ->
     URI = maps:get(repo_uri, Options),
