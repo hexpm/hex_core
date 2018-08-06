@@ -32,7 +32,7 @@ search_test() ->
     #{<<"name">> := <<"ecto">>, <<"releases">> := _} = Package,
     ok.
 
-get_owners_test() ->
+owner_test() ->
     {ok, {200, _, [Owner | _]}} = hex_api:get_owners(<<"decimal">>, ?OPTIONS),
     <<"ericmj">> = maps:get(<<"username">>, Owner),
     ok.

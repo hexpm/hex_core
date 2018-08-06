@@ -6,6 +6,9 @@
     get_keys/1,
     get_key/2,
     search/3,
+    add_owner/3,
+    delete_owner/3,
+    get_owner/3,
     get_owners/2
 ]).
 -define(CONTENT_TYPE, <<"application/vnd.hex+erlang">>).
@@ -107,6 +110,8 @@ search(Query, SearchParams, Options) when is_binary(Query) and is_list(SearchPar
     QueryString = encode_query_string([{search, Query} | SearchParams]),
     get(<<"/packages?", QueryString/binary>>, Options).
 
+%% owners
+
 %% Examples:
 %%
 %% ```
@@ -117,8 +122,22 @@ search(Query, SearchParams, Options) when is_binary(Query) and is_list(SearchPar
 %%     %%=> ]}}
 %% '''
 -spec get_owners(binary(), hex_erl:options()) -> {ok, [map()]} | {error, term()}.
-get_owners(Name, Options) when is_binary(Name) and is_map(Options) ->
-    get(<<"/packages/", Name/binary, "/owners">>, Options).
+get_owners(PackageName, Options) when is_binary(PackageName) and is_map(Options) ->
+    get(<<"/packages/", PackageName/binary, "/owners">>, Options).
+
+-spec get_owner(PackageName :: binary(), UsernameOrEmail :: binary(), hex_erl:options()) -> {ok, map()} | {error, term()}.
+get_owner(PackageName, UsernameOrEmail, Options) when is_binary(PackageName) and is_map(Options) ->
+    get(<<"/packages/", PackageName/binary, "/owners/", UsernameOrEmail/binary>>, Options).
+
+-spec add_owner(PackageName :: binary(), UsernameOrEmail :: binary(), hex_erl:options()) -> {ok, map()} | {error, term()}.
+add_owner(PackageName, UsernameOrEmail, Options) when is_binary(PackageName) and is_map(Options) ->
+    put(<<"/packages/", PackageName/binary, "/owners/", UsernameOrEmail/binary>>, Options).
+
+-spec delete_owner(PackageName :: binary(), UsernameOrEmail :: binary(), hex_erl:options()) -> {ok, map()} | {error, term()}.
+delete_owner(PackageName, UsernameOrEmail, Options) when is_binary(PackageName) and is_map(Options) ->
+    delete(<<"/packages/", PackageName/binary, "/owners/", UsernameOrEmail/binary>>, Options).
+
+%% keys
 
 -spec get_keys(hex_erl:options()) -> {ok, [map()]} | {error, term()}.
 get_keys(Options) when is_map(Options) ->
@@ -134,6 +153,15 @@ get_key(Name, Options) when is_map(Options) ->
 
 get(Path, Options) ->
     request(get, Path, nil, Options).
+
+post(Path, Body, Options) ->
+    request(post, Path, encode_body(Body), Options).
+
+put(Path, Body, Options) ->
+    request(put, Path, encode_body(Body), Options).
+
+delete(Path, Options) ->
+    request(delete, Path, nil, Options).
 
 request(Method, Path, Body, Options) when is_binary(Path) and is_map(Options) ->
     URI = maps:get(api_uri, Options),
@@ -154,6 +182,9 @@ request(Method, Path, Body, Options) when is_binary(Path) and is_map(Options) ->
         Other ->
             Other
     end.
+
+encode_body(Body) ->
+    {binary_to_list(?CONTENT_TYPE), term_to_binary(Body)}.
 
 encode_query_string(List) ->
     QueryString =
