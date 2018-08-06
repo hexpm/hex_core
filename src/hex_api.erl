@@ -5,6 +5,9 @@
     get_user/2,
     get_keys/1,
     get_key/2,
+    add_key/3,
+    delete_key/2,
+    delete_all_keys/1,
     search/3,
     add_owner/3,
     delete_owner/3,
@@ -143,9 +146,22 @@ delete_owner(PackageName, UsernameOrEmail, Options) when is_binary(PackageName) 
 get_keys(Options) when is_map(Options) ->
     get(<<"/keys">>, Options).
 
--spec get_key(binary(), hex_erl:options()) -> {ok, [map()]} | {error, term()}.
+-spec get_key(Name :: binary(), hex_erl:options()) -> {ok, map()} | {error, term()}.
 get_key(Name, Options) when is_map(Options) ->
     get(<<"/keys/", Name/binary>>, Options).
+
+-spec add_key(Name :: binary(), Permissions :: map(), hex_erl:options()) -> {ok, [map()]} | {error, term()}.
+add_key(Name, Permissions, Options) when is_map(Options) ->
+    Params = #{<<"name">> => Name, <<"permissions">> => Permissions},
+    post(<<"/keys">>, Params, Options).
+
+-spec delete_key(Name :: binary(), hex_erl:options()) -> {ok, map()} | {error, term()}.
+delete_key(Name, Options) when is_map(Options) ->
+    delete(<<"/keys/", Name/binary>>, Options).
+
+-spec delete_all_keys(hex_erl:options()) -> {ok, map()} | {error, term()}.
+delete_all_keys(Options) when is_map(Options) ->
+    delete(<<"/keys">>, Options).
 
 %%====================================================================
 %% Internal functions

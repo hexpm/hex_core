@@ -6,6 +6,12 @@
     api_uri => <<"https://api.test">>,
     api_key => <<"dummy">>
 }).
+% -define(OPTIONS, #{
+%     http_adapter => hex_http_httpc,
+%     http_user_agent_fragment => <<"(test)">>,
+%     api_uri => <<"http://localhost:4000/api">>,
+%     api_key => <<"fe1fc830186c7bd6cce26e73c875b7d3">>
+% }).
 % -define(OPTIONS, maps:put(api_key, hex_test_helpers:api_key(), hex_erl:default_options())).
 
 get_package_test() ->
@@ -42,4 +48,10 @@ keys_test() ->
     #{<<"name">> := Name} = Key,
 
     {ok, {200, _, Key}} = hex_api:get_key(Name, ?OPTIONS),
+
+    Permissions = [#{<<"domain">> => <<"api">>, <<"resource">> => <<"read">>}],
+    {ok, {201, _, Key2}} = hex_api:add_key(Name, Permissions, ?OPTIONS),
+    #{<<"name">> := Name2} = Key2,
+
+    {ok, {200, _, #{<<"name">> := Name2}}} = hex_api:delete_key(Name2, ?OPTIONS),
     ok.

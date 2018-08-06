@@ -169,9 +169,14 @@ fixture(get, <<?TEST_API_URI, "/keys/", Name/binary>>, #{<<"authorization">> := 
 fixture(get, <<?TEST_API_URI, "/keys", _/binary>>, _, _) ->
     {ok, {401, api_headers(), <<"">>}};
 
-fixture(post, <<?TEST_API_URI, "/keys">>, #{<<"authorization">> := Token}, Body) when is_binary(Token) ->
-    Payload = Body,
-    {ok, {201, api_headers(), term_to_binary(Payload)}};
+fixture(post, <<?TEST_API_URI, "/keys">>, #{<<"authorization">> := Token}, {_, Body}) when is_binary(Token) ->
+    {ok, {201, api_headers(), Body}};
+
+fixture(delete, <<?TEST_API_URI, "/keys/", Name/binary>>, #{<<"authorization">> := Token}, _) when is_binary(Token) ->
+    Payload = #{
+        <<"name">> => Name
+    },
+    {ok, {200, api_headers(), term_to_binary(Payload)}};
 
 %% Other
 
