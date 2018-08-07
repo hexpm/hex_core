@@ -21,7 +21,8 @@ J1i2xWFndWa6nfFnRxZmCStCOZWYYPlaxr+FZceFbpMwzTNs4g3d4tLNUcbKAIH4
     http_user_agent_fragment => binary(),
     repo_uri => binary(),
     repo_public_key => binary(),
-    repo_verify => boolean()
+    repo_verify => boolean(),
+    organziation => binary()
 }.
 
 -spec default_options() -> options().
