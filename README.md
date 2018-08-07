@@ -49,7 +49,7 @@ hex_repo:get_package(<<"package1">>, Options).
 Get package from HTTP API:
 
 ```erlang
-hex_api:get_package(<<"package1">>, Options).
+hex_api_package:get(<<"package1">>, Options).
 %%=> {ok, {200, ...,
 %%=>     #{
 %%=>         <<"name">> => <<"package1">>,
@@ -140,7 +140,7 @@ For a sample, see: [`examples/myapp_hex.erl`](examples/myapp_hex.erl). Here's an
 %%====================================================================
 
 get_api_package(Name) ->
-      case hex_api:get_package(Name, options()) of
+      case hex_api_package:get(Name, options()) of
           {ok, {200, _Headers, Payload}} ->
               {ok, Payload};
 

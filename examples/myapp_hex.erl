@@ -11,7 +11,7 @@
 
 get_api_package(Name) ->
     Result = with_http_cache({api_package, Name}, fun(Options) ->
-        hex_api:get_package(Name, maps:merge(Options, options()))
+        hex_api_package:get(Name, maps:merge(Options, options()))
     end),
     case Result of
         {ok, {200, _Headers, Payload}} ->
