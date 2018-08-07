@@ -22,4 +22,3 @@ delete(Name, Options) when is_map(Options) ->
 
 delete_all(Options) when is_map(Options) ->
     hex_api:delete(["keys"], Options).
-

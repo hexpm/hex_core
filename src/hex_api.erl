@@ -3,7 +3,8 @@
     delete/2,
     get/2,
     post/3,
-    put/3
+    put/3,
+    encode_query_string/1
 ]).
 -define(ERL_CONTENT_TYPE, <<"application/vnd.hex+erlang">>).
 
@@ -19,6 +20,21 @@ put(Path, Body, Options) ->
 delete(Path, Options) ->
     request(delete, Path, nil, Options).
 
+%% @private
+encode_query_string(List) ->
+    QueryString =
+        join("&",
+            lists:map(fun
+                ({K, V}) when is_atom(V) ->
+                    atom_to_list(K) ++ "=" ++ atom_to_list(V);
+                ({K, V}) when is_binary(V) ->
+                    atom_to_list(K) ++ "=" ++ binary_to_list(V);
+                ({K, V}) when is_integer(V) ->
+                    atom_to_list(K) ++ "=" ++ integer_to_list(V)
+            end, List)),
+    Encoded = http_uri:encode(QueryString),
+    list_to_binary(Encoded).
+
 %%====================================================================
 %% Internal functions
 %%====================================================================
@@ -26,8 +42,8 @@ delete(Path, Options) ->
 request(Method, PathSegments, Body, Options) when is_list(PathSegments) ->
     Path =
         erlang:iolist_to_binary(
-            lists:join(<<"/">>,
-                lists:map(fun http_uri:encode/1, PathSegments))),
+            join(<<"/">>,
+                lists:map(fun encode/1, PathSegments))),
     request(Method, <<"/", Path/binary>>, Body, Options);
 request(Method, Path, Body, Options) when is_binary(Path) and is_map(Options) ->
     DefaultHeaders = make_headers(Options),
@@ -48,6 +64,11 @@ request(Method, Path, Body, Options) when is_binary(Path) and is_map(Options) ->
         Other ->
             Other
     end.
+
+encode(Binary) when is_binary(Binary) ->
+    encode(binary_to_list(Binary));
+encode(String) when is_list(String) ->
+    http_uri:encode(String).
 
 build_url(Path, #{api_uri := URI, organization := Org}) when is_binary(Org) ->
     <<URI/binary, "/repos/", Org/binary, "/", Path/binary>>;
@@ -71,3 +92,10 @@ put_new(Key, Value, Map) ->
         {ok, _} -> Map;
         error -> maps:put(Key, Value, Map)
     end.
+
+%% https://github.com/erlang/otp/blob/OTP-20.3/lib/stdlib/src/lists.erl#L1449:L1453
+join(_Sep, []) -> [];
+join(Sep, [H|T]) -> [H|join_prepend(Sep, T)].
+
+join_prepend(_Sep, []) -> [];
+join_prepend(Sep, [H|T]) -> [Sep,H|join_prepend(Sep,T)].
