@@ -1,5 +1,6 @@
 -module(hex_api_release).
 -export([
+    delete/3,
     get/3,
     publish/2,
     retire/4,
@@ -25,19 +26,22 @@
 %% '''
 %% @end
 get(Name, Version, Options) when is_binary(Name) and is_binary(Version) and is_map(Options) ->
-    hex_api:get(<<"/packages/", Name/binary, "/releases/", Version/binary>>, Options).
+    hex_api:get(["packages", Name, "releases", Version], Options).
 
 publish(Tarball, Options) when is_binary(Tarball) and is_map(Options) ->
     TarballContentType = "application/octet-stream",
     Options2 = put_header(<<"content-length">>, byte_size(Tarball), Options),
     Body = {TarballContentType, Tarball},
-    hex_api:post(<<"/publish">>, Body, Options2).
+    hex_api:post(["publish"], Body, Options2).
+
+delete(Name, Version, Options) when is_binary(Name) and is_binary(Version) and is_map(Options) ->
+    hex_api:delete(["packages", Name, "releases", Version], Options).
 
 retire(Name, Version, Params, Options) when is_binary(Name) and is_binary(Version) and is_map(Options) ->
-    hex_api:post(<<"/packages/", Name/binary, "/releases/", Version/binary, "/retire">>, Params, Options).
+    hex_api:post(["packages", Name, "releases", Version, "retire"], Params, Options).
 
 unretire(Name, Version, Options) when is_binary(Name) and is_binary(Version) and is_map(Options) ->
-    hex_api:delete(<<"/packages/", Name/binary, "/releases/", Version/binary, "/retire">>, Options).
+    hex_api:delete(["packages", Name, "releases", Version, "retire"], Options).
 
 %%====================================================================
 %% Internal functions

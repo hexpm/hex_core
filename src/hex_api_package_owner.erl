@@ -16,13 +16,13 @@
 %%     %%=> ]}}
 %% '''
 list(PackageName, Options) when is_binary(PackageName) and is_map(Options) ->
-    hex_api:get(<<"/packages/", PackageName/binary, "/owners">>, Options).
+    hex_api:get(["packages", PackageName, "owners"], Options).
 
 get(PackageName, UsernameOrEmail, Options) when is_binary(PackageName) and is_map(Options) ->
-    hex_api:get(<<"/packages/", PackageName/binary, "/owners/", UsernameOrEmail/binary>>, Options).
+    hex_api:get(["packages", PackageName, "owners", UsernameOrEmail], Options).
 
 add(PackageName, UsernameOrEmail, Options) when is_binary(PackageName) and is_map(Options) ->
-    hex_api:put(<<"/packages/", PackageName/binary, "/owners/", UsernameOrEmail/binary>>, #{}, Options).
+    hex_api:put(["packages", PackageName, "owners", UsernameOrEmail], #{}, Options).
 
 delete(PackageName, UsernameOrEmail, Options) when is_binary(PackageName) and is_map(Options) ->
-    hex_api:delete(<<"/packages/", PackageName/binary, "/owners/", UsernameOrEmail/binary>>, Options).
+    hex_api:delete(["packages", PackageName, "owners", UsernameOrEmail], Options).

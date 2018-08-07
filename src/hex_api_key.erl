@@ -8,18 +8,18 @@
 ]).
 
 list(Options) when is_map(Options) ->
-    hex_api:get(<<"/keys">>, Options).
+    hex_api:get(["keys"], Options).
 
 get(Name, Options) when is_map(Options) ->
-    hex_api:get(<<"/keys/", Name/binary>>, Options).
+    hex_api:get(["keys", Name], Options).
 
 add(Name, Permissions, Options) when is_map(Options) ->
     Params = #{<<"name">> => Name, <<"permissions">> => Permissions},
-    hex_api:post(<<"/keys">>, Params, Options).
+    hex_api:post(["keys"], Params, Options).
 
 delete(Name, Options) when is_map(Options) ->
-    hex_api:delete(<<"/keys/", Name/binary>>, Options).
+    hex_api:delete(["keys", Name], Options).
 
 delete_all(Options) when is_map(Options) ->
-    hex_api:delete(<<"/keys">>, Options).
+    hex_api:delete(["keys"], Options).
 

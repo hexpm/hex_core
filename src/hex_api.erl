@@ -23,6 +23,12 @@ delete(Path, Options) ->
 %% Internal functions
 %%====================================================================
 
+request(Method, PathSegments, Body, Options) when is_list(PathSegments) ->
+    Path =
+        erlang:iolist_to_binary(
+            lists:join(<<"/">>,
+                lists:map(fun http_uri:encode/1, PathSegments))),
+    request(Method, <<"/", Path/binary>>, Body, Options);
 request(Method, Path, Body, Options) when is_binary(Path) and is_map(Options) ->
     DefaultHeaders = make_headers(Options),
     ReqHeaders = maps:merge(maps:get(http_headers, Options, #{}), DefaultHeaders),

@@ -7,7 +7,7 @@
 ]).
 
 me(Options) when is_map(Options) ->
-    hex_api:get(<<"/users/me">>, Options).
+    hex_api:get(["users", "me"], Options).
 
 create(Username, Password, Email, Options) ->
     Params = #{
@@ -15,10 +15,10 @@ create(Username, Password, Email, Options) ->
       <<"password">> => Password,
       <<"email">> => Email
     },
-    hex_api:post(<<"/users">>, Params, Options).
+    hex_api:post(["users"], Params, Options).
 
 reset_password(Username, Options) when is_binary(Username) and is_map(Options) ->
-    hex_api:post(<<"/users/", Username/binary, "/reset">>, #{}, Options).
+    hex_api:post(["users", Username, "reset"], #{}, Options).
 
 %% @doc
 %% Gets user.
@@ -41,4 +41,4 @@ reset_password(Username, Options) when is_binary(Username) and is_map(Options) -
 %% '''
 %% @end
 get(Username, Options) when is_binary(Username) and is_map(Options) ->
-    hex_api:get(<<"/users/", Username/binary>>, Options).
+    hex_api:get(["users", Username], Options).

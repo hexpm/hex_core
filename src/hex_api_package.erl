@@ -25,7 +25,7 @@
 %% '''
 %% @end
 get(Name, Options) when is_binary(Name) and is_map(Options) ->
-    hex_api:get(<<"/packages/", Name/binary>>, Options).
+    hex_api:get(["packages", Name], Options).
 
 %% @doc
 %% Searches packages.
