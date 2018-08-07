@@ -25,23 +25,23 @@
 %%     %%=>     ...}}}
 %% '''
 %% @end
-get(Name, Version, Config) when is_binary(Name) and is_binary(Version) and is_map(Config) ->
-    hex_api:get(["packages", Name, "releases", Version], Config).
+get(Config, Name, Version) when is_binary(Name) and is_binary(Version) and is_map(Config) ->
+    hex_api:get(Config, ["packages", Name, "releases", Version]).
 
-publish(Tarball, Config) when is_binary(Tarball) and is_map(Config) ->
+publish(Config, Tarball) when is_binary(Tarball) and is_map(Config) ->
     TarballContentType = "application/octet-stream",
     Config2 = put_header(<<"content-length">>, integer_to_binary(byte_size(Tarball)), Config),
     Body = {TarballContentType, Tarball},
-    hex_api:post(["publish"], Body, Config2).
+    hex_api:post(Config2, ["publish"], Body).
 
-delete(Name, Version, Config) when is_binary(Name) and is_binary(Version) and is_map(Config) ->
-    hex_api:delete(["packages", Name, "releases", Version], Config).
+delete(Config, Name, Version) when is_binary(Name) and is_binary(Version) and is_map(Config) ->
+    hex_api:delete(Config, ["packages", Name, "releases", Version]).
 
-retire(Name, Version, Params, Config) when is_binary(Name) and is_binary(Version) and is_map(Config) ->
-    hex_api:post(["packages", Name, "releases", Version, "retire"], Params, Config).
+retire(Config, Name, Version, Params) when is_binary(Name) and is_binary(Version) and is_map(Config) ->
+    hex_api:post(Config, ["packages", Name, "releases", Version, "retire"], Params).
 
-unretire(Name, Version, Config) when is_binary(Name) and is_binary(Version) and is_map(Config) ->
-    hex_api:delete(["packages", Name, "releases", Version, "retire"], Config).
+unretire(Config, Name, Version) when is_binary(Name) and is_binary(Version) and is_map(Config) ->
+    hex_api:delete(Config, ["packages", Name, "releases", Version, "retire"]).
 
 %%====================================================================
 %% Internal functions

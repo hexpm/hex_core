@@ -38,7 +38,7 @@ hex_repo:get_versions(Config).
 Get package releases from repository:
 
 ```erlang
-hex_repo:get_package(<<"package1">>, Config).
+hex_repo:get_package(Config, <<"package1">>).
 %%=> {ok, {200, ...,
 %%=>     #{releases => [
 %%=>         #{checksum => ..., version => <<"0.5.0">>, dependencies => []}],
@@ -49,7 +49,7 @@ hex_repo:get_package(<<"package1">>, Config).
 Get package from HTTP API:
 
 ```erlang
-hex_api_package:get(<<"package1">>, Config).
+hex_api_package:get(Config, <<"package1">>).
 %%=> {ok, {200, ...,
 %%=>     #{
 %%=>         <<"name">> => <<"package1">>,
@@ -71,7 +71,7 @@ hex_api_package:get(<<"package1">>, Config).
 Get package tarball:
 
 ```erlang
-{ok, {200, _, Tarball}} = hex_repo:get_tarball(<<"package1">>, <<"1.0.0">>, Config).
+{ok, {200, _, Tarball}} = hex_repo:get_tarball(Config, <<"package1">>, <<"1.0.0">>).
 ```
 
 Unpack package tarball:
@@ -140,7 +140,7 @@ For a sample, see: [`examples/myapp_hex.erl`](examples/myapp_hex.erl). Here's an
 %%====================================================================
 
 get_api_package(Name) ->
-      case hex_api_package:get(Name, options()) of
+      case hex_api_package:get(config(), Name) of
           {ok, {200, _Headers, Payload}} ->
               {ok, Payload};
 
@@ -149,7 +149,7 @@ get_api_package(Name) ->
       end.
 
 get_repo_versions() ->
-      case hex_repo:get_versions(options()) of
+      case hex_repo:get_versions(config()) of
           {ok, {200, _Headers, Payload}} ->
               {ok, maps:get(packages, Payload)};
 
@@ -161,13 +161,13 @@ get_repo_versions() ->
 %% Internal functions
 %%====================================================================
 
-options() ->
+config() ->
     Config1 = hex_core:default_config(),
-    Config2 = put_http_options(Config1),
+    Config2 = put_http_config(Config1),
     Config3 = maybe_put_api_key(Config2),
     Config3.
 
-put_http_options(Config) ->
+put_http_config(Config) ->
     maps:put(http_user_agent_fragment, <<"(myapp/1.0.0) (httpc)">>, Config).
 
 maybe_put_api_key(Config) ->

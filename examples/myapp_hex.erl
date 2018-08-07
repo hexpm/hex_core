@@ -11,7 +11,7 @@
 
 get_api_package(Name) ->
     Result = with_http_cache({api_package, Name}, fun(Config) ->
-        hex_api_package:get(Name, maps:merge(Config, options()))
+        hex_api_package:get(Name, maps:merge(Config, config()))
     end),
     case Result of
         {ok, {200, _Headers, Payload}} ->
@@ -23,7 +23,7 @@ get_api_package(Name) ->
 
 get_repo_versions() ->
     Result = with_http_cache(repo_versions, fun(Config) ->
-        hex_repo:get_versions(maps:merge(Config, options()))
+        hex_repo:get_versions(maps:merge(Config, config()))
     end),
     case Result of
         {ok, {200, _Headers, Payload}} ->
@@ -35,7 +35,7 @@ get_repo_versions() ->
 
 get_repo_tarball(Name, Version) ->
     Result = with_http_cache({repo_tarball, Name, Version}, fun(Config) ->
-        hex_repo:get_tarball(Name, Version, maps:merge(Config, options()))
+        hex_repo:get_tarball(Name, Version, maps:merge(Config, config()))
     end),
     case Result of
         {ok, {200, _Headers, Tarball}} ->
@@ -49,13 +49,13 @@ get_repo_tarball(Name, Version) ->
 %% Internal functions
 %%====================================================================
 
-options() ->
+config() ->
     Config1 = hex_core:default_config(),
-    Config2 = put_http_options(Config1),
+    Config2 = put_http_config(Config1),
     Config3 = maybe_put_api_key(Config2),
     Config3.
 
-put_http_options(Config) ->
+put_http_config(Config) ->
     maps:put(http_user_agent_fragment, <<"(myapp/1.0.0) (httpc)">>, Config).
 
 maybe_put_api_key(Config) ->

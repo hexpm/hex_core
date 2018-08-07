@@ -26,7 +26,7 @@
 %% @end
 get_names(Config) when is_map(Config) ->
     Decoder = fun hex_registry:decode_names/1,
-    get_protobuf(<<"/names">>, Decoder, Config).
+    get_protobuf(Config, <<"/names">>, Decoder).
 
 %% @doc
 %% Gets versions resource from the repository.
@@ -46,7 +46,7 @@ get_names(Config) when is_map(Config) ->
 %% @end
 get_versions(Config) when is_map(Config) ->
     Decoder = fun hex_registry:decode_versions/1,
-    get_protobuf(<<"/versions">>, Decoder, Config).
+    get_protobuf(Config, <<"/versions">>, Decoder).
 
 %% @doc
 %% Gets package resource from the repository.
@@ -54,7 +54,7 @@ get_versions(Config) when is_map(Config) ->
 %% Examples:
 %%
 %% ```
-%%     hex_repo:get_package(<<"package1">>, hex_core:default_config()).
+%%     hex_repo:get_package(hex_core:default_config(), <<"package1">>).
 %%     %%=> {ok, {200, ...,
 %%     %%=>     #{releases => [
 %%     %%=>         #{checksum => ..., version => <<"0.5.0">>, dependencies => []},
@@ -64,9 +64,9 @@ get_versions(Config) when is_map(Config) ->
 %%     %%=>     ]}}}
 %% '''
 %% @end
-get_package(Name, Config) when is_binary(Name) and is_map(Config) ->
+get_package(Config, Name) when is_binary(Name) and is_map(Config) ->
     Decoder = fun hex_registry:decode_package/1,
-    get_protobuf(<<"/packages/", Name/binary>>, Decoder, Config).
+    get_protobuf(Config, <<"/packages/", Name/binary>>, Decoder).
 
 %% @doc
 %% Gets tarball from the repository.
@@ -78,7 +78,7 @@ get_package(Name, Config) when is_binary(Name) and is_map(Config) ->
 %%     {ok, #{metadata := Metadata}} = hex_tarball:unpack(Tarball, memory).
 %% '''
 %% @end
-get_tarball(Name, Version, Config) ->
+get_tarball(Config, Name, Version) ->
     URI = maps:get(repo_url, Config),
     ReqHeaders = make_headers(Config),
 
@@ -97,7 +97,7 @@ get_tarball(Name, Version, Config) ->
 get(Config, URI, Headers) ->
     hex_http:request(Config, get, URI, Headers, nil).
 
-get_protobuf(Path, Decoder, Config) ->
+get_protobuf(Config, Path, Decoder) ->
     URI = maps:get(repo_url, Config),
     PublicKey = maps:get(repo_public_key, Config),
     ReqHeaders = make_headers(Config),

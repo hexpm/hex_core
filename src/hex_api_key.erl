@@ -8,17 +8,17 @@
 ]).
 
 list(Config) when is_map(Config) ->
-    hex_api:get(["keys"], Config).
+    hex_api:get(Config, ["keys"]).
 
-get(Name, Config) when is_map(Config) ->
-    hex_api:get(["keys", Name], Config).
+get(Config, Name) when is_map(Config) ->
+    hex_api:get(Config, ["keys", Name]).
 
-add(Name, Permissions, Config) when is_map(Config) ->
+add(Config, Name, Permissions) when is_map(Config) ->
     Params = #{<<"name">> => Name, <<"permissions">> => Permissions},
-    hex_api:post(["keys"], Params, Config).
+    hex_api:post(Config, ["keys"], Params).
 
-delete(Name, Config) when is_map(Config) ->
-    hex_api:delete(["keys", Name], Config).
+delete(Config, Name) when is_map(Config) ->
+    hex_api:delete(Config, ["keys", Name]).
 
 delete_all(Config) when is_map(Config) ->
-    hex_api:delete(["keys"], Config).
+    hex_api:delete(Config, ["keys"]).

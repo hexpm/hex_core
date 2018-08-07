@@ -7,18 +7,18 @@
 ]).
 
 me(Config) when is_map(Config) ->
-    hex_api:get(["users", "me"], Config).
+    hex_api:get(Config, ["users", "me"]).
 
-create(Username, Password, Email, Config) ->
+create(Config, Username, Password, Email) ->
     Params = #{
       <<"username">> => Username,
       <<"password">> => Password,
       <<"email">> => Email
     },
-    hex_api:post(["users"], Params, Config).
+    hex_api:post(Config, ["users"], Params).
 
 reset_password(Username, Config) when is_binary(Username) and is_map(Config) ->
-    hex_api:post(["users", Username, "reset"], #{}, Config).
+    hex_api:post(Config, ["users", Username, "reset"], #{}).
 
 %% @doc
 %% Gets user.
@@ -40,5 +40,5 @@ reset_password(Username, Config) when is_binary(Username) and is_map(Config) ->
 %%     %%=>     ...}}}
 %% '''
 %% @end
-get(Username, Config) when is_binary(Username) and is_map(Config) ->
-    hex_api:get(["users", Username], Config).
+get(Config, Username) when is_binary(Username) and is_map(Config) ->
+    hex_api:get(Config, ["users", Username]).
