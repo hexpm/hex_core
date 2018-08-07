@@ -1,6 +1,6 @@
 -module(hex_http_test).
 -behaviour(hex_http).
--export([request/3]).
+-export([request/4]).
 -define(TEST_REPO_URI, "https://repo.test").
 -define(TEST_API_URI, "https://api.test").
 -define(PRIVATE_KEY, hex_test_helpers:fixture("test_priv.pem")).
@@ -10,8 +10,8 @@
 %% API functions
 %%====================================================================
 
-request(_Method, URI, Headers) when is_binary(URI) and is_map(Headers) ->
-    fixture(URI, Headers).
+request(Method, URI, Headers, Body) when is_binary(URI) and is_map(Headers) ->
+    fixture(Method, URI, Headers, Body).
 
 %%====================================================================
 %% Internal functions
@@ -22,7 +22,7 @@ api_headers() ->
         <<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>
     }.
 
-fixture(_, #{<<"if-none-match">> := <<"\"dummy\"">> = ETag}) ->
+fixture(get, _, #{<<"if-none-match">> := <<"\"dummy\"">> = ETag}, _) ->
     Headers = #{
       <<"etag">> => ETag
     },
@@ -30,7 +30,7 @@ fixture(_, #{<<"if-none-match">> := <<"\"dummy\"">> = ETag}) ->
 
 %% Repo API
 
-fixture(<<?TEST_REPO_URI, "/names">>, _) ->
+fixture(get, <<?TEST_REPO_URI, "/names">>, _, _) ->
     Names = #{
         packages => [
             #{name => <<"ecto">>}
@@ -44,7 +44,7 @@ fixture(<<?TEST_REPO_URI, "/names">>, _) ->
     },
     {ok, {200, Headers, Compressed}};
 
-fixture(<<?TEST_REPO_URI, "/versions">>, _) ->
+fixture(get, <<?TEST_REPO_URI, "/versions">>, _, _) ->
     Versions = #{
         packages => [
             #{name => <<"ecto">>, versions => [<<"1.0.0">>]}
@@ -58,7 +58,7 @@ fixture(<<?TEST_REPO_URI, "/versions">>, _) ->
     },
     {ok, {200, Headers, Compressed}};
 
-fixture(<<?TEST_REPO_URI, "/packages/ecto">>, _) ->
+fixture(get, <<?TEST_REPO_URI, "/packages/ecto">>, _, _) ->
     Package = #{
         releases => [
             #{
@@ -76,19 +76,19 @@ fixture(<<?TEST_REPO_URI, "/packages/ecto">>, _) ->
     },
     {ok, {200, Headers, Compressed}};
 
-fixture(<<?TEST_REPO_URI, "/tarballs/ecto-1.0.0.tar">>, _) ->
+fixture(get, <<?TEST_REPO_URI, "/tarballs/ecto-1.0.0.tar">>, _, _) ->
     Headers = #{
       <<"etag">> => <<"\"dummy\"">>
     },
     {ok, {Tarball, _Checksum}} = hex_tarball:create(#{<<"name">> => <<"ecto">>}, []),
     {ok, {200, Headers, Tarball}};
 
-fixture(<<?TEST_REPO_URI, _/binary>>, _) ->
+fixture(get, <<?TEST_REPO_URI, _/binary>>, _, _) ->
     {ok, {403, #{}, <<"not found">>}};
 
 %% HTTP API
 
-fixture(<<?TEST_API_URI, "/users/josevalim">>, _) ->
+fixture(get, <<?TEST_API_URI, "/users/josevalim">>, _, _) ->
     Payload = #{
         <<"username">> => <<"josevalim">>,
         <<"packages">> => []
@@ -97,16 +97,23 @@ fixture(<<?TEST_API_URI, "/users/josevalim">>, _) ->
 
 %% /packages/:package
 
-fixture(<<?TEST_API_URI, "/packages/ecto">>, _) ->
+fixture(get, <<?TEST_API_URI, "/packages/ecto">>, _, _) ->
     Payload = #{
         <<"name">> => <<"ecto">>,
         <<"releases">> => []
     },
     {ok, {200, api_headers(), term_to_binary(Payload)}};
 
+fixture(get, <<?TEST_API_URI, "/packages/nonexisting">>, _, _) ->
+    Payload = #{
+        <<"message">> => <<"Page not found">>,
+        <<"status">> => 404
+    },
+    {ok, {404, api_headers(), term_to_binary(Payload)}};
+
 %% /packages/:package/releases/:version
 
-fixture(<<?TEST_API_URI, "/packages/ecto/releases/1.0.0">>, _) ->
+fixture(get, <<?TEST_API_URI, "/packages/ecto/releases/1.0.0">>, _, _) ->
     Payload = #{
         <<"version">> => <<"1.0.0">>,
         <<"requirements">> => #{
@@ -121,7 +128,7 @@ fixture(<<?TEST_API_URI, "/packages/ecto/releases/1.0.0">>, _) ->
 
 %% /packages
 
-fixture(<<?TEST_API_URI, "/packages?search=ecto", _/binary>>, _) ->
+fixture(get, <<?TEST_API_URI, "/packages?search=ecto", _/binary>>, _, _) ->
     Payload = [
         #{
             <<"name">> => <<"ecto">>,
@@ -132,7 +139,7 @@ fixture(<<?TEST_API_URI, "/packages?search=ecto", _/binary>>, _) ->
 
 %% /packages/:package/owners
 
-fixture(<<?TEST_API_URI, "/packages/decimal/owners", _/binary>>, #{<<"authorization">> := Token}) when is_binary(Token) ->
+fixture(get, <<?TEST_API_URI, "/packages/decimal/owners", _/binary>>, #{<<"authorization">> := Token}, _) when is_binary(Token) ->
     Payload = [
         #{
             <<"username">> => <<"ericmj">>
@@ -140,12 +147,12 @@ fixture(<<?TEST_API_URI, "/packages/decimal/owners", _/binary>>, #{<<"authorizat
     ],
     {ok, {200, api_headers(), term_to_binary(Payload)}};
 
-fixture(<<?TEST_API_URI, "/packages/decimal/owners", _/binary>>, _) ->
+fixture(get, <<?TEST_API_URI, "/packages/decimal/owners", _/binary>>, _, _) ->
     {ok, {401, api_headers(), <<"">>}};
 
 %% /keys
 
-fixture(<<?TEST_API_URI, "/keys">>, #{<<"authorization">> := Token}) when is_binary(Token) ->
+fixture(get, <<?TEST_API_URI, "/keys">>, #{<<"authorization">> := Token}, _) when is_binary(Token) ->
     Payload = [
         #{
             <<"name">> => <<"key-1">>
@@ -153,18 +160,25 @@ fixture(<<?TEST_API_URI, "/keys">>, #{<<"authorization">> := Token}) when is_bin
     ],
     {ok, {200, api_headers(), term_to_binary(Payload)}};
 
-%% /keys/:name
-
-fixture(<<?TEST_API_URI, "/keys/", Name/binary>>, #{<<"authorization">> := Token}) when is_binary(Token) ->
+fixture(get, <<?TEST_API_URI, "/keys/", Name/binary>>, #{<<"authorization">> := Token}, _) when is_binary(Token) ->
     Payload = #{
         <<"name">> => Name
     },
     {ok, {200, api_headers(), term_to_binary(Payload)}};
 
-fixture(<<?TEST_API_URI, "/keys", _/binary>>, _) ->
+fixture(get, <<?TEST_API_URI, "/keys", _/binary>>, _, _) ->
     {ok, {401, api_headers(), <<"">>}};
+
+fixture(post, <<?TEST_API_URI, "/keys">>, #{<<"authorization">> := Token}, {_, Body}) when is_binary(Token) ->
+    {ok, {201, api_headers(), Body}};
+
+fixture(delete, <<?TEST_API_URI, "/keys/", Name/binary>>, #{<<"authorization">> := Token}, _) when is_binary(Token) ->
+    Payload = #{
+        <<"name">> => Name
+    },
+    {ok, {200, api_headers(), term_to_binary(Payload)}};
 
 %% Other
 
-fixture(URI, _) ->
-    error({no_fixture, URI}).
+fixture(Method, URI, _, _) ->
+    error({no_fixture, Method, URI}).

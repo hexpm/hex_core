@@ -1,27 +1,34 @@
 -module(hex_http_httpc).
 -behaviour(hex_http).
--export([request/3]).
+-export([request/4]).
 
 %%====================================================================
 %% API functions
 %%====================================================================
 
-request(Method, URI, ReqHeaders) ->
-    URI2 = binary_to_list(URI),
-    ReqHeaders2 = headers_map_to_list(ReqHeaders),
+request(Method, URI, ReqHeaders, Body) ->
+    Request = build_request(URI, ReqHeaders, Body),
     {ok, {{_, StatusCode, _}, RespHeaders, RespBody}} =
-        httpc:request(Method, {URI2, ReqHeaders2}, [], [{body_format, binary}]),
-    RespHeaders2 = headers_list_to_map(RespHeaders),
+        httpc:request(Method, Request, [], [{body_format, binary}]),
+    RespHeaders2 = load_headers(RespHeaders),
     {ok, {StatusCode, RespHeaders2, RespBody}}.
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
 
-headers_map_to_list(Map) ->
+build_request(URI, ReqHeaders, Body) ->
+    build_request2(binary_to_list(URI), dump_headers(ReqHeaders), Body).
+
+build_request2(URI, ReqHeaders, nil) ->
+    {URI, ReqHeaders};
+build_request2(URI, ReqHeaders, {ContentType, Body}) ->
+    {URI, ReqHeaders, ContentType, Body}.
+
+dump_headers(Map) ->
     maps:fold(fun(K, V, Acc) ->
         [{binary_to_list(K), binary_to_list(V)} | Acc] end, [], Map).
 
-headers_list_to_map(List) ->
+load_headers(List) ->
     lists:foldl(fun({K, V}, Acc) ->
         maps:put(list_to_binary(K), list_to_binary(V), Acc) end, #{}, List).

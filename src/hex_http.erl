@@ -1,25 +1,26 @@
 -module(hex_http).
--export([request/4]).
+-export([request/5]).
 -ifdef(TEST).
 -export([user_agent/1]).
 -endif.
 -include_lib("hex_erl.hrl").
 
--type adapter() :: module().
--type client() :: #{adapter => adapter(), user_agent_fragment => binary()}.
 -type method() :: get | post | put | patch | delete.
 -type status() :: non_neg_integer().
 -type headers() :: #{binary() => binary()}.
+-type body() :: nil.
 
--callback request(method(), URI :: binary(), headers()) ->
+-callback request(method(), URI :: binary(), headers(), body()) ->
     {ok, status(), headers(), binary()} |
     {error, term()}.
 
--spec request(client(), method(), string(), headers()) ->
+-spec request(hex_erl:options(), method(), string(), headers(), body()) ->
     {ok, {status(), headers(), binary()}} | {error, term()}.
-request(#{adapter := Adapter, user_agent_fragment := UserAgentFragment}, Method, URI, Headers) when is_binary(URI) and is_map(Headers) ->
+request(Options, Method, URI, Headers, Body) when is_binary(URI) and is_map(Headers) ->
+    Adapter = maps:get(http_adapter, Options),
+    UserAgentFragment = maps:get(http_user_agent_fragment, Options),
     Headers2 = put_new(<<"user-agent">>, user_agent(UserAgentFragment), Headers),
-    Adapter:request(Method, URI, Headers2).
+    Adapter:request(Method, URI, Headers2, Body).
 
 user_agent(UserAgentFragment) ->
     OTPRelease = erlang:system_info(otp_release),
