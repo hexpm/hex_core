@@ -79,10 +79,10 @@ get_package(Name, Options) when is_binary(Name) and is_map(Options) ->
 %% '''
 %% @end
 get_tarball(Name, Version, Options) ->
-    URI = maps:get(repo_uri, Options),
+    URI = maps:get(repo_url, Options),
     ReqHeaders = make_headers(Options),
 
-    case get(Options, tarball_uri(URI, Name, Version), ReqHeaders) of
+    case get(Options, tarball_url(URI, Name, Version), ReqHeaders) of
         {ok, {200, RespHeaders, Tarball}} ->
             {ok, {200, RespHeaders, Tarball}};
 
@@ -98,7 +98,7 @@ get(Options, URI, Headers) ->
     hex_http:request(Options, get, URI, Headers, nil).
 
 get_protobuf(Path, Decoder, Options) ->
-    URI = maps:get(repo_uri, Options),
+    URI = maps:get(repo_url, Options),
     PublicKey = maps:get(repo_public_key, Options),
     ReqHeaders = make_headers(Options),
 
@@ -133,7 +133,7 @@ decode(Signed, PublicKey, Decoder, Options) ->
             {ok, Decoder(Payload)}
     end.
 
-tarball_uri(URI, Name, Version) ->
+tarball_url(URI, Name, Version) ->
     Filename = tarball_filename(Name, Version),
     <<URI/binary, "/tarballs/", Filename/binary>>.
 

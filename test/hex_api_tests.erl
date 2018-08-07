@@ -3,7 +3,7 @@
 -define(OPTIONS, #{
     http_adapter => hex_http_test,
     http_user_agent_fragment => <<"(test)">>,
-    api_uri => <<"https://api.test">>,
+    api_url => <<"https://api.test">>,
     api_key => <<"dummy">>
 }).
 % -define(OPTIONS, maps:put(api_key, hex_test_helpers:api_key(), hex_core:default_options())).

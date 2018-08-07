@@ -14,13 +14,13 @@ J1i2xWFndWa6nfFnRxZmCStCOZWYYPlaxr+FZceFbpMwzTNs4g3d4tLNUcbKAIH4
 
 
 -type options() :: #{
-    api_uri => binary(),
+    api_url => binary(),
     api_key => binary(),
     http_adapter => module(),
     http_etag => binary(),
     http_user_agent_fragment => binary(),
     repo_key => binary(),
-    repo_uri => binary(),
+    repo_url => binary(),
     repo_public_key => binary(),
     repo_verify => boolean(),
     organization => binary()
@@ -29,10 +29,10 @@ J1i2xWFndWa6nfFnRxZmCStCOZWYYPlaxr+FZceFbpMwzTNs4g3d4tLNUcbKAIH4
 -spec default_options() -> options().
 default_options() ->
     #{
-        api_uri => <<"https://hex.pm/api">>,
+        api_url => <<"https://hex.pm/api">>,
         http_adapter => hex_http_httpc,
         http_user_agent_fragment => <<"(httpc)">>,
-        repo_uri => <<"https://repo.hex.pm">>,
+        repo_url => <<"https://repo.hex.pm">>,
         repo_public_key => ?HEXPM_PUBLIC_KEY,
         repo_verify => true
     }.
