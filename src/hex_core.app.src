@@ -1,4 +1,4 @@
-{application, hex_erl,
+{application, hex_core,
  [{description, "An OTP library"},
   {vsn, "0.1.0"},
   {registered, []},

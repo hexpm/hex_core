@@ -9,9 +9,9 @@ fi
 source_dir=`dirname $0`/src
 target_dir=$1
 prefix=$2
-hex_erl_version=`cat $source_dir/hex_erl.hrl | grep HEX_ERL_VERSION | cut -d'"' -f2`
+hex_erl_version=`cat $source_dir/hex_core.hrl | grep HEX_CORE_VERSION | cut -d'"' -f2`
 
-filenames="hex_erl.hrl \
+filenames="hex_core.hrl \
            hex_erl_tar.erl \
            hex_erl_tar.hrl \
            hex_filename.erl \
@@ -25,7 +25,7 @@ filenames="hex_erl.hrl \
            hex_api.erl \
            safe_erl_term.xrl"
 
-search_to_replace="hex_erl.hrl \
+search_to_replace="hex_core.hrl \
                    hex_erl_tar \
                    hex_filename \
                    hex_pb_package \

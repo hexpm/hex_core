@@ -9,7 +9,7 @@
 %% Examples:
 %%
 %% ```
-%%     hex_api_owner:list(<<"package">>, hex_erl:default_options()).
+%%     hex_api_owner:list(<<"package">>, hex_core:default_options()).
 %%     %%=> {ok, {200, ..., [
 %%     %%=>     #{<<"username">> => <<"alice">>, ...},
 %%     %%=>     ...

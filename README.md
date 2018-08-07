@@ -1,6 +1,6 @@
-# hex_erl
+# hex_core
 
-[![Build Status](https://travis-ci.org/hexpm/hex_erl.svg?branch=master)](https://travis-ci.org/hexpm/hex_erl)
+[![Build Status](https://travis-ci.org/hexpm/hex_core.svg?branch=master)](https://travis-ci.org/hexpm/hex_core)
 
 Reference implementation of Hex specifications: https://github.com/hexpm/specifications.
 
@@ -9,7 +9,7 @@ Reference implementation of Hex specifications: https://github.com/hexpm/specifi
 Let's use default options for now. See "Configuration" section below for customization.
 
 ```
-Options = hex_erl:default_options().
+Options = hex_core:default_options().
 ```
 
 Get all package names:
@@ -88,13 +88,13 @@ Create package tarball:
 
 ## Configuration
 
-The default configuration, provided by `hex_erl:default_options/0`, uses built-in httpc-based adapter and Hex.pm APIs:
+The default configuration, provided by `hex_core:default_options/0`, uses built-in httpc-based adapter and Hex.pm APIs:
 <https://hex.pm/api> and <https://repo.hex.pm>.
 
 Organizations on Hex.pm (or any compatible server) can be configured as following:
 
 ```erlang
-Options = maps:merge(hex_erl:default_options(), #{
+Options = maps:merge(hex_core:default_options(), #{
     api_key => APIKey,
     organization => <<"acme">>,
     repo_key => RepoKey,
@@ -105,7 +105,7 @@ Options = maps:merge(hex_erl:default_options(), #{
 HTTP client configuration can be overriden as follows:
 
 ```erlang
-Options = maps:merge(hex_erl:default_options(), #{
+Options = maps:merge(hex_core:default_options(), #{
   http_adapter => my_hackney_adapter,
   http_user_agent_fragment => <<"(my_app/0.1.0) (hackney/1.12.1) ">>
 }),
@@ -162,7 +162,7 @@ get_repo_versions() ->
 %%====================================================================
 
 options() ->
-    Options1 = hex_erl:default_options(),
+    Options1 = hex_core:default_options(),
     Options2 = put_http_options(Options1),
     Options3 = maybe_put_api_key(Options2),
     Options3.
@@ -185,7 +185,7 @@ Add to `rebar.config`:
 
 ```erlang
 {deps, [
-  {hex_erl, {git, "git://github.com/hexpm/hex_erl.git"}}
+  {hex_core, {git, "git://github.com/hexpm/hex_core.git"}}
 ]}
 ```
 
@@ -196,7 +196,7 @@ Add to `mix.exs`:
 ```elixir
 defp deps do
   [
-    {:hex_erl, github: "hexpm/hex_erl"}
+    {:hex_core, github: "hexpm/hex_core"}
   ]
 end
 ```

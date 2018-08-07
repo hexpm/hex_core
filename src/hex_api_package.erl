@@ -7,7 +7,7 @@
 %% Examples:
 %%
 %% ```
-%%     hex_api_package:get(<<"package">>, hex_erl:default_options()).
+%%     hex_api_package:get(<<"package">>, hex_core:default_options()).
 %%     %%=> {ok, {200, ..., #{
 %%     %%=>     <<"name">> => <<"package1">>,
 %%     %%=>     <<"meta">> => #{
@@ -33,7 +33,7 @@ get(Name, Options) when is_binary(Name) and is_map(Options) ->
 %% Examples:
 %%
 %% ```
-%%     hex_api_package:search(<<"package">>, [], hex_erl:default_options()).
+%%     hex_api_package:search(<<"package">>, [], hex_core:default_options()).
 %%     %%=> {ok, {200, ..., [
 %%     %%=>     #{<<"name">> => <<"package1">>, ...},
 %%     %%=>     ...

@@ -13,7 +13,7 @@
 %% Examples:
 %%
 %% ```
-%%     hex_api:get_release(<<"package">>, <<"1.0.0">>, hex_erl:default_options()).
+%%     hex_api:get_release(<<"package">>, <<"1.0.0">>, hex_core:default_options()).
 %%     %%=> {ok, {200, ..., #{
 %%     %%=>     <<"version">> => <<"1.0.0">>,
 %%     %%=>     <<"meta">> => #{

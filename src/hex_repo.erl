@@ -16,7 +16,7 @@
 %% Examples:
 %%
 %% ```
-%%     hex_repo:get_names(hex_erl:default_options()).
+%%     hex_repo:get_names(hex_core:default_options()).
 %%     %%=> {ok, {200, ...,
 %%     %%=>     #{packages => [
 %%     %%=>         #{name => <<"package1">>},
@@ -54,7 +54,7 @@ get_versions(Options) when is_map(Options) ->
 %% Examples:
 %%
 %% ```
-%%     hex_repo:get_package(<<"package1">>, hex_erl:default_options()).
+%%     hex_repo:get_package(<<"package1">>, hex_core:default_options()).
 %%     %%=> {ok, {200, ...,
 %%     %%=>     #{releases => [
 %%     %%=>         #{checksum => ..., version => <<"0.5.0">>, dependencies => []},
@@ -74,7 +74,7 @@ get_package(Name, Options) when is_binary(Name) and is_map(Options) ->
 %% Examples:
 %%
 %% ```
-%%     {ok, {200, _, Tarball}} = hex_repo:get_tarball(<<"package1">>, <<"1.0.0">>, hex_erl:default_options()),
+%%     {ok, {200, _, Tarball}} = hex_repo:get_tarball(<<"package1">>, <<"1.0.0">>, hex_core:default_options()),
 %%     {ok, #{metadata := Metadata}} = hex_tarball:unpack(Tarball, memory).
 %% '''
 %% @end

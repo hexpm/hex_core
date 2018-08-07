@@ -26,7 +26,7 @@ reset_password(Username, Options) when is_binary(Username) and is_map(Options) -
 %% Examples:
 %%
 %% ```
-%%     hex_api_user:get(<<"user">>, hex_erl:default_options()).
+%%     hex_api_user:get(<<"user">>, hex_core:default_options()).
 %%     %%=> {ok, {200, ..., #{
 %%     %%=>     <<"username">> => <<"user">>,
 %%     %%=>     <<"packages">> => [

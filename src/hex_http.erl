@@ -3,7 +3,7 @@
 -ifdef(TEST).
 -export([user_agent/1]).
 -endif.
--include_lib("hex_erl.hrl").
+-include_lib("hex_core.hrl").
 
 -type method() :: get | post | put | patch | delete.
 -type status() :: non_neg_integer().
@@ -14,7 +14,7 @@
     {ok, status(), headers(), binary()} |
     {error, term()}.
 
--spec request(hex_erl:options(), method(), string(), headers(), body()) ->
+-spec request(hex_core:options(), method(), string(), headers(), body()) ->
     {ok, {status(), headers(), binary()}} | {error, term()}.
 request(Options, Method, URI, Headers, Body) when is_binary(URI) and is_map(Headers) ->
     Adapter = maps:get(http_adapter, Options),
@@ -26,7 +26,7 @@ user_agent(UserAgentFragment) ->
     OTPRelease = erlang:system_info(otp_release),
     ERTSVersion = erlang:system_info(version),
     OTPString = " (OTP/" ++ OTPRelease ++ ") (erts/" ++ ERTSVersion ++ ")",
-    iolist_to_binary(["hex_erl/", ?HEX_ERL_VERSION, " ", UserAgentFragment, OTPString]).
+    iolist_to_binary(["hex_erl/", ?HEX_CORE_VERSION, " ", UserAgentFragment, OTPString]).
 
 %%====================================================================
 %% Internal functions

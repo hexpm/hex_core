@@ -50,7 +50,7 @@ get_repo_tarball(Name, Version) ->
 %%====================================================================
 
 options() ->
-    Options1 = hex_erl:default_options(),
+    Options1 = hex_core:default_options(),
     Options2 = put_http_options(Options1),
     Options3 = maybe_put_api_key(Options2),
     Options3.
