@@ -98,7 +98,7 @@ Options = maps:merge(hex_core:default_options(), #{
     api_key => APIKey,
     organization => <<"acme">>,
     repo_key => RepoKey,
-    repo_uri => <<"https://repo.hex.pm/repos/acme">>
+    repo_url => <<"https://repo.hex.pm/repos/acme">>
 }).
 ```
 
