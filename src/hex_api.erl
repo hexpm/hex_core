@@ -69,10 +69,10 @@ get_release(Name, Version, Options) when is_binary(Name) and is_binary(Version) 
     get(<<"/packages/", Name/binary, "/releases/", Version/binary>>, Options).
 
 retire_release(Name, Version, Params, Options) when is_binary(Name) and is_binary(Version) and is_map(Options) ->
-    post(<<"/packages/", Name/binary, "/releases/", Version/binary, "/retirement">>, Params, Options).
+    post(<<"/packages/", Name/binary, "/releases/", Version/binary, "/retire">>, Params, Options).
 
 unretire_release(Name, Version, Options) when is_binary(Name) and is_binary(Version) and is_map(Options) ->
-    delete(<<"/packages/", Name/binary, "/releases/", Version/binary, "/retirement">>, Options).
+    delete(<<"/packages/", Name/binary, "/releases/", Version/binary, "/retire">>, Options).
 
 me(Options) when is_map(Options) ->
     get(<<"/users/me">>, Options).
