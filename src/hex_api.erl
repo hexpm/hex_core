@@ -25,9 +25,10 @@ delete(Path, Options) ->
 
 request(Method, Path, Body, Options) when is_binary(Path) and is_map(Options) ->
     DefaultHeaders = make_headers(Options),
-    ReqHeaders = maps:put(<<"accept">>, ?ERL_CONTENT_TYPE, DefaultHeaders),
+    ReqHeaders = maps:merge(maps:get(http_headers, Options, #{}), DefaultHeaders),
+    ReqHeaders2 = put_new(<<"accept">>, ?ERL_CONTENT_TYPE, ReqHeaders),
 
-    case hex_http:request(Options, Method, build_url(Path, Options), ReqHeaders, Body) of
+    case hex_http:request(Options, Method, build_url(Path, Options), ReqHeaders2, Body) of
         {ok, {Status, RespHeaders, RespBody} = Response} ->
             ContentType = maps:get(<<"content-type">>, RespHeaders, <<"">>),
             case binary:match(ContentType, ?ERL_CONTENT_TYPE) of
@@ -47,6 +48,8 @@ build_url(Path, #{api_uri := URI, organization := Org}) when is_binary(Org) ->
 build_url(Path, #{api_uri := URI}) ->
     <<URI/binary, Path/binary>>.
 
+encode_body({_ContentType, _Body} = Body) ->
+    Body;
 encode_body(Body) ->
     {binary_to_list(?ERL_CONTENT_TYPE), term_to_binary(Body)}.
 
@@ -56,3 +59,9 @@ make_headers(Options) ->
 
 set_header(api_key, Token, Headers) -> maps:put(<<"authorization">>, Token, Headers);
 set_header(_, _, Headers) -> Headers.
+
+put_new(Key, Value, Map) ->
+    case maps:find(Key, Map) of
+        {ok, _} -> Map;
+        error -> maps:put(Key, Value, Map)
+    end.
