@@ -6,12 +6,6 @@
     api_uri => <<"https://api.test">>,
     api_key => <<"dummy">>
 }).
-% -define(OPTIONS, #{
-%     http_adapter => hex_http_httpc,
-%     http_user_agent_fragment => <<"(test)">>,
-%     api_uri => <<"http://localhost:4000/api">>,
-%     api_key => <<"fe1fc830186c7bd6cce26e73c875b7d3">>
-% }).
 % -define(OPTIONS, maps:put(api_key, hex_test_helpers:api_key(), hex_erl:default_options())).
 
 package_test() ->
