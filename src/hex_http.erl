@@ -14,11 +14,11 @@
     {ok, status(), headers(), binary()} |
     {error, term()}.
 
--spec request(hex_core:options(), method(), string(), headers(), body()) ->
+-spec request(hex_core:config(), method(), string(), headers(), body()) ->
     {ok, {status(), headers(), binary()}} | {error, term()}.
-request(Options, Method, URI, Headers, Body) when is_binary(URI) and is_map(Headers) ->
-    Adapter = maps:get(http_adapter, Options),
-    UserAgentFragment = maps:get(http_user_agent_fragment, Options),
+request(Config, Method, URI, Headers, Body) when is_binary(URI) and is_map(Headers) ->
+    Adapter = maps:get(http_adapter, Config),
+    UserAgentFragment = maps:get(http_user_agent_fragment, Config),
     Headers2 = put_new(<<"user-agent">>, user_agent(UserAgentFragment), Headers),
     Adapter:request(Method, URI, Headers2, Body).
 

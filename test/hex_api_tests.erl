@@ -6,7 +6,7 @@
     api_url => <<"https://api.test">>,
     api_key => <<"dummy">>
 }).
-% -define(OPTIONS, maps:put(api_key, hex_test_helpers:api_key(), hex_core:default_options())).
+% -define(OPTIONS, maps:put(api_key, hex_test_helpers:api_key(), hex_core:default_config())).
 
 package_test() ->
     {ok, {200, _, Package}} = hex_api_package:get(<<"ecto">>, ?OPTIONS),

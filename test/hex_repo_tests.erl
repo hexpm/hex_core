@@ -7,7 +7,7 @@
     repo_public_key => hex_test_helpers:fixture("test_pub.pem"),
     repo_verify => true
 }).
-% -define(OPTIONS, hex_core:default_options()).
+% -define(OPTIONS, hex_core:default_config()).
 
 get_names_test() ->
     {ok, {200, _, #{packages := Packages}}} = hex_repo:get_names(?OPTIONS),

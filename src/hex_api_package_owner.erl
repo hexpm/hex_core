@@ -9,20 +9,20 @@
 %% Examples:
 %%
 %% ```
-%%     hex_api_owner:list(<<"package">>, hex_core:default_options()).
+%%     hex_api_owner:list(<<"package">>, hex_core:default_config()).
 %%     %%=> {ok, {200, ..., [
 %%     %%=>     #{<<"username">> => <<"alice">>, ...},
 %%     %%=>     ...
 %%     %%=> ]}}
 %% '''
-list(PackageName, Options) when is_binary(PackageName) and is_map(Options) ->
-    hex_api:get(["packages", PackageName, "owners"], Options).
+list(PackageName, Config) when is_binary(PackageName) and is_map(Config) ->
+    hex_api:get(["packages", PackageName, "owners"], Config).
 
-get(PackageName, UsernameOrEmail, Options) when is_binary(PackageName) and is_map(Options) ->
-    hex_api:get(["packages", PackageName, "owners", UsernameOrEmail], Options).
+get(PackageName, UsernameOrEmail, Config) when is_binary(PackageName) and is_map(Config) ->
+    hex_api:get(["packages", PackageName, "owners", UsernameOrEmail], Config).
 
-add(PackageName, UsernameOrEmail, Options) when is_binary(PackageName) and is_map(Options) ->
-    hex_api:put(["packages", PackageName, "owners", UsernameOrEmail], #{}, Options).
+add(PackageName, UsernameOrEmail, Config) when is_binary(PackageName) and is_map(Config) ->
+    hex_api:put(["packages", PackageName, "owners", UsernameOrEmail], #{}, Config).
 
-delete(PackageName, UsernameOrEmail, Options) when is_binary(PackageName) and is_map(Options) ->
-    hex_api:delete(["packages", PackageName, "owners", UsernameOrEmail], Options).
+delete(PackageName, UsernameOrEmail, Config) when is_binary(PackageName) and is_map(Config) ->
+    hex_api:delete(["packages", PackageName, "owners", UsernameOrEmail], Config).

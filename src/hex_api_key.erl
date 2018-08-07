@@ -7,18 +7,18 @@
     delete_all/1
 ]).
 
-list(Options) when is_map(Options) ->
-    hex_api:get(["keys"], Options).
+list(Config) when is_map(Config) ->
+    hex_api:get(["keys"], Config).
 
-get(Name, Options) when is_map(Options) ->
-    hex_api:get(["keys", Name], Options).
+get(Name, Config) when is_map(Config) ->
+    hex_api:get(["keys", Name], Config).
 
-add(Name, Permissions, Options) when is_map(Options) ->
+add(Name, Permissions, Config) when is_map(Config) ->
     Params = #{<<"name">> => Name, <<"permissions">> => Permissions},
-    hex_api:post(["keys"], Params, Options).
+    hex_api:post(["keys"], Params, Config).
 
-delete(Name, Options) when is_map(Options) ->
-    hex_api:delete(["keys", Name], Options).
+delete(Name, Config) when is_map(Config) ->
+    hex_api:delete(["keys", Name], Config).
 
-delete_all(Options) when is_map(Options) ->
-    hex_api:delete(["keys"], Options).
+delete_all(Config) when is_map(Config) ->
+    hex_api:delete(["keys"], Config).
