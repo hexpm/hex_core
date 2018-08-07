@@ -1,4 +1,4 @@
--module(hex_erl).
+-module(hex_core).
 -export([default_options/0]).
 
 %% https://hex.pm/docs/public_keys

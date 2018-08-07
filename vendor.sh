@@ -12,6 +12,7 @@ prefix=$2
 hex_erl_version=`cat $source_dir/hex_core.hrl | grep HEX_CORE_VERSION | cut -d'"' -f2`
 
 filenames="hex_core.hrl \
+           hex_core.erl \
            hex_erl_tar.erl \
            hex_erl_tar.hrl \
            hex_filename.erl \
@@ -23,9 +24,14 @@ filenames="hex_core.hrl \
            hex_http.erl \
            hex_repo.erl \
            hex_api.erl \
+           hex_api_key.erl \
+           hex_api_package.erl \
+           hex_api_package_owner.erl \
+           hex_api_release.erl \
+           hex_api_user.erl \
            safe_erl_term.xrl"
 
-search_to_replace="hex_core.hrl \
+search_to_replace="hex_core \
                    hex_erl_tar \
                    hex_filename \
                    hex_pb_package \
