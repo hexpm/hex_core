@@ -91,13 +91,25 @@ Create package tarball:
 The default configuration, provided by `hex_erl:default_options/0`, uses built-in httpc-based adapter and Hex.pm APIs:
 <https://hex.pm/api> and <https://repo.hex.pm>.
 
+Organizations on Hex.pm (or any compatible server) can be configured as following:
+
+```erlang
+Options = maps:merge(hex_erl:default_options(), #{
+    api_key => APIKey,
+    organization => <<"acme">>,
+    repo_key => RepoKey,
+    repo_uri => <<"https://repo.hex.pm/repos/acme">>
+}).
+```
+
 HTTP client configuration can be overriden as follows:
 
 ```erlang
-Options1 = hex_erl:default_options(),
-Options2 = maps:put(http_adapter, my_hackney_adapter, Options1),
-Options3 = maps:put(http_user_agent_fragment, <<"(my_app/0.1.0) (hackney/1.12.1) ">>, Options2),
-hex_repo:get_names(Options3).
+Options = maps:merge(hex_erl:default_options(), #{
+  http_adapter => my_hackney_adapter,
+  http_user_agent_fragment => <<"(my_app/0.1.0) (hackney/1.12.1) ">>
+}),
+hex_repo:get_names(Options).
 
 %% my_hackney_adapter.erl
 -module(my_hackney_adapter).

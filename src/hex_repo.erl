@@ -144,5 +144,5 @@ make_headers(Options) ->
     maps:fold(fun set_header/3, #{}, Options).
 
 set_header(http_etag, ETag, Headers) -> maps:put(<<"if-none-match">>, ETag, Headers);
-set_header(api_key, Token, Headers) -> maps:put(<<"authorization">>, Token, Headers);
+set_header(repo_key, Token, Headers) -> maps:put(<<"authorization">>, Token, Headers);
 set_header(_, _, Headers) -> Headers.

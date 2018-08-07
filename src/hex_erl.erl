@@ -19,10 +19,11 @@ J1i2xWFndWa6nfFnRxZmCStCOZWYYPlaxr+FZceFbpMwzTNs4g3d4tLNUcbKAIH4
     http_adapter => module(),
     http_etag => binary(),
     http_user_agent_fragment => binary(),
+    repo_key => binary(),
     repo_uri => binary(),
     repo_public_key => binary(),
     repo_verify => boolean(),
-    organziation => binary()
+    organization => binary()
 }.
 
 -spec default_options() -> options().
