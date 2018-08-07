@@ -30,7 +30,7 @@ get(Name, Version, Options) when is_binary(Name) and is_binary(Version) and is_m
 
 publish(Tarball, Options) when is_binary(Tarball) and is_map(Options) ->
     TarballContentType = "application/octet-stream",
-    Options2 = put_header(<<"content-length">>, byte_size(Tarball), Options),
+    Options2 = put_header(<<"content-length">>, integer_to_binary(byte_size(Tarball)), Options),
     Body = {TarballContentType, Tarball},
     hex_api:post(["publish"], Body, Options2).
 
