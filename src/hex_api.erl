@@ -5,7 +5,7 @@
     post/3,
     put/3
 ]).
--define(CONTENT_TYPE, <<"application/vnd.hex+erlang">>).
+-define(ERL_CONTENT_TYPE, <<"application/vnd.hex+erlang">>).
 
 get(Path, Options) ->
     request(get, Path, nil, Options).
@@ -25,12 +25,12 @@ delete(Path, Options) ->
 
 request(Method, Path, Body, Options) when is_binary(Path) and is_map(Options) ->
     DefaultHeaders = make_headers(Options),
-    ReqHeaders = maps:put(<<"accept">>, ?CONTENT_TYPE, DefaultHeaders),
+    ReqHeaders = maps:put(<<"accept">>, ?ERL_CONTENT_TYPE, DefaultHeaders),
 
     case hex_http:request(Options, Method, build_url(Path, Options), ReqHeaders, Body) of
         {ok, {Status, RespHeaders, RespBody} = Response} ->
             ContentType = maps:get(<<"content-type">>, RespHeaders, <<"">>),
-            case binary:match(ContentType, ?CONTENT_TYPE) of
+            case binary:match(ContentType, ?ERL_CONTENT_TYPE) of
                 {_, _} ->
                     {ok, {Status, RespHeaders, binary_to_term(RespBody)}};
 
@@ -48,7 +48,7 @@ build_url(Path, #{api_uri := URI}) ->
     <<URI/binary, Path/binary>>.
 
 encode_body(Body) ->
-    {binary_to_list(?CONTENT_TYPE), term_to_binary(Body)}.
+    {binary_to_list(?ERL_CONTENT_TYPE), term_to_binary(Body)}.
 
 %% TODO: copy-pasted from hex_repo
 make_headers(Options) ->
