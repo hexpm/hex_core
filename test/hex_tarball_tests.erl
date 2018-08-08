@@ -4,7 +4,7 @@
 
 memory_test() ->
     Metadata = #{
-      <<"app">> => <<"foo">>,
+      <<"name">> => <<"foo">>,
       <<"version">> => <<"1.0.0">>,
       <<"maintainers">> => [<<"José">>],
       <<"build_tool">> => <<"rebar3">>
@@ -23,9 +23,9 @@ disk_test() ->
         ok = file:write_file("src/not_whitelisted.erl", <<"">>),
 
         Files = ["empty", "src", "src/foo.erl"],
-        Metadata = #{<<"app">> => <<"foo">>, <<"version">> => <<"1.0.0">>, <<"build_tool">> => <<"rebar3">>},
+        Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>, <<"build_tool">> => <<"rebar3">>},
         {ok, {Tarball, Checksum}} = hex_tarball:create(Metadata, Files),
-        <<"34597B7933F4533C1BAFDD2053F2FBB398CF5D979BAC9F6E1F83A106FAE4491E">> = hex_tarball:format_checksum(Checksum),
+        <<"F074231BB5953E93B43F14EB2B93B2543142605417ECC2AE7F4E56C5D98A5115">> = hex_tarball:format_checksum(Checksum),
         {ok, #{checksum := Checksum, metadata := Metadata}} = hex_tarball:unpack(Tarball, "unpack"),
         ["unpack/empty",
          "unpack/hex_metadata.config",
@@ -33,13 +33,13 @@ disk_test() ->
          "unpack/src/foo.erl"
         ] = filelib:wildcard("unpack/**/*"),
         {ok, <<"-module(foo).">>} = file:read_file("unpack/src/foo.erl"),
-        {ok, <<"{<<\"app\">>,<<\"foo\">>}.\n{<<\"build_tool\">>,<<\"rebar3\">>}.\n{<<\"version\">>,<<\"1.0.0\">>}.\n">>} =
+        {ok, <<"{<<\"build_tool\">>,<<\"rebar3\">>}.\n{<<\"name\">>,<<\"foo\">>}.\n{<<\"version\">>,<<\"1.0.0\">>}.\n">>} =
             file:read_file("unpack/hex_metadata.config")
     end).
 
 timestamps_and_permissions_test() ->
     hex_test_helpers:in_tmp(fun() ->
-        Metadata = #{<<"app">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+        Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
 
         ok = file:write_file("foo.sh", <<"">>),
         ok = file:change_mode("foo.sh", 8#100755),
@@ -73,7 +73,7 @@ timestamps_and_permissions_test() ->
 
 symlinks_test() ->
     hex_test_helpers:in_tmp(fun() ->
-        Metadata = #{<<"app">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+        Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
 
         ok = file:make_dir("dir"),
         ok = file:write_file("dir/foo.sh", <<"foo">>),
@@ -92,7 +92,7 @@ symlinks_test() ->
     end).
 
 build_tools_test() ->
-    Metadata = #{<<"app">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+    Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
     Contents = [],
 
     {ok, {Tarball1, _}} = hex_tarball:create(maps:put(<<"files">>, [<<"Makefile">>], Metadata), Contents),
@@ -163,7 +163,8 @@ decode_metadata_test() ->
     ok.
 
 unpack_error_handling_test() ->
-    {ok, {Tarball, Checksum}} = hex_tarball:create(#{"name" => <<"foo">>}, [{"rebar.config", <<"">>}]),
+    Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+    {ok, {Tarball, Checksum}} = hex_tarball:create(Metadata, [{"rebar.config", <<"">>}]),
     {ok, #{checksum := Checksum}} = hex_tarball:unpack(Tarball, memory),
     {ok, OuterFileList} = hex_erl_tar:extract({binary, Tarball}, [memory]),
     OuterFiles = maps:from_list(OuterFileList),
@@ -201,7 +202,7 @@ unpack_error_handling_test() ->
 
     Files5 = OuterFiles#{
       "contents.tar.gz" => <<"badtar">>,
-      "CHECKSUM" => <<"9AA6A026CCD93D4E7B3B6083595259D2946709DE8F9EC7FAB69F2E53939DF403">>
+      "CHECKSUM" => <<"63E0D44ED4F61F5A1636A516A6A26890052CE0BB1B1A6EDC66C30282E2EC1A58">>
     },
     {error,{inner_tarball,eof}} = unpack_files(Files5),
 

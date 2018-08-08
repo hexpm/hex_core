@@ -32,7 +32,7 @@
 %% Examples:
 %%
 %% ```
-%%     Metadata = #{<<"app">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+%%     Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
 %%     Files = [{"src/foo.erl", <<"-module(foo).">>}],
 %%     {ok, {Tarball, Checksum}} = hex_tarball:create(Metadata, Files).
 %%     Tarball.
@@ -107,11 +107,11 @@ create_docs(Files) ->
 %%     hex_tarball:unpack(Tarball, memory).
 %%     %%=> {ok,#{checksum => <<...>>,
 %%     %%=>       contents => [{"src/foo.erl",<<"-module(foo).">>}],
-%%     %%=>       metadata => #{<<"app">> => <<"foo">>, ...}}}
+%%     %%=>       metadata => #{<<"name">> => <<"foo">>, ...}}}
 %%
 %%     hex_tarball:unpack(Tarball, "path/to/unpack").
 %%     %%=> {ok,#{checksum => <<...>>,
-%%     %%=>       metadata => #{<<"app">> => <<"foo">>, ...}}}
+%%     %%=>       metadata => #{<<"name">> => <<"foo">>, ...}}}
 %% '''
 -spec unpack(tarball(), memory) ->
                 {ok, #{checksum => checksum(), metadata => metadata(), contents => contents()}} |
