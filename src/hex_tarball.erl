@@ -356,27 +356,20 @@ try_updating_mtime(Path) ->
     ok.
 
 create_memory_tarball(Files) ->
-    {ok, Fd} = file:open([], [ram, read, write, binary]),
-    {ok, Tar} = hex_erl_tar:init(Fd, write, fun file_op/2),
+    Path = tmp_path(),
+    {ok, Tar} = hex_erl_tar:open(Path, [write]),
 
     try
-        try
-            add_files(Tar, Files)
-        after
-            ok = hex_erl_tar:close(Tar)
-        end,
-
-        {ok, Size} = file:position(Fd, cur),
-        {ok, Binary} = file:pread(Fd, 0, Size),
-        Binary
+        add_files(Tar, Files)
     after
-        ok = file:close(Fd)
-    end.
+        ok = hex_erl_tar:close(Tar)
+    end,
+    {ok, Tarball} = file:read_file(Path),
+    ok = file:delete(Path),
+    Tarball.
 
-file_op(write, {Fd, Data}) -> file:write(Fd, Data);
-file_op(position, {Fd, Pos}) -> file:position(Fd, Pos);
-file_op(read2, {Fd, Size}) -> file:read(Fd, Size);
-file_op(close, _Fd) -> ok.
+tmp_path() ->
+    integer_to_list(erlang:unique_integer()).
 
 add_files(Tar, Files) when is_list(Files) ->
     lists:map(fun(File) -> add_file(Tar, File) end, Files).
