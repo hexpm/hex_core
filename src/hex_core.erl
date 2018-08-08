@@ -1,5 +1,5 @@
 -module(hex_core).
--export([default_options/0]).
+-export([default_config/0]).
 
 %% https://hex.pm/docs/public_keys
 -define(HEXPM_PUBLIC_KEY, <<"-----BEGIN PUBLIC KEY-----
@@ -13,7 +13,7 @@ J1i2xWFndWa6nfFnRxZmCStCOZWYYPlaxr+FZceFbpMwzTNs4g3d4tLNUcbKAIH4
 -----END PUBLIC KEY-----">>).
 
 
--type options() :: #{
+-type config() :: #{
     api_url => binary(),
     api_key => binary(),
     http_adapter => module(),
@@ -26,8 +26,8 @@ J1i2xWFndWa6nfFnRxZmCStCOZWYYPlaxr+FZceFbpMwzTNs4g3d4tLNUcbKAIH4
     organization => binary()
 }.
 
--spec default_options() -> options().
-default_options() ->
+-spec default_config() -> config().
+default_config() ->
     #{
         api_url => <<"https://hex.pm/api">>,
         http_adapter => hex_http_httpc,

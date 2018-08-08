@@ -8,17 +8,17 @@
 ]).
 -define(ERL_CONTENT_TYPE, <<"application/vnd.hex+erlang">>).
 
-get(Path, Options) ->
-    request(get, Path, nil, Options).
+get(Config, Path) ->
+    request(Config, get, Path, nil).
 
-post(Path, Body, Options) ->
-    request(post, Path, encode_body(Body), Options).
+post(Config, Path, Body) ->
+    request(Config, post, Path, encode_body(Body)).
 
-put(Path, Body, Options) ->
-    request(put, Path, encode_body(Body), Options).
+put(Config, Path, Body) ->
+    request(Config, put, Path, encode_body(Body)).
 
-delete(Path, Options) ->
-    request(delete, Path, nil, Options).
+delete(Config, Path) ->
+    request(Config, delete, Path, nil).
 
 %% @private
 encode_query_string(List) ->
@@ -39,18 +39,18 @@ encode_query_string(List) ->
 %% Internal functions
 %%====================================================================
 
-request(Method, PathSegments, Body, Options) when is_list(PathSegments) ->
+request(Config, Method, PathSegments, Body) when is_list(PathSegments) ->
     Path =
         erlang:iolist_to_binary(
             join(<<"/">>,
                 lists:map(fun encode/1, PathSegments))),
-    request(Method, <<"/", Path/binary>>, Body, Options);
-request(Method, Path, Body, Options) when is_binary(Path) and is_map(Options) ->
-    DefaultHeaders = make_headers(Options),
-    ReqHeaders = maps:merge(maps:get(http_headers, Options, #{}), DefaultHeaders),
+    request(Config, Method, <<"/", Path/binary>>, Body);
+request(Config, Method, Path, Body) when is_binary(Path) and is_map(Config) ->
+    DefaultHeaders = make_headers(Config),
+    ReqHeaders = maps:merge(maps:get(http_headers, Config, #{}), DefaultHeaders),
     ReqHeaders2 = put_new(<<"accept">>, ?ERL_CONTENT_TYPE, ReqHeaders),
 
-    case hex_http:request(Options, Method, build_url(Path, Options), ReqHeaders2, Body) of
+    case hex_http:request(Config, Method, build_url(Path, Config), ReqHeaders2, Body) of
         {ok, {Status, RespHeaders, RespBody} = Response} ->
             ContentType = maps:get(<<"content-type">>, RespHeaders, <<"">>),
             case binary:match(ContentType, ?ERL_CONTENT_TYPE) of
@@ -81,8 +81,8 @@ encode_body(Body) ->
     {binary_to_list(?ERL_CONTENT_TYPE), term_to_binary(Body)}.
 
 %% TODO: copy-pasted from hex_repo
-make_headers(Options) ->
-    maps:fold(fun set_header/3, #{}, Options).
+make_headers(Config) ->
+    maps:fold(fun set_header/3, #{}, Config).
 
 set_header(api_key, Token, Headers) -> maps:put(<<"authorization">>, Token, Headers);
 set_header(_, _, Headers) -> Headers.

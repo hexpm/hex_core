@@ -6,16 +6,16 @@ Reference implementation of Hex specifications: https://github.com/hexpm/specifi
 
 ## Usage
 
-Let's use default options for now. See "Configuration" section below for customization.
+Let's use default config for now. See "Configuration" section below for customization.
 
 ```
-Options = hex_core:default_options().
+Config = hex_core:default_config().
 ```
 
 Get all package names:
 
 ```erlang
-hex_repo:get_names(Options).
+hex_repo:get_names(Config).
 %%=> {ok, {200, ...,
 %%=>     #{packages => [
 %%=>         #{name => <<"package1">>},
@@ -27,7 +27,7 @@ hex_repo:get_names(Options).
 Get all package versions from repository:
 
 ```erlang
-hex_repo:get_versions(Options).
+hex_repo:get_versions(Config).
 %%=> {ok, {200, ...,
 %%=>     #{packages => [
 %%=>         #{name => <<"package1">>, retired => [], versions => [<<"1.0.0">>]},
@@ -38,7 +38,7 @@ hex_repo:get_versions(Options).
 Get package releases from repository:
 
 ```erlang
-hex_repo:get_package(<<"package1">>, Options).
+hex_repo:get_package(Config, <<"package1">>).
 %%=> {ok, {200, ...,
 %%=>     #{releases => [
 %%=>         #{checksum => ..., version => <<"0.5.0">>, dependencies => []}],
@@ -49,7 +49,7 @@ hex_repo:get_package(<<"package1">>, Options).
 Get package from HTTP API:
 
 ```erlang
-hex_api_package:get(<<"package1">>, Options).
+hex_api_package:get(Config, <<"package1">>).
 %%=> {ok, {200, ...,
 %%=>     #{
 %%=>         <<"name">> => <<"package1">>,
@@ -71,7 +71,7 @@ hex_api_package:get(<<"package1">>, Options).
 Get package tarball:
 
 ```erlang
-{ok, {200, _, Tarball}} = hex_repo:get_tarball(<<"package1">>, <<"1.0.0">>, Options).
+{ok, {200, _, Tarball}} = hex_repo:get_tarball(Config, <<"package1">>, <<"1.0.0">>).
 ```
 
 Unpack package tarball:
@@ -88,13 +88,13 @@ Create package tarball:
 
 ## Configuration
 
-The default configuration, provided by `hex_core:default_options/0`, uses built-in httpc-based adapter and Hex.pm APIs:
+The default configuration, provided by `hex_core:default_config/0`, uses built-in httpc-based adapter and Hex.pm APIs:
 <https://hex.pm/api> and <https://repo.hex.pm>.
 
 Organizations on Hex.pm (or any compatible server) can be configured as following:
 
 ```erlang
-Options = maps:merge(hex_core:default_options(), #{
+Config = maps:merge(hex_core:default_config(), #{
     api_key => APIKey,
     organization => <<"acme">>,
     repo_key => RepoKey,
@@ -105,11 +105,11 @@ Options = maps:merge(hex_core:default_options(), #{
 HTTP client configuration can be overriden as follows:
 
 ```erlang
-Options = maps:merge(hex_core:default_options(), #{
+Config = maps:merge(hex_core:default_config(), #{
   http_adapter => my_hackney_adapter,
   http_user_agent_fragment => <<"(my_app/0.1.0) (hackney/1.12.1) ">>
 }),
-hex_repo:get_names(Options).
+hex_repo:get_names(Config).
 
 %% my_hackney_adapter.erl
 -module(my_hackney_adapter).
@@ -140,7 +140,7 @@ For a sample, see: [`examples/myapp_hex.erl`](examples/myapp_hex.erl). Here's an
 %%====================================================================
 
 get_api_package(Name) ->
-      case hex_api_package:get(Name, options()) of
+      case hex_api_package:get(config(), Name) of
           {ok, {200, _Headers, Payload}} ->
               {ok, Payload};
 
@@ -149,7 +149,7 @@ get_api_package(Name) ->
       end.
 
 get_repo_versions() ->
-      case hex_repo:get_versions(options()) of
+      case hex_repo:get_versions(config()) of
           {ok, {200, _Headers, Payload}} ->
               {ok, maps:get(packages, Payload)};
 
@@ -161,19 +161,19 @@ get_repo_versions() ->
 %% Internal functions
 %%====================================================================
 
-options() ->
-    Options1 = hex_core:default_options(),
-    Options2 = put_http_options(Options1),
-    Options3 = maybe_put_api_key(Options2),
-    Options3.
+config() ->
+    Config1 = hex_core:default_config(),
+    Config2 = put_http_config(Config1),
+    Config3 = maybe_put_api_key(Config2),
+    Config3.
 
-put_http_options(Options) ->
-    maps:put(http_user_agent_fragment, <<"(myapp/1.0.0) (httpc)">>, Options).
+put_http_config(Config) ->
+    maps:put(http_user_agent_fragment, <<"(myapp/1.0.0) (httpc)">>, Config).
 
-maybe_put_api_key(Options) ->
+maybe_put_api_key(Config) ->
     case os:getenv("HEX_API_KEY") of
-        false -> Options;
-        Key -> maps:put(api_key, Key, Options)
+        false -> Config;
+        Key -> maps:put(api_key, Key, Config)
     end.
 ```
 

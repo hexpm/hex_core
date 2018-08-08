@@ -7,7 +7,7 @@
 %% Examples:
 %%
 %% ```
-%%     hex_api_package:get(<<"package">>, hex_core:default_options()).
+%%     hex_api_package:get(hex_core:default_config(), <<"package">>).
 %%     %%=> {ok, {200, ..., #{
 %%     %%=>     <<"name">> => <<"package1">>,
 %%     %%=>     <<"meta">> => #{
@@ -24,8 +24,8 @@
 %%     %%=>     ]}}}
 %% '''
 %% @end
-get(Name, Options) when is_binary(Name) and is_map(Options) ->
-    hex_api:get(["packages", Name], Options).
+get(Config, Name) when is_binary(Name) and is_map(Config) ->
+    hex_api:get(Config, ["packages", Name]).
 
 %% @doc
 %% Searches packages.
@@ -33,12 +33,12 @@ get(Name, Options) when is_binary(Name) and is_map(Options) ->
 %% Examples:
 %%
 %% ```
-%%     hex_api_package:search(<<"package">>, [], hex_core:default_options()).
+%%     hex_api_package:search(hex_core:default_config(), <<"package">>, []).
 %%     %%=> {ok, {200, ..., [
 %%     %%=>     #{<<"name">> => <<"package1">>, ...},
 %%     %%=>     ...
 %%     %%=> ]}}
 %% '''
-search(Query, SearchParams, Options) when is_binary(Query) and is_list(SearchParams) and is_map(Options) ->
+search(Config, Query, SearchParams) when is_binary(Query) and is_list(SearchParams) and is_map(Config) ->
     QueryString = hex_api:encode_query_string([{search, Query} | SearchParams]),
-    hex_api:get(<<"/packages?", QueryString/binary>>, Options).
+    hex_api:get(Config, <<"/packages?", QueryString/binary>>).

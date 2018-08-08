@@ -6,19 +6,19 @@
     reset_password/2
 ]).
 
-me(Options) when is_map(Options) ->
-    hex_api:get(["users", "me"], Options).
+me(Config) when is_map(Config) ->
+    hex_api:get(Config, ["users", "me"]).
 
-create(Username, Password, Email, Options) ->
+create(Config, Username, Password, Email) ->
     Params = #{
       <<"username">> => Username,
       <<"password">> => Password,
       <<"email">> => Email
     },
-    hex_api:post(["users"], Params, Options).
+    hex_api:post(Config, ["users"], Params).
 
-reset_password(Username, Options) when is_binary(Username) and is_map(Options) ->
-    hex_api:post(["users", Username, "reset"], #{}, Options).
+reset_password(Username, Config) when is_binary(Username) and is_map(Config) ->
+    hex_api:post(Config, ["users", Username, "reset"], #{}).
 
 %% @doc
 %% Gets user.
@@ -26,7 +26,7 @@ reset_password(Username, Options) when is_binary(Username) and is_map(Options) -
 %% Examples:
 %%
 %% ```
-%%     hex_api_user:get(<<"user">>, hex_core:default_options()).
+%%     hex_api_user:get(<<"user">>, hex_core:default_config()).
 %%     %%=> {ok, {200, ..., #{
 %%     %%=>     <<"username">> => <<"user">>,
 %%     %%=>     <<"packages">> => [
@@ -40,5 +40,5 @@ reset_password(Username, Options) when is_binary(Username) and is_map(Options) -
 %%     %%=>     ...}}}
 %% '''
 %% @end
-get(Username, Options) when is_binary(Username) and is_map(Options) ->
-    hex_api:get(["users", Username], Options).
+get(Config, Username) when is_binary(Username) and is_map(Config) ->
+    hex_api:get(Config, ["users", Username]).

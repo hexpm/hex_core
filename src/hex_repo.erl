@@ -16,7 +16,7 @@
 %% Examples:
 %%
 %% ```
-%%     hex_repo:get_names(hex_core:default_options()).
+%%     hex_repo:get_names(hex_core:default_config()).
 %%     %%=> {ok, {200, ...,
 %%     %%=>     #{packages => [
 %%     %%=>         #{name => <<"package1">>},
@@ -24,9 +24,9 @@
 %%     %%=>     ]}}}
 %% '''
 %% @end
-get_names(Options) when is_map(Options) ->
+get_names(Config) when is_map(Config) ->
     Decoder = fun hex_registry:decode_names/1,
-    get_protobuf(<<"/names">>, Decoder, Options).
+    get_protobuf(Config, <<"/names">>, Decoder).
 
 %% @doc
 %% Gets versions resource from the repository.
@@ -34,7 +34,7 @@ get_names(Options) when is_map(Options) ->
 %% Examples:
 %%
 %% ```
-%%     hex_repo:get_versions(Options).
+%%     hex_repo:get_versions(Config).
 %%     %%=> {ok, {200, ...,
 %%     %%=>     #{packages => [
 %%     %%=>         #{name => <<"package1">>, retired => [],
@@ -44,9 +44,9 @@ get_names(Options) when is_map(Options) ->
 %%     %%=>     ]}}}
 %% '''
 %% @end
-get_versions(Options) when is_map(Options) ->
+get_versions(Config) when is_map(Config) ->
     Decoder = fun hex_registry:decode_versions/1,
-    get_protobuf(<<"/versions">>, Decoder, Options).
+    get_protobuf(Config, <<"/versions">>, Decoder).
 
 %% @doc
 %% Gets package resource from the repository.
@@ -54,7 +54,7 @@ get_versions(Options) when is_map(Options) ->
 %% Examples:
 %%
 %% ```
-%%     hex_repo:get_package(<<"package1">>, hex_core:default_options()).
+%%     hex_repo:get_package(hex_core:default_config(), <<"package1">>).
 %%     %%=> {ok, {200, ...,
 %%     %%=>     #{releases => [
 %%     %%=>         #{checksum => ..., version => <<"0.5.0">>, dependencies => []},
@@ -64,9 +64,9 @@ get_versions(Options) when is_map(Options) ->
 %%     %%=>     ]}}}
 %% '''
 %% @end
-get_package(Name, Options) when is_binary(Name) and is_map(Options) ->
+get_package(Config, Name) when is_binary(Name) and is_map(Config) ->
     Decoder = fun hex_registry:decode_package/1,
-    get_protobuf(<<"/packages/", Name/binary>>, Decoder, Options).
+    get_protobuf(Config, <<"/packages/", Name/binary>>, Decoder).
 
 %% @doc
 %% Gets tarball from the repository.
@@ -74,15 +74,15 @@ get_package(Name, Options) when is_binary(Name) and is_map(Options) ->
 %% Examples:
 %%
 %% ```
-%%     {ok, {200, _, Tarball}} = hex_repo:get_tarball(<<"package1">>, <<"1.0.0">>, hex_core:default_options()),
+%%     {ok, {200, _, Tarball}} = hex_repo:get_tarball(<<"package1">>, <<"1.0.0">>, hex_core:default_config()),
 %%     {ok, #{metadata := Metadata}} = hex_tarball:unpack(Tarball, memory).
 %% '''
 %% @end
-get_tarball(Name, Version, Options) ->
-    URI = maps:get(repo_url, Options),
-    ReqHeaders = make_headers(Options),
+get_tarball(Config, Name, Version) ->
+    URI = maps:get(repo_url, Config),
+    ReqHeaders = make_headers(Config),
 
-    case get(Options, tarball_url(URI, Name, Version), ReqHeaders) of
+    case get(Config, tarball_url(URI, Name, Version), ReqHeaders) of
         {ok, {200, RespHeaders, Tarball}} ->
             {ok, {200, RespHeaders, Tarball}};
 
@@ -94,18 +94,18 @@ get_tarball(Name, Version, Options) ->
 %% Internal functions
 %%====================================================================
 
-get(Options, URI, Headers) ->
-    hex_http:request(Options, get, URI, Headers, nil).
+get(Config, URI, Headers) ->
+    hex_http:request(Config, get, URI, Headers, nil).
 
-get_protobuf(Path, Decoder, Options) ->
-    URI = maps:get(repo_url, Options),
-    PublicKey = maps:get(repo_public_key, Options),
-    ReqHeaders = make_headers(Options),
+get_protobuf(Config, Path, Decoder) ->
+    URI = maps:get(repo_url, Config),
+    PublicKey = maps:get(repo_public_key, Config),
+    ReqHeaders = make_headers(Config),
 
-    case get(Options, <<URI/binary, Path/binary>>, ReqHeaders) of
+    case get(Config, <<URI/binary, Path/binary>>, ReqHeaders) of
         {ok, {200, RespHeaders, Compressed}} ->
             Signed = zlib:gunzip(Compressed),
-            case decode(Signed, PublicKey, Decoder, Options) of
+            case decode(Signed, PublicKey, Decoder, Config) of
                 {ok, Decoded} ->
                     {ok, {200, RespHeaders, Decoded}};
 
@@ -117,8 +117,8 @@ get_protobuf(Path, Decoder, Options) ->
             Other
     end.
 
-decode(Signed, PublicKey, Decoder, Options) ->
-    Verify = maps:get(repo_verify, Options, true),
+decode(Signed, PublicKey, Decoder, Config) ->
+    Verify = maps:get(repo_verify, Config, true),
 
     case Verify of
         true ->
@@ -140,8 +140,8 @@ tarball_url(URI, Name, Version) ->
 tarball_filename(Name, Version) ->
     <<Name/binary, "-", Version/binary, ".tar">>.
 
-make_headers(Options) ->
-    maps:fold(fun set_header/3, #{}, Options).
+make_headers(Config) ->
+    maps:fold(fun set_header/3, #{}, Config).
 
 set_header(http_etag, ETag, Headers) -> maps:put(<<"if-none-match">>, ETag, Headers);
 set_header(repo_key, Token, Headers) -> maps:put(<<"authorization">>, Token, Headers);
