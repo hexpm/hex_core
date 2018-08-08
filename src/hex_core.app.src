@@ -1,15 +1,10 @@
-{application, hex_core,
- [{description, "An OTP library"},
+{application, hex_core, [
+  {description, "Reference implementation of Hex specifications"},
   {vsn, "0.1.0"},
   {registered, []},
-  {applications,
-   [kernel,
-    stdlib
-   ]},
-  {env,[]},
-  {modules, []},
-
-  {maintainers, []},
+  {applications, [kernel, stdlib]},
   {licenses, ["Apache 2.0"]},
-  {links, []}
- ]}.
+  {links, [
+    {"GitHub", "https://github.com/hexpm/hex_core"}
+  ]}
+]}.

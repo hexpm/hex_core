@@ -185,7 +185,7 @@ Add to `rebar.config`:
 
 ```erlang
 {deps, [
-  {hex_core, {git, "git://github.com/hexpm/hex_core.git"}}
+  {hex_core, "0.1.0"}
 ]}
 ```
 
@@ -194,9 +194,9 @@ Add to `rebar.config`:
 Add to `mix.exs`:
 
 ```elixir
-defp deps do
+defp deps() do
   [
-    {:hex_core, github: "hexpm/hex_core"}
+    {:hex_core, "~> 0.1"}
   ]
 end
 ```
