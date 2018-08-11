@@ -26,7 +26,7 @@ user_agent(UserAgentFragment) ->
     OTPRelease = erlang:system_info(otp_release),
     ERTSVersion = erlang:system_info(version),
     OTPString = " (OTP/" ++ OTPRelease ++ ") (erts/" ++ ERTSVersion ++ ")",
-    iolist_to_binary(["hex_erl/", ?HEX_CORE_VERSION, " ", UserAgentFragment, OTPString]).
+    iolist_to_binary(["hex_core/", ?HEX_CORE_VERSION, " ", UserAgentFragment, OTPString]).
 
 %%====================================================================
 %% Internal functions
