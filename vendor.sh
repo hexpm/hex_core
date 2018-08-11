@@ -9,7 +9,7 @@ fi
 source_dir=`dirname $0`/src
 target_dir=$1
 prefix=$2
-hex_erl_version=`cat $source_dir/hex_core.hrl | grep HEX_CORE_VERSION | cut -d'"' -f2`
+hex_core_version=`cat $source_dir/hex_core.hrl | grep HEX_CORE_VERSION | cut -d'"' -f2`
 
 filenames="hex_core.hrl \
            hex_core.erl \
@@ -49,7 +49,7 @@ for filename in $filenames; do
   source_path=$source_dir/$filename
   target_path=$target_dir/$prefix$filename
 
-  echo "%% Vendored from hex_erl v$hex_erl_version, do not edit manually" > $target_path
+  echo "%% Vendored from hex_core v$hex_core_version, do not edit manually" > $target_path
   echo >> $target_path
   cat $source_path >> $target_path
 
