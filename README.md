@@ -185,7 +185,7 @@ Add to `rebar.config`:
 
 ```erlang
 {deps, [
-  {hex_core, "0.1.0"}
+  {hex_core, "0.1.1"}
 ]}
 ```
 
