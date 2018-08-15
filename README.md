@@ -12,6 +12,8 @@ Let's use default config for now. See "Configuration" section below for customiz
 Config = hex_core:default_config().
 ```
 
+### Repository
+
 Get all package names:
 
 ```erlang
@@ -46,6 +48,10 @@ hex_repo:get_package(Config, <<"package1">>).
 %%=>     ]}}}
 ```
 
+### API
+
+For a full list of all parameters and returned objects for the API, check out the API docs:  https://github.com/hexpm/specifications/blob/master/http_api.md.
+
 Get package from HTTP API:
 
 ```erlang
@@ -74,6 +80,14 @@ Get package tarball:
 {ok, {200, _, Tarball}} = hex_repo:get_tarball(Config, <<"package1">>, <<"1.0.0">>).
 ```
 
+Publish package tarball:
+
+```erlang
+{ok, {200, _Headers, _Body} = hex_api_package:publish(Config, Tarball).
+```
+
+### Package tarballs
+
 Unpack package tarball:
 
 ```erlang
@@ -84,12 +98,6 @@ Create package tarball:
 
 ```erlang
 {ok, {Tarball, Checksum}} = hex_tarball:create(Metadata, Contents).
-```
-
-Publish package tarball:
-
-```erlang
-{ok, {200, _Headers, _Body} = hex_api_package:publish(Config, Tarball).
 ```
 
 ## Configuration
