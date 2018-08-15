@@ -86,6 +86,12 @@ Create package tarball:
 {ok, {Tarball, Checksum}} = hex_tarball:create(Metadata, Contents).
 ```
 
+Publish package tarball:
+
+```erlang
+{ok, {200, _Headers, _Body} = hex_api_package:publish(Config, Tarball).
+```
+
 ## Configuration
 
 The default configuration, provided by `hex_core:default_config/0`, uses built-in httpc-based adapter and Hex.pm APIs:
