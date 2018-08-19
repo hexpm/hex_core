@@ -11,7 +11,7 @@
 
 get_api_package(Name) ->
     Result = with_http_cache({api_package, Name}, fun(Config) ->
-        hex_api_package:get(Name, maps:merge(Config, config()))
+        hex_api_package:get(maps:merge(Config, config()), Name)
     end),
     case Result of
         {ok, {200, _Headers, Payload}} ->
@@ -35,7 +35,7 @@ get_repo_versions() ->
 
 get_repo_tarball(Name, Version) ->
     Result = with_http_cache({repo_tarball, Name, Version}, fun(Config) ->
-        hex_repo:get_tarball(Name, Version, maps:merge(Config, config()))
+        hex_repo:get_tarball(maps:merge(Config, config()), Name, Version)
     end),
     case Result of
         {ok, {200, _Headers, Tarball}} ->
