@@ -368,8 +368,9 @@ create_memory_tarball(Files) ->
     ok = file:delete(Path),
     Tarball.
 
+%% FIXME:
 tmp_path() ->
-    "tmp" ++ integer_to_list(erlang:unique_integer()).
+    "tmp_".
 
 add_files(Tar, Files) when is_list(Files) ->
     lists:map(fun(File) -> add_file(Tar, File) end, Files).
