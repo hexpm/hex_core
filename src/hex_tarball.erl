@@ -368,9 +368,8 @@ create_memory_tarball(Files) ->
     ok = file:delete(Path),
     Tarball.
 
-%% FIXME:
 tmp_path() ->
-    "tmp_".
+    "tmp_" ++ binary_to_list(encode_base16(crypto:strong_rand_bytes(32))).
 
 add_files(Tar, Files) when is_list(Files) ->
     lists:map(fun(File) -> add_file(Tar, File) end, Files).
