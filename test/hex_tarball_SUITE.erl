@@ -1,8 +1,17 @@
--module(hex_tarball_tests).
+-module(hex_tarball_SUITE).
+
+-compile([export_all]).
+
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("kernel/include/file.hrl").
+-include_lib("common_test/include/ct.hrl").
 
-memory_test() ->
+all() ->
+    [disk_test, timestamps_and_permissions_test, symlinks_test,
+     memory_test, build_tools_test, requirements_test, 
+     decode_metadata_test, unpack_error_handling_test].
+
+memory_test(_Config) ->
     Metadata = #{
       <<"name">> => <<"foo">>,
       <<"version">> => <<"1.0.0">>,
@@ -14,84 +23,95 @@ memory_test() ->
     {ok, #{checksum := Checksum, contents := Contents, metadata := Metadata}} = hex_tarball:unpack(Tarball, memory),
     ok.
 
-disk_test() ->
-    hex_test_helpers:in_tmp(fun() ->
-        ok = file:make_dir("src"),
-        ok = file:make_dir("empty"),
-        ok = file:write_file("src/foo.erl", <<"-module(foo).">>),
-        ok = file:change_mode("src/foo.erl", 8#100644),
-        ok = file:write_file("src/not_whitelisted.erl", <<"">>),
+disk_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    SrcDir = filename:join(BaseDir, "src"),
+    EmptyDir = filename:join(BaseDir, "empty"),
+    Foo = filename:join(SrcDir, "foo.erl"),
+    UnpackDir = filename:join(BaseDir, "unpack"),
 
-        Files = ["empty", "src", "src/foo.erl"],
-        Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>, <<"build_tool">> => <<"rebar3">>},
-        {ok, {Tarball, Checksum}} = hex_tarball:create(Metadata, Files),
-        <<"F074231BB5953E93B43F14EB2B93B2543142605417ECC2AE7F4E56C5D98A5115">> = hex_tarball:format_checksum(Checksum),
-        {ok, #{checksum := Checksum, metadata := Metadata}} = hex_tarball:unpack(Tarball, "unpack"),
-        ["unpack/empty",
-         "unpack/hex_metadata.config",
-         "unpack/src",
-         "unpack/src/foo.erl"
-        ] = filelib:wildcard("unpack/**/*"),
-        {ok, <<"-module(foo).">>} = file:read_file("unpack/src/foo.erl"),
-        {ok, <<"{<<\"build_tool\">>,<<\"rebar3\">>}.\n{<<\"name\">>,<<\"foo\">>}.\n{<<\"version\">>,<<\"1.0.0\">>}.\n">>} =
-            file:read_file("unpack/hex_metadata.config")
-    end).
+    ok = file:make_dir(SrcDir),
+    ok = file:make_dir(EmptyDir),
+    ok = file:write_file(Foo, <<"-module(foo).">>),
+    ok = file:change_mode(Foo, 8#100644),
+    ok = file:write_file(filename:join(SrcDir, "not_whitelisted.erl"), <<"">>),
 
-timestamps_and_permissions_test() ->
-    hex_test_helpers:in_tmp(fun() ->
-        Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+    Files = [{"empty", EmptyDir}, {"src", SrcDir}, {"src/foo.erl", Foo}],
+    Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>, <<"build_tool">> => <<"rebar3">>},
+    {ok, {Tarball, Checksum}} = hex_tarball:create(Metadata, Files),
+    ?assertEqual(<<"F074231BB5953E93B43F14EB2B93B2543142605417ECC2AE7F4E56C5D98A5115">>, 
+                 hex_tarball:format_checksum(Checksum)),
+    {ok, #{checksum := Checksum, metadata := Metadata}} = hex_tarball:unpack(Tarball, UnpackDir),
+    UnpackedFiles = [filename:join(UnpackDir, "empty"),
+                     filename:join(UnpackDir, "hex_metadata.config"),
+                     filename:join(UnpackDir, "src"),
+                     filename:join([UnpackDir, "src", "foo.erl"])
+                    ],
+    ?assertMatch(UnpackedFiles, filelib:wildcard(filename:join(UnpackDir, "**/*"))),
+    {ok, <<"-module(foo).">>} = file:read_file(filename:join(UnpackDir, "src/foo.erl")),
+    {ok, <<"{<<\"build_tool\">>,<<\"rebar3\">>}.\n{<<\"name\">>,<<\"foo\">>}.\n{<<\"version\">>,<<\"1.0.0\">>}.\n">>} =
+        file:read_file(filename:join(UnpackDir, "hex_metadata.config")).
 
-        ok = file:write_file("foo.sh", <<"">>),
-        ok = file:change_mode("foo.sh", 8#100755),
-        Files = [
-            {"foo.erl", <<"">>},
-            "foo.sh"
-        ],
 
-        {ok, {Tarball, Checksum}} = hex_tarball:create(Metadata, Files),
+timestamps_and_permissions_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    Foo = filename:join(BaseDir, "foo.sh"),
 
-        %% inside tarball
-        {ok, Files2} = hex_erl_tar:extract({binary, Tarball}, [memory]),
-        {_, ContentsBinary} = lists:keyfind("contents.tar.gz", 1, Files2),
-        {ok, [FooErlEntry, FooShEntry]} = hex_erl_tar:table({binary, ContentsBinary}, [compressed, verbose]),
-        Epoch = epoch(),
+    Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
 
-        {"foo.erl", regular, _, Epoch, 8#100644, 0, 0} = FooErlEntry,
-        {"foo.sh", regular, _, Epoch, 8#100755, 0, 0} = FooShEntry,
+    ok = file:write_file(Foo, <<"">>),
+    ok = file:change_mode(Foo, 8#100755),
+    Files = [
+             {"foo.erl", <<"">>},
+             {"foo.sh", Foo}
+            ],
 
-        %% unpacked
-        UnpackDir = "timestamps_and_permissions",
-        {ok, #{checksum := Checksum}} = hex_tarball:unpack(Tarball, UnpackDir),
+    {ok, {Tarball, Checksum}} = hex_tarball:create(Metadata, Files),
 
-        {ok, FooErlFileInfo} = file:read_file_info(UnpackDir ++ "/foo.erl"),
-        {ok, FooShFileInfo} = file:read_file_info(UnpackDir ++ "/foo.sh"),
-        8#100644 = FooErlFileInfo#file_info.mode,
-        8#100755 = FooShFileInfo#file_info.mode,
-        [{{Year, _, _}, _}] = calendar:local_time_to_universal_time_dst(FooErlFileInfo#file_info.mtime),
-        {{Year, _, _}, _} = calendar:local_time()
-    end).
+    %% inside tarball
+    {ok, Files2} = hex_erl_tar:extract({binary, Tarball}, [memory]),
+    {_, ContentsBinary} = lists:keyfind("contents.tar.gz", 1, Files2),
+    {ok, [FooErlEntry, FooShEntry]} = hex_erl_tar:table({binary, ContentsBinary}, [compressed, verbose]),
+    Epoch = epoch(),
 
-symlinks_test() ->
-    hex_test_helpers:in_tmp(fun() ->
-        Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+    {"foo.erl", regular, _, Epoch, 8#100644, 0, 0} = FooErlEntry,
+    {"foo.sh", regular, _, Epoch, 8#100755, 0, 0} = FooShEntry,
 
-        ok = file:make_dir("dir"),
-        ok = file:write_file("dir/foo.sh", <<"foo">>),
-        ok = file:make_symlink("dir/foo.sh", "dir/bar.sh"),
+    %% unpacked
+    UnpackDir = filename:join(BaseDir, "timestamps_and_permissions"),
+    {ok, #{checksum := Checksum}} = hex_tarball:unpack(Tarball, UnpackDir),
 
-        Files = [
-            "dir/foo.sh",
-            "dir/bar.sh"
-        ],
+    {ok, FooErlFileInfo} = file:read_file_info(UnpackDir ++ "/foo.erl"),
+    {ok, FooShFileInfo} = file:read_file_info(UnpackDir ++ "/foo.sh"),
+    8#100644 = FooErlFileInfo#file_info.mode,
+    8#100755 = FooShFileInfo#file_info.mode,
+    [{{Year, _, _}, _}] = calendar:local_time_to_universal_time_dst(FooErlFileInfo#file_info.mtime),
+    {{Year, _, _}, _} = calendar:local_time().
 
-        {ok, {Tarball, Checksum}} = hex_tarball:create(Metadata, Files),
-        UnpackDir = "symlinks",
-        {ok, #{checksum := Checksum}} = hex_tarball:unpack(Tarball, UnpackDir),
-        {ok, _} = file:read_link_info(UnpackDir ++ "/dir/bar.sh"),
-        ok
-    end).
+symlinks_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
 
-build_tools_test() ->
+    Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+
+    Dir = filename:join(BaseDir, "dir"),
+    FooSh = filename:join(Dir, "foo.sh"),
+    BarSh = filename:join(Dir, "bar.sh"),
+    ok = file:make_dir(Dir),
+    ok = file:write_file(FooSh, <<"foo">>),
+    ok = file:make_symlink(FooSh, BarSh),
+
+    Files = [
+             {"dir/foo.sh", FooSh},
+             {"dir/bar.sh", BarSh}
+            ],
+
+    {ok, {Tarball, Checksum}} = hex_tarball:create(Metadata, Files),
+    UnpackDir = filename:join(BaseDir, "symlinks"),
+    {ok, #{checksum := Checksum}} = hex_tarball:unpack(Tarball, UnpackDir),
+    {ok, _} = file:read_link_info(filename:join([UnpackDir, "dir", "bar.sh"])),
+    ok.
+
+build_tools_test(_Config) ->
     Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
     Contents = [],
 
@@ -107,7 +127,7 @@ build_tools_test() ->
 
     ok.
 
-requirements_test() ->
+requirements_test(_Config) ->
     ExpectedRequirements = #{
         <<"aaa">> => #{
             <<"app">> => <<"aaa">>,
@@ -145,7 +165,7 @@ requirements_test() ->
     ExpectedRequirements = hex_tarball:normalize_requirements(Legacy),
     ok.
 
-decode_metadata_test() ->
+decode_metadata_test(_Config) ->
     #{<<"foo">> := <<"bar">>} = hex_tarball:do_decode_metadata(<<"{<<\"foo\">>, <<\"bar\">>}.">>),
 
     #{<<"foo">> := <<"bö/utf8">>} = hex_tarball:do_decode_metadata(<<"{<<\"foo\">>, <<\"bö/utf8\">>}.">>),
@@ -162,7 +182,7 @@ decode_metadata_test() ->
 
     ok.
 
-unpack_error_handling_test() ->
+unpack_error_handling_test(_Config) ->
     Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
     {ok, {Tarball, Checksum}} = hex_tarball:create(Metadata, [{"rebar.config", <<"">>}]),
     {ok, #{checksum := Checksum}} = hex_tarball:unpack(Tarball, memory),

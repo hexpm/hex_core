@@ -3,8 +3,8 @@
 -export([request/4]).
 -define(TEST_REPO_URL, "https://repo.test").
 -define(TEST_API_URL, "https://api.test").
--define(PRIVATE_KEY, hex_test_helpers:fixture("test_priv.pem")).
--define(PUBLIC_KEY, hex_test_helpers:fixture("test_pub.pem")).
+-define(PRIVATE_KEY, ct:get_config({ssl_certs, test_priv})).
+-define(PUBLIC_KEY, ct:get_config({ssl_certs, test_pub}).
 
 %%====================================================================
 %% API functions
