@@ -9,5 +9,5 @@ matrix:
   - otp_release: 17.5
 
 script:
-  - rebar3 eunit
+  - rebar3 ct
   - rebar3 as test proper
