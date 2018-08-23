@@ -1524,9 +1524,9 @@ do_parse_pax(Reader, Bin, Headers) ->
 parse_pax_record(Bin) when is_binary(Bin) ->
     case binary:split(Bin, [<<$\n>>]) of
         [Record, Residual] ->
-            case binary:split(Record, [<<$\s>>], [trim_all]) of
+            case [X || X <- binary:split(Record, [<<$\s>>], [global]), X =/= <<>>] of
                 [_Len, Record1] ->
-                    case binary:split(Record1, [<<$=>>], [trim_all]) of
+                    case  [X || X <- binary:split(Record1, [<<$=>>], [global]), X =/= <<>>] of
                         [AttrName, AttrValue] ->
                             {AttrName, AttrValue, Residual};
                         _Other ->
