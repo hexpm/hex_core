@@ -1,6 +1,6 @@
 -module(hex_http_test).
 -behaviour(hex_http).
--export([request/4]).
+-export([request/5]).
 -define(TEST_REPO_URL, "https://repo.test").
 -define(TEST_API_URL, "https://api.test").
 -define(PRIVATE_KEY, hex_test_helpers:fixture("test_priv.pem")).
@@ -10,7 +10,7 @@
 %% API functions
 %%====================================================================
 
-request(Method, URI, Headers, Body) when is_binary(URI) and is_map(Headers) ->
+request(Method, URI, Headers, Body, _Options) when is_binary(URI) and is_map(Headers) ->
     fixture(Method, URI, Headers, Body).
 
 %%====================================================================

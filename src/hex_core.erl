@@ -33,6 +33,7 @@ default_config() ->
     #{
         api_url => <<"https://hex.pm/api">>,
         http_adapter => hex_http_httpc,
+        http_adapter_config => #{profile => default},
         http_user_agent_fragment => <<"(httpc)">>,
         repo_url => <<"https://repo.hex.pm">>,
         repo_public_key => ?HEXPM_PUBLIC_KEY,
