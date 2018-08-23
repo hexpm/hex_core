@@ -1,15 +1,16 @@
 -module(hex_http_httpc).
 -behaviour(hex_http).
--export([request/4]).
+-export([request/5]).
 
 %%====================================================================
 %% API functions
 %%====================================================================
 
-request(Method, URI, ReqHeaders, Body) ->
+request(Method, URI, ReqHeaders, Body, AdapterConfig) ->
+    Profile = maps:get(profile, AdapterConfig, default),
     Request = build_request(URI, ReqHeaders, Body),
     {ok, {{_, StatusCode, _}, RespHeaders, RespBody}} =
-        httpc:request(Method, Request, [], [{body_format, binary}]),
+        httpc:request(Method, Request, [], [{body_format, binary}], Profile),
     RespHeaders2 = load_headers(RespHeaders),
     {ok, {StatusCode, RespHeaders2, RespBody}}.
 
