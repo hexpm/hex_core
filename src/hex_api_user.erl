@@ -26,18 +26,18 @@ reset_password(Username, Config) when is_binary(Username) and is_map(Config) ->
 %% Examples:
 %%
 %% ```
-%%     hex_api_user:get(<<"user">>, hex_core:default_config()).
-%%     %%=> {ok, {200, ..., #{
-%%     %%=>     <<"username">> => <<"user">>,
-%%     %%=>     <<"packages">> => [
-%%     %%=>         #{
-%%     %%=>             <<"name">> => ...,
-%%     %%=>             <<"url">> => ...,
-%%     %%=>             ...
-%%     %%=>         },
-%%     %%=>         ...
-%%     %%=>     ],
-%%     %%=>     ...}}}
+%% > hex_api_user:get(<<"user">>, hex_core:default_config()).
+%% {ok, {200, ..., #{
+%%      <<"username">> => <<"user">>,
+%%      <<"packages">> => [
+%%          #{
+%%              <<"name">> => ...,
+%%              <<"url">> => ...,
+%%              ...
+%%          },
+%%          ...
+%%      ],
+%%      ...}}}
 %% '''
 %% @end
 get(Config, Username) when is_binary(Username) and is_map(Config) ->

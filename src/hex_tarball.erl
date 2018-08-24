@@ -32,13 +32,13 @@
 %% Examples:
 %%
 %% ```
-%%     Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
-%%     Files = [{"src/foo.erl", <<"-module(foo).">>}],
-%%     {ok, {Tarball, Checksum}} = hex_tarball:create(Metadata, Files).
-%%     Tarball.
-%%     %%=> <<86,69,...>>
-%%     Checksum.
-%%     %%=> <<40,32,...>>
+%% > Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+%% > Files = [{"src/foo.erl", <<"-module(foo).">>}],
+%% > {ok, {Tarball, Checksum}} = hex_tarball:create(Metadata, Files).
+%% > Tarball.
+%% <<86,69,...>>
+%% > Checksum.
+%% <<40,32,...>>
 %% '''
 %% @end
 -spec create(metadata(), files()) -> {ok, {tarball(), checksum()}}.
@@ -74,12 +74,12 @@ create(Metadata, Files) ->
 %% Examples:
 %%
 %% ```
-%%     Files = [{"src/foo.erl", <<"-module(foo).">>}],
-%%     {ok, {Tarball, Checksum}} = hex_tarball:create_docs(Files).
-%%     Tarball.
-%%     %%=> <<86,69,...>>
-%%     Checksum.
-%%     %%=> <<40,32,...>>
+%% > Files = [{"src/foo.erl", <<"-module(foo).">>}],
+%% > {ok, {Tarball, Checksum}} = hex_tarball:create_docs(Files).
+%% > Tarball.
+%% <<86,69,...>>
+%% > Checksum.
+%% <<40,32,...>>
 %% '''
 %% @end
 -spec create_docs(files()) -> {ok, {tarball(), checksum()}}.
@@ -104,14 +104,14 @@ create_docs(Files) ->
 %% Examples:
 %%
 %% ```
-%%     hex_tarball:unpack(Tarball, memory).
-%%     %%=> {ok,#{checksum => <<...>>,
-%%     %%=>       contents => [{"src/foo.erl",<<"-module(foo).">>}],
-%%     %%=>       metadata => #{<<"name">> => <<"foo">>, ...}}}
+%% > hex_tarball:unpack(Tarball, memory).
+%% {ok,#{checksum => <<...>>,
+%%       contents => [{"src/foo.erl",<<"-module(foo).">>}],
+%%       metadata => #{<<"name">> => <<"foo">>, ...}}}
 %%
-%%     hex_tarball:unpack(Tarball, "path/to/unpack").
-%%     %%=> {ok,#{checksum => <<...>>,
-%%     %%=>       metadata => #{<<"name">> => <<"foo">>, ...}}}
+%% > hex_tarball:unpack(Tarball, "path/to/unpack").
+%% {ok,#{checksum => <<...>>,
+%%       metadata => #{<<"name">> => <<"foo">>, ...}}}
 %% '''
 -spec unpack(tarball(), memory) ->
                 {ok, #{checksum => checksum(), metadata => metadata(), contents => contents()}} |

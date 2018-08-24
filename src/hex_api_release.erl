@@ -13,16 +13,16 @@
 %% Examples:
 %%
 %% ```
-%%     hex_api:get_release(<<"package">>, <<"1.0.0">>, hex_core:default_config()).
-%%     %%=> {ok, {200, ..., #{
-%%     %%=>     <<"version">> => <<"1.0.0">>,
-%%     %%=>     <<"meta">> => #{
-%%     %%=>         <<"description">> => ...,
-%%     %%=>         <<"licenses">> => ...,
-%%     %%=>         <<"links">> => ...,
-%%     %%=>         <<"maintainers">> => ...
-%%     %%=>     },
-%%     %%=>     ...}}}
+%% > hex_api:get_release(<<"package">>, <<"1.0.0">>, hex_core:default_config()).
+%% {ok, {200, ..., #{
+%%     <<"version">> => <<"1.0.0">>,
+%%     <<"meta">> => #{
+%%         <<"description">> => ...,
+%%         <<"licenses">> => ...,
+%%         <<"links">> => ...,
+%%         <<"maintainers">> => ...
+%%     },
+%%     ...}}}
 %% '''
 %% @end
 get(Config, Name, Version) when is_binary(Name) and is_binary(Version) and is_map(Config) ->

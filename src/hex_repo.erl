@@ -16,12 +16,12 @@
 %% Examples:
 %%
 %% ```
-%%     hex_repo:get_names(hex_core:default_config()).
-%%     %%=> {ok, {200, ...,
-%%     %%=>     #{packages => [
-%%     %%=>         #{name => <<"package1">>},
-%%     %%=>         #{name => <<"package2">>},
-%%     %%=>     ]}}}
+%% > hex_repo:get_names(hex_core:default_config()).
+%% {ok, {200, ...,
+%%     #{packages => [
+%%         #{name => <<"package1">>},
+%%         #{name => <<"package2">>},
+%%     ]}}}
 %% '''
 %% @end
 get_names(Config) when is_map(Config) ->
@@ -34,14 +34,14 @@ get_names(Config) when is_map(Config) ->
 %% Examples:
 %%
 %% ```
-%%     hex_repo:get_versions(Config).
-%%     %%=> {ok, {200, ...,
-%%     %%=>     #{packages => [
-%%     %%=>         #{name => <<"package1">>, retired => [],
-%%     %%=>           versions => [<<"1.0.0">>]},
-%%     %%=>         #{name => <<"package2">>, retired => [<<"0.5.0>>"],
-%%     %%=>           versions => [<<"0.5.0">>, <<"1.0.0">>]},
-%%     %%=>     ]}}}
+%% > hex_repo:get_versions(Config).
+%% {ok, {200, ...,
+%%     #{packages => [
+%%         #{name => <<"package1">>, retired => [],
+%%           versions => [<<"1.0.0">>]},
+%%         #{name => <<"package2">>, retired => [<<"0.5.0>>"],
+%%           versions => [<<"0.5.0">>, <<"1.0.0">>]},
+%%     ]}}}
 %% '''
 %% @end
 get_versions(Config) when is_map(Config) ->
@@ -54,14 +54,14 @@ get_versions(Config) when is_map(Config) ->
 %% Examples:
 %%
 %% ```
-%%     hex_repo:get_package(hex_core:default_config(), <<"package1">>).
-%%     %%=> {ok, {200, ...,
-%%     %%=>     #{releases => [
-%%     %%=>         #{checksum => ..., version => <<"0.5.0">>, dependencies => []},
-%%     %%=>         #{checksum => ..., version => <<"1.0.0">>, dependencies => [
-%%     %%=>             #{package => <<"package2">>, optional => true, requirement => <<"~> 0.1">>}
-%%     %%=>         ]},
-%%     %%=>     ]}}}
+%% > hex_repo:get_package(hex_core:default_config(), <<"package1">>).
+%% {ok, {200, ...,
+%%     #{releases => [
+%%         #{checksum => ..., version => <<"0.5.0">>, dependencies => []},
+%%         #{checksum => ..., version => <<"1.0.0">>, dependencies => [
+%%             #{package => <<"package2">>, optional => true, requirement => <<"~> 0.1">>}
+%%         ]},
+%%     ]}}}
 %% '''
 %% @end
 get_package(Config, Name) when is_binary(Name) and is_map(Config) ->
@@ -74,8 +74,8 @@ get_package(Config, Name) when is_binary(Name) and is_map(Config) ->
 %% Examples:
 %%
 %% ```
-%%     {ok, {200, _, Tarball}} = hex_repo:get_tarball(<<"package1">>, <<"1.0.0">>, hex_core:default_config()),
-%%     {ok, #{metadata := Metadata}} = hex_tarball:unpack(Tarball, memory).
+%% > {ok, {200, _, Tarball}} = hex_repo:get_tarball(<<"package1">>, <<"1.0.0">>, hex_core:default_config()),
+%% > {ok, #{metadata := Metadata}} = hex_tarball:unpack(Tarball, memory).
 %% '''
 %% @end
 get_tarball(Config, Name, Version) ->
