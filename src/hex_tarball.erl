@@ -18,7 +18,7 @@
 -type checksum() :: binary().
 -type contents() :: #{filename() => binary()}.
 -type filename() :: string().
--type files() :: [filename()] | contents().
+-type files() :: [filename() | {filename(), filename()}] | contents().
 -type metadata() :: map().
 -type tarball() :: binary().
 
@@ -215,7 +215,7 @@ finish_unpack(#{metadata := Metadata, files := Files, output := Output}) ->
     end.
 
 copy_metadata_config(Output, MetadataBinary) ->
-    ok = file:write_file(Output ++ "/hex_metadata.config", MetadataBinary).
+    ok = file:write_file(filename:join(Output, "hex_metadata.config"), MetadataBinary).
 
 check_files(#{files := Files} = State) ->
     RequiredFiles = ["VERSION", "CHECKSUM", "metadata.config", "contents.tar.gz"],
@@ -377,22 +377,24 @@ add_files(Tar, Files) when is_list(Files) ->
 add_file(Tar, {Filename, Contents}) when is_list(Filename) and is_binary(Contents) ->
     ok = hex_erl_tar:add(Tar, Contents, Filename, tar_opts());
 add_file(Tar, Filename) when is_list(Filename) ->
-    {ok, FileInfo} = file:read_link_info(Filename, []),
+    add_file(Tar, {Filename, Filename});
+add_file(Tar, {Filename, AbsFilename}) when is_list(Filename), is_list(AbsFilename) ->
+    {ok, FileInfo} = file:read_link_info(AbsFilename, []),
 
     case FileInfo#file_info.type of
         symlink ->
-            ok = hex_erl_tar:add(Tar, Filename, tar_opts());
+            ok = hex_erl_tar:add(Tar, {Filename, AbsFilename}, tar_opts());
         directory ->
-            case file:list_dir(Filename) of
+            case file:list_dir(AbsFilename) of
                 {ok, []} ->
-                    hex_erl_tar:add(Tar, Filename, tar_opts());
+                    hex_erl_tar:add(Tar, {Filename, AbsFilename}, tar_opts());
 
                 {ok, _} ->
                     ok
             end;
         _ ->
             Mode = FileInfo#file_info.mode,
-            {ok, Contents} = file:read_file(Filename),
+            {ok, Contents} = file:read_file(AbsFilename),
             ok = hex_erl_tar:add(Tar, Contents, Filename, Mode, tar_opts())
     end.
 
