@@ -8,8 +8,15 @@ matrix:
   - otp_release: 18.3
   - otp_release: 17.5
 
+cache:
+  directories:
+   - .rebar3
+
+before_install:
+  - mkdir -p .rebar3
+  - test -e .rebar3/rebar3 || wget https://github.com/erlang/rebar3/releases/download/3.6.1/rebar3 -O .rebar3/rebar3
+  - chmod +x .rebar3/rebar3
+
 script:
-  - wget https://github.com/erlang/rebar3/releases/download/3.6.1/rebar3
-  - chmod +x rebar3    
-  - ./rebar3 ct
-  - ./rebar3 as test proper
+  - .rebar3/rebar3 ct
+  - .rebar3/rebar3 as test proper
