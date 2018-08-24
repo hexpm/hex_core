@@ -9,11 +9,11 @@
 %% Examples:
 %%
 %% ```
-%%     hex_api_owner:list(hex_core:default_config(), <<"package">>).
-%%     %%=> {ok, {200, ..., [
-%%     %%=>     #{<<"username">> => <<"alice">>, ...},
-%%     %%=>     ...
-%%     %%=> ]}}
+%% > hex_api_owner:list(hex_core:default_config(), <<"package">>).
+%% {ok, {200, ..., [
+%%     #{<<"username">> => <<"alice">>, ...},
+%%     ...
+%% ]}}
 %% '''
 list(Config, PackageName) when is_binary(PackageName) and is_map(Config) ->
     hex_api:get(Config, ["packages", PackageName, "owners"]).

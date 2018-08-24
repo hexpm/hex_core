@@ -8,7 +8,7 @@ Reference implementation of Hex specifications: https://github.com/hexpm/specifi
 
 Let's use default config for now. See "Configuration" section below for customization.
 
-```
+```erlang
 Config = hex_core:default_config().
 ```
 
@@ -17,35 +17,35 @@ Config = hex_core:default_config().
 Get all package names:
 
 ```erlang
-hex_repo:get_names(Config).
-%%=> {ok, {200, ...,
-%%=>     #{packages => [
-%%=>         #{name => <<"package1">>},
-%%=>         #{name => <<"package2">>},
-%%=>         ...
-%%=>     ]}}}
+> hex_repo:get_names(Config).
+{ok, {200, ...,
+    #{packages => [
+        #{name => <<"package1">>},
+        #{name => <<"package2">>},
+        ...
+    ]}}}
 ```
 
 Get all package versions from repository:
 
 ```erlang
-hex_repo:get_versions(Config).
-%%=> {ok, {200, ...,
-%%=>     #{packages => [
-%%=>         #{name => <<"package1">>, retired => [], versions => [<<"1.0.0">>]},
-%%=>         #{name => <<"package2">>, retired => [], versions => [<<"0.5.0">>]},
-%%=>     ]}}}
+> hex_repo:get_versions(Config).
+{ok, {200, ...,
+    #{packages => [
+        #{name => <<"package1">>, retired => [], versions => [<<"1.0.0">>]},
+        #{name => <<"package2">>, retired => [], versions => [<<"0.5.0">>]},
+    ]}}}
 ```
 
 Get package releases from repository:
 
 ```erlang
-hex_repo:get_package(Config, <<"package1">>).
-%%=> {ok, {200, ...,
-%%=>     #{releases => [
-%%=>         #{checksum => ..., version => <<"0.5.0">>, dependencies => []}],
-%%=>         #{checksum => ..., version => <<"1.0.0">>, dependencies => []}],
-%%=>     ]}}}
+> hex_repo:get_package(Config, <<"package1">>).
+{ok, {200, ...,
+    #{releases => [
+        #{checksum => ..., version => <<"0.5.0">>, dependencies => []}],
+        #{checksum => ..., version => <<"1.0.0">>, dependencies => []}],
+    ]}}}
 ```
 
 ### API
@@ -55,23 +55,23 @@ For a full list of all parameters and returned objects for the API, check out th
 Get package from HTTP API:
 
 ```erlang
-hex_api_package:get(Config, <<"package1">>).
-%%=> {ok, {200, ...,
-%%=>     #{
-%%=>         <<"name">> => <<"package1">>,
-%%=>         <<"meta">> => #{
-%%=>            <<"description">> => ...,
-%%=>            <<"licenses">> => ...,
-%%=>            <<"links">> => ...,
-%%=>            <<"maintainers">> => ...,
-%%=>         },
-%%=>         ...,
-%%=>         <<"releases">> => [
-%%=>             #{<<"url">> => ..., <<"version">> => <<"0.5.0">>}],
-%%=>             #{<<"url">> => ..., <<"version">> => <<"1.0.0">>}],
-%%=>             ...
-%%=>         ]
-%%=>     }}}
+> hex_api_package:get(Config, <<"package1">>).
+{ok, {200, ...,
+    #{
+        <<"name">> => <<"package1">>,
+        <<"meta">> => #{
+           <<"description">> => ...,
+           <<"licenses">> => ...,
+           <<"links">> => ...,
+           <<"maintainers">> => ...,
+        },
+        ...,
+        <<"releases">> => [
+            #{<<"url">> => ..., <<"version">> => <<"0.5.0">>}],
+            #{<<"url">> => ..., <<"version">> => <<"1.0.0">>}],
+            ...
+        ]
+    }}}
 ```
 
 Get package tarball:
