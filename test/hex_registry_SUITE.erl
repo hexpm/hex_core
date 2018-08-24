@@ -1,8 +1,18 @@
--module(hex_registry_tests).
+-module(hex_registry_SUITE).
+
+-compile([export_all]).
+
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("public_key/include/public_key.hrl").
+-include_lib("common_test/include/ct.hrl").
 
-names_test() ->
+suite() ->
+    [{require, {ssl_certs, [test_pub, test_priv, hexpm_pub]}}].
+
+all() ->
+    [names_test, versions_test, package_test, signed_test].
+
+names_test(_Config) ->
     Names = #{
         packages => [
             #{name => <<"foo">>, repository => <<"hexpm">>},
@@ -13,7 +23,7 @@ names_test() ->
     Names = hex_registry:decode_names(Payload),
     ok.
 
-versions_test() ->
+versions_test(_Config) ->
     Versions = #{
         packages => [
             #{
@@ -33,7 +43,7 @@ versions_test() ->
     Versions = hex_registry:decode_versions(Payload),
     ok.
 
-package_test() ->
+package_test(_Config) ->
     Package = #{
         releases => [
             #{
@@ -63,10 +73,11 @@ package_test() ->
     Package = hex_registry:decode_package(Payload),
     ok.
 
-signed_test() ->
-    TestPublicKey = read_fixture("test_pub.pem"),
-    TestPrivateKey = read_fixture("test_priv.pem"),
-    HexpmPublicKey = read_fixture("hexpm_pub.pem"),
+signed_test(_Config) ->
+    TestPublicKey = ct:get_config({ssl_certs, test_pub}),
+    TestPrivateKey = ct:get_config({ssl_certs, test_priv}),
+    HexpmPublicKey = ct:get_config({ssl_certs, hexpm_pub}),
+
     Names = #{packages => []},
     Payload = hex_registry:encode_names(Names),
 
@@ -81,6 +92,3 @@ signed_test() ->
 
     ok.
 
-read_fixture(Path) when is_list(Path) ->
-    {ok, Binary} = file:read_file("test/fixtures/" ++ Path),
-    Binary.
