@@ -16,12 +16,12 @@ names_test(_Config) ->
     Names = #{
         repository => <<"hexpm">>,
         packages => [
-            #{name => <<"foo">>},
-            #{name => <<"bar">>}
+            #{name => <<"foo">>, repository => <<>>},
+            #{name => <<"bar">>, repository => <<>>}
         ]
     },
     Payload = hex_registry:encode_names(Names),
-    Names = hex_registry:decode_names(Payload),
+    ?assertMatch(Names, hex_registry:decode_names(Payload)),
     ok.
 
 versions_test(_Config) ->
@@ -31,17 +31,19 @@ versions_test(_Config) ->
             #{
                 name => <<"foo">>,
                 versions => [<<"1.0.0-rc.1">>, <<"1.1.0-rc.2">>, <<"1.1.0">>],
-                retired => [0, 1]
+                retired => [0, 1],
+                repository => <<>>
             },
             #{
                 name => <<"bar">>,
                 versions => [<<"1.0.0">>],
-                retired => []
+                retired => [],
+                repository => <<>>
             }
         ]
     },
     Payload = hex_registry:encode_versions(Versions),
-    Versions = hex_registry:decode_versions(Payload),
+    ?assertMatch(Versions, hex_registry:decode_versions(Payload)),
     ok.
 
 package_test(_Config) ->
@@ -62,7 +64,10 @@ package_test(_Config) ->
                     },
                     #{
                         package => <<"bar">>,
-                        requirement => <<"~> 1.0">>
+                        requirement => <<"~> 1.0">>,
+                        optional => false,
+                        app => <<>>,
+                        repository => <<>>
                     }
                 ],
                 retired => #{
@@ -73,7 +78,7 @@ package_test(_Config) ->
         ]
     },
     Payload = hex_registry:encode_package(Package),
-    Package = hex_registry:decode_package(Payload),
+    ?assertMatch(Package, hex_registry:decode_package(Payload)),
     ok.
 
 signed_test(_Config) ->

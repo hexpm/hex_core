@@ -29,7 +29,7 @@
 
 %% message types
 -type 'Signed'() ::
-      #{payload                 => iodata()         % = 1
+      #{%% payload              => iodata()         % = 1
         %% signature            => iodata()         % = 2
        }.
 -export_type(['Signed'/0]).
@@ -53,16 +53,26 @@ e_msg_Signed(Msg, TrUserData) ->
     e_msg_Signed(Msg, <<>>, TrUserData).
 
 
-e_msg_Signed(#{payload := F1} = M, Bin, TrUserData) ->
-    B1 = begin
-	   TrF1 = id(F1, TrUserData),
-	   e_type_bytes(TrF1, <<Bin/binary, 10>>)
+e_msg_Signed(#{} = M, Bin, TrUserData) ->
+    B1 = case M of
+	   #{payload := F1} ->
+	       begin
+		 TrF1 = id(F1, TrUserData),
+		 case iolist_size(TrF1) of
+		   0 -> Bin;
+		   _ -> e_type_bytes(TrF1, <<Bin/binary, 10>>)
+		 end
+	       end;
+	   _ -> Bin
 	 end,
     case M of
       #{signature := F2} ->
 	  begin
 	    TrF2 = id(F2, TrUserData),
-	    e_type_bytes(TrF2, <<B1/binary, 18>>)
+	    case iolist_size(TrF2) of
+	      0 -> B1;
+	      _ -> e_type_bytes(TrF2, <<B1/binary, 18>>)
+	    end
 	  end;
       _ -> B1
     end.
@@ -117,8 +127,8 @@ decode_msg_2_doit('Signed', Bin, TrUserData) ->
 
 d_msg_Signed(Bin, TrUserData) ->
     dfp_read_field_def_Signed(Bin, 0, 0,
-			      id('$undef', TrUserData),
-			      id('$undef', TrUserData), TrUserData).
+			      id(<<>>, TrUserData), id(<<>>, TrUserData),
+			      TrUserData).
 
 dfp_read_field_def_Signed(<<10, Rest/binary>>, Z1, Z2,
 			  F@_1, F@_2, TrUserData) ->
@@ -129,9 +139,12 @@ dfp_read_field_def_Signed(<<18, Rest/binary>>, Z1, Z2,
     d_field_Signed_signature(Rest, Z1, Z2, F@_1, F@_2,
 			     TrUserData);
 dfp_read_field_def_Signed(<<>>, 0, 0, F@_1, F@_2, _) ->
-    S1 = #{payload => F@_1},
-    if F@_2 == '$undef' -> S1;
-       true -> S1#{signature => F@_2}
+    S1 = #{},
+    S2 = if F@_1 == '$undef' -> S1;
+	    true -> S1#{payload => F@_1}
+	 end,
+    if F@_2 == '$undef' -> S2;
+       true -> S2#{signature => F@_2}
     end;
 dfp_read_field_def_Signed(Other, Z1, Z2, F@_1, F@_2,
 			  TrUserData) ->
@@ -168,9 +181,12 @@ dg_read_field_def_Signed(<<0:1, X:7, Rest/binary>>, N,
 	  end
     end;
 dg_read_field_def_Signed(<<>>, 0, 0, F@_1, F@_2, _) ->
-    S1 = #{payload => F@_1},
-    if F@_2 == '$undef' -> S1;
-       true -> S1#{signature => F@_2}
+    S1 = #{},
+    S2 = if F@_1 == '$undef' -> S1;
+	    true -> S1#{payload => F@_1}
+	 end,
+    if F@_2 == '$undef' -> S2;
+       true -> S2#{signature => F@_2}
     end.
 
 d_field_Signed_payload(<<1:1, X:7, Rest/binary>>, N,
@@ -307,15 +323,21 @@ merge_msgs(Prev, New, MsgName, Opts) ->
       'Signed' -> merge_msg_Signed(Prev, New, TrUserData)
     end.
 
-merge_msg_Signed(#{} = PMsg,
-		 #{payload := NFpayload} = NMsg, _) ->
-    S1 = #{payload => NFpayload},
+merge_msg_Signed(PMsg, NMsg, _) ->
+    S1 = #{},
+    S2 = case {PMsg, NMsg} of
+	   {_, #{payload := NFpayload}} ->
+	       S1#{payload => NFpayload};
+	   {#{payload := PFpayload}, _} ->
+	       S1#{payload => PFpayload};
+	   _ -> S1
+	 end,
     case {PMsg, NMsg} of
       {_, #{signature := NFsignature}} ->
-	  S1#{signature => NFsignature};
+	  S2#{signature => NFsignature};
       {#{signature := PFsignature}, _} ->
-	  S1#{signature => PFsignature};
-      _ -> S1
+	  S2#{signature => PFsignature};
+      _ -> S2
     end.
 
 
@@ -330,8 +352,11 @@ verify_msg(Msg, MsgName, Opts) ->
     end.
 
 
-v_msg_Signed(#{payload := F1} = M, Path, _) ->
-    v_type_bytes(F1, [payload | Path]),
+v_msg_Signed(#{} = M, Path, _) ->
+    case M of
+      #{payload := F1} -> v_type_bytes(F1, [payload | Path]);
+      _ -> ok
+    end,
     case M of
       #{signature := F2} ->
 	  v_type_bytes(F2, [signature | Path]);
@@ -345,8 +370,8 @@ v_msg_Signed(#{payload := F1} = M, Path, _) ->
 		  maps:keys(M)),
     ok;
 v_msg_Signed(M, Path, _TrUserData) when is_map(M) ->
-    mk_type_error({missing_fields,
-		   [payload] -- maps:keys(M), 'Signed'},
+    mk_type_error({missing_fields, [] -- maps:keys(M),
+		   'Signed'},
 		  M, Path);
 v_msg_Signed(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'Signed'}, X, Path).
@@ -377,7 +402,7 @@ id(X, _TrUserData) -> X.
 get_msg_defs() ->
     [{{msg, 'Signed'},
       [#{name => payload, fnum => 1, rnum => 2, type => bytes,
-	 occurrence => required, opts => []},
+	 occurrence => optional, opts => []},
        #{name => signature, fnum => 2, rnum => 3,
 	 type => bytes, occurrence => optional, opts => []}]}].
 
@@ -408,7 +433,7 @@ fetch_enum_def(EnumName) ->
 
 find_msg_def('Signed') ->
     [#{name => payload, fnum => 1, rnum => 2, type => bytes,
-       occurrence => required, opts => []},
+       occurrence => optional, opts => []},
      #{name => signature, fnum => 2, rnum => 3,
        type => bytes, occurrence => optional, opts => []}];
 find_msg_def(_) -> error.
