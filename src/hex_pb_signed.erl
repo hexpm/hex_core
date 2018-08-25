@@ -29,8 +29,8 @@
 
 %% message types
 -type 'Signed'() ::
-      #{payload                 => iodata(),        % = 1
-        signature               => iodata()         % = 2
+      #{%% payload              => iodata()         % = 1
+        %% signature            => iodata()         % = 2
        }.
 -export_type(['Signed'/0]).
 
@@ -41,10 +41,7 @@ encode_msg(Msg, MsgName) ->
 
 -spec encode_msg('Signed'(),'Signed', list()) -> binary().
 encode_msg(Msg, MsgName, Opts) ->
-    case proplists:get_bool(verify, Opts) of
-      true -> verify_msg(Msg, MsgName, Opts);
-      false -> ok
-    end,
+    verify_msg(Msg, MsgName, Opts),
     TrUserData = proplists:get_value(user_data, Opts),
     case MsgName of
       'Signed' -> e_msg_Signed(Msg, TrUserData)
@@ -355,7 +352,6 @@ verify_msg(Msg, MsgName, Opts) ->
     end.
 
 
--dialyzer({nowarn_function,v_msg_Signed/3}).
 v_msg_Signed(#{} = M, Path, _) ->
     case M of
       #{payload := F1} -> v_type_bytes(F1, [payload | Path]);
@@ -380,7 +376,6 @@ v_msg_Signed(M, Path, _TrUserData) when is_map(M) ->
 v_msg_Signed(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'Signed'}, X, Path).
 
--dialyzer({nowarn_function,v_type_bytes/2}).
 v_type_bytes(B, _Path) when is_binary(B) -> ok;
 v_type_bytes(B, _Path) when is_list(B) -> ok;
 v_type_bytes(X, Path) ->
@@ -393,12 +388,11 @@ mk_type_error(Error, ValueSeen, Path) ->
 		  {Error, [{value, ValueSeen}, {path, Path2}]}}).
 
 
--dialyzer({nowarn_function,prettify_path/1}).
 prettify_path([]) -> top_level;
 prettify_path(PathR) ->
-    list_to_atom(lists:append(lists:join(".",
-					 lists:map(fun atom_to_list/1,
-						   lists:reverse(PathR))))).
+    list_to_atom(string:join(lists:map(fun atom_to_list/1,
+				       lists:reverse(PathR)),
+			     ".")).
 
 
 -compile({inline,id/2}).

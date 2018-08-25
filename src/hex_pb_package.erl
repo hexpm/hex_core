@@ -33,21 +33,21 @@
       #{releases                => ['Release'()]    % = 1
        }.
 -type 'Release'() ::
-      #{version                 => iodata(),        % = 1
-        checksum                => iodata(),        % = 2
-        dependencies            => ['Dependency'()], % = 3
-        retired                 => 'RetirementStatus'() % = 4
+      #{%% version              => iodata(),        % = 1
+        %% checksum             => iodata(),        % = 2
+        dependencies            => ['Dependency'()] % = 3
+        %% retired              => 'RetirementStatus'() % = 4
        }.
 -type 'RetirementStatus'() ::
-      #{reason                  => 'RETIRED_OTHER' | 'RETIRED_INVALID' | 'RETIRED_SECURITY' | 'RETIRED_DEPRECATED' | 'RETIRED_RENAMED' | integer(), % = 1, enum RetirementReason
-        message                 => iodata()         % = 2
+      #{%% reason               => 'RETIRED_OTHER' | 'RETIRED_INVALID' | 'RETIRED_SECURITY' | 'RETIRED_DEPRECATED' | 'RETIRED_RENAMED' | integer() % = 1, enum RetirementReason
+        %% message              => iodata()         % = 2
        }.
 -type 'Dependency'() ::
-      #{package                 => iodata(),        % = 1
-        requirement             => iodata(),        % = 2
-        optional                => boolean() | 0 | 1, % = 3
-        app                     => iodata(),        % = 4
-        repository              => iodata()         % = 5
+      #{%% package              => iodata()         % = 1
+        %% requirement          => iodata()         % = 2
+        %% optional             => boolean() | 0 | 1 % = 3
+        %% app                  => iodata()         % = 4
+        %% repository           => iodata()         % = 5
        }.
 -export_type(['Package'/0, 'Release'/0, 'RetirementStatus'/0, 'Dependency'/0]).
 
@@ -58,10 +58,7 @@ encode_msg(Msg, MsgName) ->
 
 -spec encode_msg('Package'() | 'Release'() | 'RetirementStatus'() | 'Dependency'(),'Package' | 'Release' | 'RetirementStatus' | 'Dependency', list()) -> binary().
 encode_msg(Msg, MsgName, Opts) ->
-    case proplists:get_bool(verify, Opts) of
-      true -> verify_msg(Msg, MsgName, Opts);
-      false -> ok
-    end,
+    verify_msg(Msg, MsgName, Opts),
     TrUserData = proplists:get_value(user_data, Opts),
     case MsgName of
       'Package' -> e_msg_Package(Msg, TrUserData);
@@ -1229,7 +1226,6 @@ verify_msg(Msg, MsgName, Opts) ->
     end.
 
 
--dialyzer({nowarn_function,v_msg_Package/3}).
 v_msg_Package(#{} = M, Path, TrUserData) ->
     case M of
       #{releases := F1} ->
@@ -1256,7 +1252,6 @@ v_msg_Package(M, Path, _TrUserData) when is_map(M) ->
 v_msg_Package(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'Package'}, X, Path).
 
--dialyzer({nowarn_function,v_msg_Release/3}).
 v_msg_Release(#{} = M, Path, TrUserData) ->
     case M of
       #{version := F1} -> v_type_string(F1, [version | Path]);
@@ -1302,7 +1297,6 @@ v_msg_Release(M, Path, _TrUserData) when is_map(M) ->
 v_msg_Release(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'Release'}, X, Path).
 
--dialyzer({nowarn_function,v_msg_RetirementStatus/3}).
 v_msg_RetirementStatus(#{} = M, Path, _) ->
     case M of
       #{reason := F1} ->
@@ -1329,7 +1323,6 @@ v_msg_RetirementStatus(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'RetirementStatus'}, X,
 		  Path).
 
--dialyzer({nowarn_function,v_msg_Dependency/3}).
 v_msg_Dependency(#{} = M, Path, _) ->
     case M of
       #{package := F1} -> v_type_string(F1, [package | Path]);
@@ -1370,7 +1363,6 @@ v_msg_Dependency(M, Path, _TrUserData) when is_map(M) ->
 v_msg_Dependency(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'Dependency'}, X, Path).
 
--dialyzer({nowarn_function,v_enum_RetirementReason/2}).
 v_enum_RetirementReason('RETIRED_OTHER', _Path) -> ok;
 v_enum_RetirementReason('RETIRED_INVALID', _Path) -> ok;
 v_enum_RetirementReason('RETIRED_SECURITY', _Path) ->
@@ -1384,7 +1376,6 @@ v_enum_RetirementReason(X, Path) ->
     mk_type_error({invalid_enum, 'RetirementReason'}, X,
 		  Path).
 
--dialyzer({nowarn_function,v_type_sint32/2}).
 v_type_sint32(N, _Path)
     when -2147483648 =< N, N =< 2147483647 ->
     ok;
@@ -1395,7 +1386,6 @@ v_type_sint32(X, Path) ->
     mk_type_error({bad_integer, sint32, signed, 32}, X,
 		  Path).
 
--dialyzer({nowarn_function,v_type_bool/2}).
 v_type_bool(false, _Path) -> ok;
 v_type_bool(true, _Path) -> ok;
 v_type_bool(0, _Path) -> ok;
@@ -1403,7 +1393,6 @@ v_type_bool(1, _Path) -> ok;
 v_type_bool(X, Path) ->
     mk_type_error(bad_boolean_value, X, Path).
 
--dialyzer({nowarn_function,v_type_string/2}).
 v_type_string(S, Path) when is_list(S); is_binary(S) ->
     try unicode:characters_to_binary(S) of
       B when is_binary(B) -> ok;
@@ -1416,7 +1405,6 @@ v_type_string(S, Path) when is_list(S); is_binary(S) ->
 v_type_string(X, Path) ->
     mk_type_error(bad_unicode_string, X, Path).
 
--dialyzer({nowarn_function,v_type_bytes/2}).
 v_type_bytes(B, _Path) when is_binary(B) -> ok;
 v_type_bytes(B, _Path) when is_list(B) -> ok;
 v_type_bytes(X, Path) ->
@@ -1429,12 +1417,11 @@ mk_type_error(Error, ValueSeen, Path) ->
 		  {Error, [{value, ValueSeen}, {path, Path2}]}}).
 
 
--dialyzer({nowarn_function,prettify_path/1}).
 prettify_path([]) -> top_level;
 prettify_path(PathR) ->
-    list_to_atom(lists:append(lists:join(".",
-					 lists:map(fun atom_to_list/1,
-						   lists:reverse(PathR))))).
+    list_to_atom(string:join(lists:map(fun atom_to_list/1,
+				       lists:reverse(PathR)),
+			     ".")).
 
 
 -compile({inline,id/2}).

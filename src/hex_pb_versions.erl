@@ -32,10 +32,10 @@
       #{packages                => ['Package'()]    % = 1
        }.
 -type 'Package'() ::
-      #{name                    => iodata(),        % = 1
+      #{%% name                 => iodata(),        % = 1
         versions                => [iodata()],      % = 2
-        retired                 => [integer()],     % = 3, 32 bits
-        repository              => iodata()         % = 4
+        retired                 => [integer()]      % = 3, 32 bits
+        %% repository           => iodata()         % = 4
        }.
 -export_type(['Versions'/0, 'Package'/0]).
 
@@ -46,10 +46,7 @@ encode_msg(Msg, MsgName) ->
 
 -spec encode_msg('Versions'() | 'Package'(),'Versions' | 'Package', list()) -> binary().
 encode_msg(Msg, MsgName, Opts) ->
-    case proplists:get_bool(verify, Opts) of
-      true -> verify_msg(Msg, MsgName, Opts);
-      false -> ok
-    end,
+    verify_msg(Msg, MsgName, Opts),
     TrUserData = proplists:get_value(user_data, Opts),
     case MsgName of
       'Versions' -> e_msg_Versions(Msg, TrUserData);
@@ -684,7 +681,6 @@ verify_msg(Msg, MsgName, Opts) ->
     end.
 
 
--dialyzer({nowarn_function,v_msg_Versions/3}).
 v_msg_Versions(#{} = M, Path, TrUserData) ->
     case M of
       #{packages := F1} ->
@@ -711,7 +707,6 @@ v_msg_Versions(M, Path, _TrUserData) when is_map(M) ->
 v_msg_Versions(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'Versions'}, X, Path).
 
--dialyzer({nowarn_function,v_msg_Package/3}).
 v_msg_Package(#{} = M, Path, _) ->
     case M of
       #{name := F1} -> v_type_string(F1, [name | Path]);
@@ -762,7 +757,6 @@ v_msg_Package(M, Path, _TrUserData) when is_map(M) ->
 v_msg_Package(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'Package'}, X, Path).
 
--dialyzer({nowarn_function,v_type_int32/2}).
 v_type_int32(N, _Path)
     when -2147483648 =< N, N =< 2147483647 ->
     ok;
@@ -773,7 +767,6 @@ v_type_int32(X, Path) ->
     mk_type_error({bad_integer, int32, signed, 32}, X,
 		  Path).
 
--dialyzer({nowarn_function,v_type_string/2}).
 v_type_string(S, Path) when is_list(S); is_binary(S) ->
     try unicode:characters_to_binary(S) of
       B when is_binary(B) -> ok;
@@ -793,12 +786,11 @@ mk_type_error(Error, ValueSeen, Path) ->
 		  {Error, [{value, ValueSeen}, {path, Path2}]}}).
 
 
--dialyzer({nowarn_function,prettify_path/1}).
 prettify_path([]) -> top_level;
 prettify_path(PathR) ->
-    list_to_atom(lists:append(lists:join(".",
-					 lists:map(fun atom_to_list/1,
-						   lists:reverse(PathR))))).
+    list_to_atom(string:join(lists:map(fun atom_to_list/1,
+				       lists:reverse(PathR)),
+			     ".")).
 
 
 -compile({inline,id/2}).

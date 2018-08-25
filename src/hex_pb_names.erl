@@ -32,8 +32,8 @@
       #{packages                => ['Package'()]    % = 1
        }.
 -type 'Package'() ::
-      #{name                    => iodata(),        % = 1
-        repository              => iodata()         % = 2
+      #{%% name                 => iodata()         % = 1
+        %% repository           => iodata()         % = 2
        }.
 -export_type(['Names'/0, 'Package'/0]).
 
@@ -44,10 +44,7 @@ encode_msg(Msg, MsgName) ->
 
 -spec encode_msg('Names'() | 'Package'(),'Names' | 'Package', list()) -> binary().
 encode_msg(Msg, MsgName, Opts) ->
-    case proplists:get_bool(verify, Opts) of
-      true -> verify_msg(Msg, MsgName, Opts);
-      false -> ok
-    end,
+    verify_msg(Msg, MsgName, Opts),
     TrUserData = proplists:get_value(user_data, Opts),
     case MsgName of
       'Names' -> e_msg_Names(Msg, TrUserData);
@@ -509,7 +506,6 @@ verify_msg(Msg, MsgName, Opts) ->
     end.
 
 
--dialyzer({nowarn_function,v_msg_Names/3}).
 v_msg_Names(#{} = M, Path, TrUserData) ->
     case M of
       #{packages := F1} ->
@@ -536,7 +532,6 @@ v_msg_Names(M, Path, _TrUserData) when is_map(M) ->
 v_msg_Names(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'Names'}, X, Path).
 
--dialyzer({nowarn_function,v_msg_Package/3}).
 v_msg_Package(#{} = M, Path, _) ->
     case M of
       #{name := F1} -> v_type_string(F1, [name | Path]);
@@ -561,7 +556,6 @@ v_msg_Package(M, Path, _TrUserData) when is_map(M) ->
 v_msg_Package(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'Package'}, X, Path).
 
--dialyzer({nowarn_function,v_type_string/2}).
 v_type_string(S, Path) when is_list(S); is_binary(S) ->
     try unicode:characters_to_binary(S) of
       B when is_binary(B) -> ok;
@@ -581,12 +575,11 @@ mk_type_error(Error, ValueSeen, Path) ->
 		  {Error, [{value, ValueSeen}, {path, Path2}]}}).
 
 
--dialyzer({nowarn_function,prettify_path/1}).
 prettify_path([]) -> top_level;
 prettify_path(PathR) ->
-    list_to_atom(lists:append(lists:join(".",
-					 lists:map(fun atom_to_list/1,
-						   lists:reverse(PathR))))).
+    list_to_atom(string:join(lists:map(fun atom_to_list/1,
+				       lists:reverse(PathR)),
+			     ".")).
 
 
 -compile({inline,id/2}).
