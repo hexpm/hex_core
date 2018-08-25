@@ -1,4 +1,4 @@
-syntax = "proto2";
+syntax = "proto3";
 
 message Names {
   // All packages in the repository
@@ -7,7 +7,7 @@ message Names {
 
 message Package {
   // Package name
-  required string name = 1;
+  string name = 1;
   // If set, the name of the package repository
-  optional string repository = 2;
+  string repository = 2;
 }

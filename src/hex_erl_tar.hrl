@@ -43,7 +43,12 @@
 
 -type add_opt() :: dereference |
                    verbose |
-                   {chunks, pos_integer()}.
+                   {chunks, pos_integer()} |
+                   {atime, non_neg_integer()} |
+                   {mtime, non_neg_integer()} |
+                   {ctime, non_neg_integer()} |
+                   {uid, non_neg_integer()} |
+                   {gid, non_neg_integer()}.
 
 -type extract_opt() :: {cwd, string()} |
                        {files, [string()]} |

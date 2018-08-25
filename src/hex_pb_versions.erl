@@ -34,8 +34,8 @@
 -type 'Package'() ::
       #{name                    => iodata(),        % = 1
         versions                => [iodata()],      % = 2
-        retired                 => [integer()]      % = 3, 32 bits
-        %% repository           => iodata()         % = 4
+        retired                 => [integer()],     % = 3, 32 bits
+        repository              => iodata()         % = 4
        }.
 -export_type(['Versions'/0, 'Package'/0]).
 
@@ -46,7 +46,10 @@ encode_msg(Msg, MsgName) ->
 
 -spec encode_msg('Versions'() | 'Package'(),'Versions' | 'Package', list()) -> binary().
 encode_msg(Msg, MsgName, Opts) ->
-    verify_msg(Msg, MsgName, Opts),
+    case proplists:get_bool(verify, Opts) of
+      true -> verify_msg(Msg, MsgName, Opts);
+      false -> ok
+    end,
     TrUserData = proplists:get_value(user_data, Opts),
     case MsgName of
       'Versions' -> e_msg_Versions(Msg, TrUserData);
@@ -73,10 +76,17 @@ e_msg_Package(Msg, TrUserData) ->
     e_msg_Package(Msg, <<>>, TrUserData).
 
 
-e_msg_Package(#{name := F1} = M, Bin, TrUserData) ->
-    B1 = begin
-	   TrF1 = id(F1, TrUserData),
-	   e_type_string(TrF1, <<Bin/binary, 10>>)
+e_msg_Package(#{} = M, Bin, TrUserData) ->
+    B1 = case M of
+	   #{name := F1} ->
+	       begin
+		 TrF1 = id(F1, TrUserData),
+		 case is_empty_string(TrF1) of
+		   true -> Bin;
+		   false -> e_type_string(TrF1, <<Bin/binary, 10>>)
+		 end
+	       end;
+	   _ -> Bin
 	 end,
     B2 = case M of
 	   #{versions := F2} ->
@@ -98,7 +108,10 @@ e_msg_Package(#{name := F1} = M, Bin, TrUserData) ->
       #{repository := F4} ->
 	  begin
 	    TrF4 = id(F4, TrUserData),
-	    e_type_string(TrF4, <<B3/binary, 34>>)
+	    case is_empty_string(TrF4) of
+	      true -> B3;
+	      false -> e_type_string(TrF4, <<B3/binary, 34>>)
+	    end
 	  end;
       _ -> B3
     end.
@@ -154,6 +167,25 @@ e_varint(N, Bin) when N =< 127 -> <<Bin/binary, N>>;
 e_varint(N, Bin) ->
     Bin2 = <<Bin/binary, (N band 127 bor 128)>>,
     e_varint(N bsr 7, Bin2).
+
+is_empty_string("") -> true;
+is_empty_string(<<>>) -> true;
+is_empty_string(L) when is_list(L) ->
+    not string_has_chars(L);
+is_empty_string(B) when is_binary(B) -> false.
+
+string_has_chars([C | _]) when is_integer(C) -> true;
+string_has_chars([H | T]) ->
+    case string_has_chars(H) of
+      true -> true;
+      false -> string_has_chars(T)
+    end;
+string_has_chars(B)
+    when is_binary(B), byte_size(B) =/= 0 ->
+    true;
+string_has_chars(C) when is_integer(C) -> true;
+string_has_chars(<<>>) -> false;
+string_has_chars([]) -> false.
 
 
 decode_msg(Bin, MsgName) when is_binary(Bin) ->
@@ -291,8 +323,8 @@ skip_64_Versions(<<_:64, Rest/binary>>, Z1, Z2, F@_1,
 
 d_msg_Package(Bin, TrUserData) ->
     dfp_read_field_def_Package(Bin, 0, 0,
-			       id('$undef', TrUserData), id([], TrUserData),
-			       id([], TrUserData), id('$undef', TrUserData),
+			       id(<<>>, TrUserData), id([], TrUserData),
+			       id([], TrUserData), id(<<>>, TrUserData),
 			       TrUserData).
 
 dfp_read_field_def_Package(<<10, Rest/binary>>, Z1, Z2,
@@ -317,11 +349,13 @@ dfp_read_field_def_Package(<<34, Rest/binary>>, Z1, Z2,
 			       F@_3, F@_4, TrUserData);
 dfp_read_field_def_Package(<<>>, 0, 0, F@_1, R1, R2,
 			   F@_4, TrUserData) ->
-    S1 = #{name => F@_1,
-	   versions => lists_reverse(R1, TrUserData),
+    S1 = #{versions => lists_reverse(R1, TrUserData),
 	   retired => lists_reverse(R2, TrUserData)},
-    if F@_4 == '$undef' -> S1;
-       true -> S1#{repository => F@_4}
+    S2 = if F@_1 == '$undef' -> S1;
+	    true -> S1#{name => F@_1}
+	 end,
+    if F@_4 == '$undef' -> S2;
+       true -> S2#{repository => F@_4}
     end;
 dfp_read_field_def_Package(Other, Z1, Z2, F@_1, F@_2,
 			   F@_3, F@_4, TrUserData) ->
@@ -373,11 +407,13 @@ dg_read_field_def_Package(<<0:1, X:7, Rest/binary>>, N,
     end;
 dg_read_field_def_Package(<<>>, 0, 0, F@_1, R1, R2,
 			  F@_4, TrUserData) ->
-    S1 = #{name => F@_1,
-	   versions => lists_reverse(R1, TrUserData),
+    S1 = #{versions => lists_reverse(R1, TrUserData),
 	   retired => lists_reverse(R2, TrUserData)},
-    if F@_4 == '$undef' -> S1;
-       true -> S1#{repository => F@_4}
+    S2 = if F@_1 == '$undef' -> S1;
+	    true -> S1#{name => F@_1}
+	 end,
+    if F@_4 == '$undef' -> S2;
+       true -> S2#{repository => F@_4}
     end.
 
 d_field_Package_name(<<1:1, X:7, Rest/binary>>, N, Acc,
@@ -597,36 +633,40 @@ merge_msg_Versions(PMsg, NMsg, TrUserData) ->
       {_, _} -> S1
     end.
 
-merge_msg_Package(#{} = PMsg, #{name := NFname} = NMsg,
-		  TrUserData) ->
-    S1 = #{name => NFname},
+merge_msg_Package(PMsg, NMsg, TrUserData) ->
+    S1 = #{},
     S2 = case {PMsg, NMsg} of
-	   {#{versions := PFversions},
-	    #{versions := NFversions}} ->
-	       S1#{versions =>
-		       'erlang_++'(PFversions, NFversions, TrUserData)};
-	   {_, #{versions := NFversions}} ->
-	       S1#{versions => NFversions};
-	   {#{versions := PFversions}, _} ->
-	       S1#{versions => PFversions};
-	   {_, _} -> S1
+	   {_, #{name := NFname}} -> S1#{name => NFname};
+	   {#{name := PFname}, _} -> S1#{name => PFname};
+	   _ -> S1
 	 end,
     S3 = case {PMsg, NMsg} of
+	   {#{versions := PFversions},
+	    #{versions := NFversions}} ->
+	       S2#{versions =>
+		       'erlang_++'(PFversions, NFversions, TrUserData)};
+	   {_, #{versions := NFversions}} ->
+	       S2#{versions => NFversions};
+	   {#{versions := PFversions}, _} ->
+	       S2#{versions => PFversions};
+	   {_, _} -> S2
+	 end,
+    S4 = case {PMsg, NMsg} of
 	   {#{retired := PFretired}, #{retired := NFretired}} ->
-	       S2#{retired =>
+	       S3#{retired =>
 		       'erlang_++'(PFretired, NFretired, TrUserData)};
 	   {_, #{retired := NFretired}} ->
-	       S2#{retired => NFretired};
+	       S3#{retired => NFretired};
 	   {#{retired := PFretired}, _} ->
-	       S2#{retired => PFretired};
-	   {_, _} -> S2
+	       S3#{retired => PFretired};
+	   {_, _} -> S3
 	 end,
     case {PMsg, NMsg} of
       {_, #{repository := NFrepository}} ->
-	  S3#{repository => NFrepository};
+	  S4#{repository => NFrepository};
       {#{repository := PFrepository}, _} ->
-	  S3#{repository => PFrepository};
-      _ -> S3
+	  S4#{repository => PFrepository};
+      _ -> S4
     end.
 
 
@@ -644,6 +684,7 @@ verify_msg(Msg, MsgName, Opts) ->
     end.
 
 
+-dialyzer({nowarn_function,v_msg_Versions/3}).
 v_msg_Versions(#{} = M, Path, TrUserData) ->
     case M of
       #{packages := F1} ->
@@ -670,8 +711,12 @@ v_msg_Versions(M, Path, _TrUserData) when is_map(M) ->
 v_msg_Versions(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'Versions'}, X, Path).
 
-v_msg_Package(#{name := F1} = M, Path, _) ->
-    v_type_string(F1, [name | Path]),
+-dialyzer({nowarn_function,v_msg_Package/3}).
+v_msg_Package(#{} = M, Path, _) ->
+    case M of
+      #{name := F1} -> v_type_string(F1, [name | Path]);
+      _ -> ok
+    end,
     case M of
       #{versions := F2} ->
 	  if is_list(F2) ->
@@ -711,12 +756,13 @@ v_msg_Package(#{name := F1} = M, Path, _) ->
 		  maps:keys(M)),
     ok;
 v_msg_Package(M, Path, _TrUserData) when is_map(M) ->
-    mk_type_error({missing_fields, [name] -- maps:keys(M),
+    mk_type_error({missing_fields, [] -- maps:keys(M),
 		   'Package'},
 		  M, Path);
 v_msg_Package(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'Package'}, X, Path).
 
+-dialyzer({nowarn_function,v_type_int32/2}).
 v_type_int32(N, _Path)
     when -2147483648 =< N, N =< 2147483647 ->
     ok;
@@ -727,6 +773,7 @@ v_type_int32(X, Path) ->
     mk_type_error({bad_integer, int32, signed, 32}, X,
 		  Path).
 
+-dialyzer({nowarn_function,v_type_string/2}).
 v_type_string(S, Path) when is_list(S); is_binary(S) ->
     try unicode:characters_to_binary(S) of
       B when is_binary(B) -> ok;
@@ -746,11 +793,12 @@ mk_type_error(Error, ValueSeen, Path) ->
 		  {Error, [{value, ValueSeen}, {path, Path2}]}}).
 
 
+-dialyzer({nowarn_function,prettify_path/1}).
 prettify_path([]) -> top_level;
 prettify_path(PathR) ->
-    list_to_atom(string:join(lists:map(fun atom_to_list/1,
-				       lists:reverse(PathR)),
-			     ".")).
+    list_to_atom(lists:append(lists:join(".",
+					 lists:map(fun atom_to_list/1,
+						   lists:reverse(PathR))))).
 
 
 -compile({inline,id/2}).
@@ -771,7 +819,7 @@ get_msg_defs() ->
 	 opts => []}]},
      {{msg, 'Package'},
       [#{name => name, fnum => 1, rnum => 2, type => string,
-	 occurrence => required, opts => []},
+	 occurrence => optional, opts => []},
        #{name => versions, fnum => 2, rnum => 3,
 	 type => string, occurrence => repeated, opts => []},
        #{name => retired, fnum => 3, rnum => 4, type => int32,
@@ -810,7 +858,7 @@ find_msg_def('Versions') ->
        opts => []}];
 find_msg_def('Package') ->
     [#{name => name, fnum => 1, rnum => 2, type => string,
-       occurrence => required, opts => []},
+       occurrence => optional, opts => []},
      #{name => versions, fnum => 2, rnum => 3,
        type => string, occurrence => repeated, opts => []},
      #{name => retired, fnum => 3, rnum => 4, type => int32,
