@@ -1,7 +1,7 @@
 -module(hex_core).
 -export([default_config/0]).
 
--export_types([config/0]).
+-export_type([config/0]).
 
 %% https://hex.pm/docs/public_keys
 -define(HEXPM_PUBLIC_KEY, <<"-----BEGIN PUBLIC KEY-----
