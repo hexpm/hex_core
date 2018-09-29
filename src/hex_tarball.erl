@@ -8,8 +8,8 @@
 -define(TARBALL_MAX_UNCOMPRESSED_SIZE, 64 * 1024 * 1024).
 -define(BUILD_TOOL_FILES, [
     {<<"mix.exs">>, <<"mix">>},
-    {<<"rebar.config">>, <<"rebar">>},
-    {<<"rebar">>, <<"rebar">>},
+    {<<"rebar.config">>, <<"rebar3">>},
+    {<<"rebar">>, <<"rebar3">>},
     {<<"Makefile">>, <<"make">>},
     {<<"Makefile.win">>, <<"make">>}
 ]).
