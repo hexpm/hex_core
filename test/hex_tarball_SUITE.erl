@@ -8,8 +8,10 @@
 
 all() ->
     [disk_test, timestamps_and_permissions_test, symlinks_test,
-     memory_test, build_tools_test, requirements_test, 
-     decode_metadata_test, unpack_error_handling_test].
+     memory_test, build_tools_test, requirements_test,
+     decode_metadata_test, unpack_error_handling_test,
+     docs_test
+    ].
 
 memory_test(_Config) ->
     Metadata = #{
@@ -225,6 +227,16 @@ unpack_error_handling_test(_Config) ->
       "CHECKSUM" => <<"63E0D44ED4F61F5A1636A516A6A26890052CE0BB1B1A6EDC66C30282E2EC1A58">>
     },
     {error,{inner_tarball,eof}} = unpack_files(Files5),
+
+    ok.
+
+docs_test(_Config) ->
+    Files = [{"doc/index.html", <<"Docs">>}],
+    {ok, {Tarball, _Checksum}} = hex_tarball:create_docs(Files),
+
+    %% TODO: add hex_tarball:unpack_docs/2
+    Tarball2 = zlib:gunzip(Tarball),
+    {ok, Files} = hex_erl_tar:extract({binary, Tarball2}, [memory]),
 
     ok.
 

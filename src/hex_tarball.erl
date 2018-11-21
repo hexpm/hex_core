@@ -69,12 +69,12 @@ create(Metadata, Files) ->
     end.
 
 %% @doc
-%% Creates a documents tarball.
+%% Creates a docs tarball.
 %%
 %% Examples:
 %%
 %% ```
-%%     Files = [{"src/foo.erl", <<"-module(foo).">>}],
+%%     Files = [{"doc/index.html", <<"Docs">>}],
 %%     {ok, {Tarball, Checksum}} = hex_tarball:create_docs(Files).
 %%     Tarball.
 %%     %%=> <<86,69,...>>
@@ -84,13 +84,13 @@ create(Metadata, Files) ->
 %% @end
 -spec create_docs(files()) -> {ok, {tarball(), checksum()}}.
 create_docs(Files) ->
-    Tarball = create_memory_tarball(Files),
-    TarballCompressed = gzip(Tarball),
-    Checksum = checksum(TarballCompressed),
+    UncompressedTarball = create_memory_tarball(Files),
+    UncompressedSize = byte_size(UncompressedTarball),
+    Tarball = gzip(UncompressedTarball),
+    Checksum = checksum(Tarball),
+    Size = byte_size(Tarball),
 
-    UncompressedSize = byte_size(Tarball),
-
-    case(byte_size(Tarball) > ?TARBALL_MAX_SIZE) or (UncompressedSize > ?TARBALL_MAX_UNCOMPRESSED_SIZE) of
+    case(Size > ?TARBALL_MAX_SIZE) or (UncompressedSize > ?TARBALL_MAX_UNCOMPRESSED_SIZE) of
         true ->
             {error, {tarball, too_big}};
 
