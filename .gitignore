@@ -18,6 +18,7 @@ _build
 *.iml
 rebar3.crashdump
 /doc/*.html
+/doc/*.html.bak
 !/doc/tpl.html
 /doc/*.md
 /doc/erlang.png
