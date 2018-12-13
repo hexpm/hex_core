@@ -14,4 +14,6 @@
 
 7. Publish package: `rebar3 hex publish`
 
-8. Publish docs: `rebar3 hex docs`
+8. Spot check docs: `rebar3 as docs edoc`
+
+9. Publish docs: `rebar3 hex docs`
