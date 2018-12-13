@@ -1,5 +1,5 @@
 #!/bin/bash
-sed -i
+set -e
 
 cd $(dirname $(realpath $0))
 
