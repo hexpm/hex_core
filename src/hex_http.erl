@@ -15,7 +15,7 @@
     {ok, status(), headers(), binary()} |
     {error, term()}.
 
--spec request(hex_core:config(), method(), string(), headers(), body()) ->
+-spec request(hex_core:config(), method(), URI :: binary(), headers(), body()) ->
     {ok, {status(), headers(), binary()}} | {error, term()}.
 request(Config, Method, URI, Headers, Body) when is_binary(URI) and is_map(Headers) ->
     Adapter = maps:get(http_adapter, Config),
