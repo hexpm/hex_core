@@ -21,6 +21,7 @@ J1i2xWFndWa6nfFnRxZmCStCOZWYYPlaxr+FZceFbpMwzTNs4g3d4tLNUcbKAIH4
     http_adapter => module(),
     http_adapter_config => map(),
     http_etag => binary(),
+    http_headers => map(),
     http_user_agent_fragment => binary(),
     repo_key => binary(),
     repo_url => binary(),
