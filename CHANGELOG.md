@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 0.2.1 (2018-12-13)
+
+* Always return the whole response tuple from requests
+* Guess rebar3 as build tool over rebar
+* Return compressed tarball from hex_tarball:create_docs/1
+* Add package identity to registry records
+
 ## 0.2.0 (2018-09-01)
 
 * Accept `{filename(), filename()}` in files list for tarballs
