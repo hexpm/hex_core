@@ -34,6 +34,7 @@ disk_test(Config) ->
 
     ok = file:make_dir(SrcDir),
     ok = file:make_dir(EmptyDir),
+    ok = file:change_mode(EmptyDir, 8#100755),
     ok = file:write_file(Foo, <<"-module(foo).">>),
     ok = file:change_mode(Foo, 8#100644),
     ok = file:write_file(filename:join(SrcDir, "not_whitelisted.erl"), <<"">>),
