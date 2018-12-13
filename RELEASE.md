@@ -1,6 +1,6 @@
 # Release process
 
-1. Bump version in `src/hex_core.app.src`
+1. Bump version in `src/hex_core.app.src` and `doc/tpl.html`
 
 2. Ensure CHANGELOG is updated and add current date
 
