@@ -14,8 +14,9 @@ all() ->
 
 names_test(_Config) ->
     Names = #{
+        repository => <<"hexpm">>,
         packages => [
-            #{name => <<"foo">>, repository => <<"hexpm">>},
+            #{name => <<"foo">>},
             #{name => <<"bar">>}
         ]
     },
@@ -25,12 +26,12 @@ names_test(_Config) ->
 
 versions_test(_Config) ->
     Versions = #{
+        repository => <<"hexpm">>,
         packages => [
             #{
                 name => <<"foo">>,
                 versions => [<<"1.0.0-rc.1">>, <<"1.1.0-rc.2">>, <<"1.1.0">>],
-                retired => [0, 1],
-                repository => <<"hexpm">>
+                retired => [0, 1]
             },
             #{
                 name => <<"bar">>,
@@ -45,6 +46,8 @@ versions_test(_Config) ->
 
 package_test(_Config) ->
     Package = #{
+        name => <<"foobar">>,
+        repository => <<"hexpm">>,
         releases => [
             #{
                 version => <<"1.0.0">>,
@@ -78,7 +81,7 @@ signed_test(_Config) ->
     TestPrivateKey = ct:get_config({ssl_certs, test_priv}),
     HexpmPublicKey = ct:get_config({ssl_certs, hexpm_pub}),
 
-    Names = #{packages => []},
+    Names = #{repository => <<"hexpm">>, packages => []},
     Payload = hex_registry:encode_names(Names),
 
     Signed = hex_registry:sign_protobuf(Payload, TestPrivateKey),
@@ -91,4 +94,3 @@ signed_test(_Config) ->
     {error, unverified} = hex_registry:decode_and_verify_signed(Signed, HexpmPublicKey),
 
     ok.
-

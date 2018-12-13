@@ -32,6 +32,7 @@ fixture(get, _, #{<<"if-none-match">> := <<"\"dummy\"">> = ETag}, _) ->
 
 fixture(get, <<?TEST_REPO_URL, "/names">>, _, _) ->
     Names = #{
+        repository => <<"hexpm">>,
         packages => [
             #{name => <<"ecto">>}
         ]
@@ -46,6 +47,7 @@ fixture(get, <<?TEST_REPO_URL, "/names">>, _, _) ->
 
 fixture(get, <<?TEST_REPO_URL, "/versions">>, _, _) ->
     Versions = #{
+        repository => <<"hexpm">>,
         packages => [
             #{name => <<"ecto">>, versions => [<<"1.0.0">>]}
         ]
@@ -60,6 +62,8 @@ fixture(get, <<?TEST_REPO_URL, "/versions">>, _, _) ->
 
 fixture(get, <<?TEST_REPO_URL, "/packages/ecto">>, _, _) ->
     Package = #{
+        repository => <<"hexpm">>,
+        name => <<"ecto">>,
         releases => [
             #{
                 version => <<"1.0.0">>,
