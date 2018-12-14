@@ -30,23 +30,23 @@
 
 %% message types
 -type 'Package'() ::
-      #{releases                => ['Release'()],   % = 1
-        name                    => iodata(),        % = 2
-        repository              => iodata()         % = 3
+      #{releases                => ['Release'()]    % = 1
+        %% name                 => iodata()         % = 2
+        %% repository           => iodata()         % = 3
        }.
 -type 'Release'() ::
-      #{version                 => iodata(),        % = 1
-        checksum                => iodata(),        % = 2
+      #{%% version              => iodata(),        % = 1
+        %% checksum             => iodata(),        % = 2
         dependencies            => ['Dependency'()] % = 3
         %% retired              => 'RetirementStatus'() % = 4
        }.
 -type 'RetirementStatus'() ::
-      #{reason                  => 'RETIRED_OTHER' | 'RETIRED_INVALID' | 'RETIRED_SECURITY' | 'RETIRED_DEPRECATED' | 'RETIRED_RENAMED' | integer() % = 1, enum RetirementReason
+      #{%% reason               => 'RETIRED_OTHER' | 'RETIRED_INVALID' | 'RETIRED_SECURITY' | 'RETIRED_DEPRECATED' | 'RETIRED_RENAMED' | integer() % = 1, enum RetirementReason
         %% message              => iodata()         % = 2
        }.
 -type 'Dependency'() ::
-      #{package                 => iodata(),        % = 1
-        requirement             => iodata()         % = 2
+      #{%% package              => iodata()         % = 1
+        %% requirement          => iodata()         % = 2
         %% optional             => boolean() | 0 | 1 % = 3
         %% app                  => iodata()         % = 4
         %% repository           => iodata()         % = 5
@@ -76,8 +76,7 @@ e_msg_Package(Msg, TrUserData) ->
     e_msg_Package(Msg, <<>>, TrUserData).
 
 
-e_msg_Package(#{name := F2, repository := F3} = M, Bin,
-	      TrUserData) ->
+e_msg_Package(#{} = M, Bin, TrUserData) ->
     B1 = case M of
 	   #{releases := F1} ->
 	       TrF1 = id(F1, TrUserData),
@@ -86,28 +85,55 @@ e_msg_Package(#{name := F2, repository := F3} = M, Bin,
 	       end;
 	   _ -> Bin
 	 end,
-    B2 = begin
-	   TrF2 = id(F2, TrUserData),
-	   e_type_string(TrF2, <<B1/binary, 18>>)
+    B2 = case M of
+	   #{name := F2} ->
+	       begin
+		 TrF2 = id(F2, TrUserData),
+		 case is_empty_string(TrF2) of
+		   true -> B1;
+		   false -> e_type_string(TrF2, <<B1/binary, 18>>)
+		 end
+	       end;
+	   _ -> B1
 	 end,
-    begin
-      TrF3 = id(F3, TrUserData),
-      e_type_string(TrF3, <<B2/binary, 26>>)
+    case M of
+      #{repository := F3} ->
+	  begin
+	    TrF3 = id(F3, TrUserData),
+	    case is_empty_string(TrF3) of
+	      true -> B2;
+	      false -> e_type_string(TrF3, <<B2/binary, 26>>)
+	    end
+	  end;
+      _ -> B2
     end.
 
 e_msg_Release(Msg, TrUserData) ->
     e_msg_Release(Msg, <<>>, TrUserData).
 
 
-e_msg_Release(#{version := F1, checksum := F2} = M, Bin,
-	      TrUserData) ->
-    B1 = begin
-	   TrF1 = id(F1, TrUserData),
-	   e_type_string(TrF1, <<Bin/binary, 10>>)
+e_msg_Release(#{} = M, Bin, TrUserData) ->
+    B1 = case M of
+	   #{version := F1} ->
+	       begin
+		 TrF1 = id(F1, TrUserData),
+		 case is_empty_string(TrF1) of
+		   true -> Bin;
+		   false -> e_type_string(TrF1, <<Bin/binary, 10>>)
+		 end
+	       end;
+	   _ -> Bin
 	 end,
-    B2 = begin
-	   TrF2 = id(F2, TrUserData),
-	   e_type_bytes(TrF2, <<B1/binary, 18>>)
+    B2 = case M of
+	   #{checksum := F2} ->
+	       begin
+		 TrF2 = id(F2, TrUserData),
+		 case iolist_size(TrF2) of
+		   0 -> B1;
+		   _ -> e_type_bytes(TrF2, <<B1/binary, 18>>)
+		 end
+	       end;
+	   _ -> B1
 	 end,
     B3 = case M of
 	   #{dependencies := F3} ->
@@ -122,8 +148,11 @@ e_msg_Release(#{version := F1, checksum := F2} = M, Bin,
       #{retired := F4} ->
 	  begin
 	    TrF4 = id(F4, TrUserData),
-	    e_mfield_Release_retired(TrF4, <<B3/binary, 34>>,
-				     TrUserData)
+	    if TrF4 =:= undefined -> B3;
+	       true ->
+		   e_mfield_Release_retired(TrF4, <<B3/binary, 34>>,
+					    TrUserData)
+	    end
 	  end;
       _ -> B3
     end.
@@ -132,17 +161,25 @@ e_msg_RetirementStatus(Msg, TrUserData) ->
     e_msg_RetirementStatus(Msg, <<>>, TrUserData).
 
 
-e_msg_RetirementStatus(#{reason := F1} = M, Bin,
-		       TrUserData) ->
-    B1 = begin
-	   TrF1 = id(F1, TrUserData),
-	   e_enum_RetirementReason(TrF1, <<Bin/binary, 8>>)
+e_msg_RetirementStatus(#{} = M, Bin, TrUserData) ->
+    B1 = case M of
+	   #{reason := F1} ->
+	       begin
+		 TrF1 = id(F1, TrUserData),
+		 if TrF1 =:= 'RETIRED_OTHER'; TrF1 =:= 0 -> Bin;
+		    true -> e_enum_RetirementReason(TrF1, <<Bin/binary, 8>>)
+		 end
+	       end;
+	   _ -> Bin
 	 end,
     case M of
       #{message := F2} ->
 	  begin
 	    TrF2 = id(F2, TrUserData),
-	    e_type_string(TrF2, <<B1/binary, 18>>)
+	    case is_empty_string(TrF2) of
+	      true -> B1;
+	      false -> e_type_string(TrF2, <<B1/binary, 18>>)
+	    end
 	  end;
       _ -> B1
     end.
@@ -151,22 +188,36 @@ e_msg_Dependency(Msg, TrUserData) ->
     e_msg_Dependency(Msg, <<>>, TrUserData).
 
 
-e_msg_Dependency(#{package := F1, requirement := F2} =
-		     M,
-		 Bin, TrUserData) ->
-    B1 = begin
-	   TrF1 = id(F1, TrUserData),
-	   e_type_string(TrF1, <<Bin/binary, 10>>)
+e_msg_Dependency(#{} = M, Bin, TrUserData) ->
+    B1 = case M of
+	   #{package := F1} ->
+	       begin
+		 TrF1 = id(F1, TrUserData),
+		 case is_empty_string(TrF1) of
+		   true -> Bin;
+		   false -> e_type_string(TrF1, <<Bin/binary, 10>>)
+		 end
+	       end;
+	   _ -> Bin
 	 end,
-    B2 = begin
-	   TrF2 = id(F2, TrUserData),
-	   e_type_string(TrF2, <<B1/binary, 18>>)
+    B2 = case M of
+	   #{requirement := F2} ->
+	       begin
+		 TrF2 = id(F2, TrUserData),
+		 case is_empty_string(TrF2) of
+		   true -> B1;
+		   false -> e_type_string(TrF2, <<B1/binary, 18>>)
+		 end
+	       end;
+	   _ -> B1
 	 end,
     B3 = case M of
 	   #{optional := F3} ->
 	       begin
 		 TrF3 = id(F3, TrUserData),
-		 e_type_bool(TrF3, <<B2/binary, 24>>)
+		 if TrF3 =:= false -> B2;
+		    true -> e_type_bool(TrF3, <<B2/binary, 24>>)
+		 end
 	       end;
 	   _ -> B2
 	 end,
@@ -174,7 +225,10 @@ e_msg_Dependency(#{package := F1, requirement := F2} =
 	   #{app := F4} ->
 	       begin
 		 TrF4 = id(F4, TrUserData),
-		 e_type_string(TrF4, <<B3/binary, 34>>)
+		 case is_empty_string(TrF4) of
+		   true -> B3;
+		   false -> e_type_string(TrF4, <<B3/binary, 34>>)
+		 end
 	       end;
 	   _ -> B3
 	 end,
@@ -182,7 +236,10 @@ e_msg_Dependency(#{package := F1, requirement := F2} =
       #{repository := F5} ->
 	  begin
 	    TrF5 = id(F5, TrUserData),
-	    e_type_string(TrF5, <<B4/binary, 42>>)
+	    case is_empty_string(TrF5) of
+	      true -> B4;
+	      false -> e_type_string(TrF5, <<B4/binary, 42>>)
+	    end
 	  end;
       _ -> B4
     end.
@@ -255,6 +312,25 @@ e_varint(N, Bin) ->
     Bin2 = <<Bin/binary, (N band 127 bor 128)>>,
     e_varint(N bsr 7, Bin2).
 
+is_empty_string("") -> true;
+is_empty_string(<<>>) -> true;
+is_empty_string(L) when is_list(L) ->
+    not string_has_chars(L);
+is_empty_string(B) when is_binary(B) -> false.
+
+string_has_chars([C | _]) when is_integer(C) -> true;
+string_has_chars([H | T]) ->
+    case string_has_chars(H) of
+      true -> true;
+      false -> string_has_chars(T)
+    end;
+string_has_chars(B)
+    when is_binary(B), byte_size(B) =/= 0 ->
+    true;
+string_has_chars(C) when is_integer(C) -> true;
+string_has_chars(<<>>) -> false;
+string_has_chars([]) -> false.
+
 
 decode_msg(Bin, MsgName) when is_binary(Bin) ->
     decode_msg(Bin, MsgName, []).
@@ -299,8 +375,8 @@ decode_msg_2_doit('Dependency', Bin, TrUserData) ->
 
 d_msg_Package(Bin, TrUserData) ->
     dfp_read_field_def_Package(Bin, 0, 0,
-			       id([], TrUserData), id('$undef', TrUserData),
-			       id('$undef', TrUserData), TrUserData).
+			       id([], TrUserData), id(<<>>, TrUserData),
+			       id(<<>>, TrUserData), TrUserData).
 
 dfp_read_field_def_Package(<<10, Rest/binary>>, Z1, Z2,
 			   F@_1, F@_2, F@_3, TrUserData) ->
@@ -316,8 +392,13 @@ dfp_read_field_def_Package(<<26, Rest/binary>>, Z1, Z2,
 			       F@_3, TrUserData);
 dfp_read_field_def_Package(<<>>, 0, 0, R1, F@_2, F@_3,
 			   TrUserData) ->
-    #{releases => lists_reverse(R1, TrUserData),
-      name => F@_2, repository => F@_3};
+    S1 = #{releases => lists_reverse(R1, TrUserData)},
+    S2 = if F@_2 == '$undef' -> S1;
+	    true -> S1#{name => F@_2}
+	 end,
+    if F@_3 == '$undef' -> S2;
+       true -> S2#{repository => F@_3}
+    end;
 dfp_read_field_def_Package(Other, Z1, Z2, F@_1, F@_2,
 			   F@_3, TrUserData) ->
     dg_read_field_def_Package(Other, Z1, Z2, F@_1, F@_2,
@@ -362,8 +443,13 @@ dg_read_field_def_Package(<<0:1, X:7, Rest/binary>>, N,
     end;
 dg_read_field_def_Package(<<>>, 0, 0, R1, F@_2, F@_3,
 			  TrUserData) ->
-    #{releases => lists_reverse(R1, TrUserData),
-      name => F@_2, repository => F@_3}.
+    S1 = #{releases => lists_reverse(R1, TrUserData)},
+    S2 = if F@_2 == '$undef' -> S1;
+	    true -> S1#{name => F@_2}
+	 end,
+    if F@_3 == '$undef' -> S2;
+       true -> S2#{repository => F@_3}
+    end.
 
 d_field_Package_releases(<<1:1, X:7, Rest/binary>>, N,
 			 Acc, F@_1, F@_2, F@_3, TrUserData)
@@ -451,9 +537,9 @@ skip_64_Package(<<_:64, Rest/binary>>, Z1, Z2, F@_1,
 
 d_msg_Release(Bin, TrUserData) ->
     dfp_read_field_def_Release(Bin, 0, 0,
-			       id('$undef', TrUserData),
-			       id('$undef', TrUserData), id([], TrUserData),
-			       id('$undef', TrUserData), TrUserData).
+			       id(<<>>, TrUserData), id(<<>>, TrUserData),
+			       id([], TrUserData), id(undefined, TrUserData),
+			       TrUserData).
 
 dfp_read_field_def_Release(<<10, Rest/binary>>, Z1, Z2,
 			   F@_1, F@_2, F@_3, F@_4, TrUserData) ->
@@ -473,10 +559,15 @@ dfp_read_field_def_Release(<<34, Rest/binary>>, Z1, Z2,
 			    F@_4, TrUserData);
 dfp_read_field_def_Release(<<>>, 0, 0, F@_1, F@_2, R1,
 			   F@_4, TrUserData) ->
-    S1 = #{version => F@_1, checksum => F@_2,
-	   dependencies => lists_reverse(R1, TrUserData)},
-    if F@_4 == '$undef' -> S1;
-       true -> S1#{retired => F@_4}
+    S1 = #{dependencies => lists_reverse(R1, TrUserData)},
+    S2 = if F@_1 == '$undef' -> S1;
+	    true -> S1#{version => F@_1}
+	 end,
+    S3 = if F@_2 == '$undef' -> S2;
+	    true -> S2#{checksum => F@_2}
+	 end,
+    if F@_4 == '$undef' -> S3;
+       true -> S3#{retired => F@_4}
     end;
 dfp_read_field_def_Release(Other, Z1, Z2, F@_1, F@_2,
 			   F@_3, F@_4, TrUserData) ->
@@ -525,10 +616,15 @@ dg_read_field_def_Release(<<0:1, X:7, Rest/binary>>, N,
     end;
 dg_read_field_def_Release(<<>>, 0, 0, F@_1, F@_2, R1,
 			  F@_4, TrUserData) ->
-    S1 = #{version => F@_1, checksum => F@_2,
-	   dependencies => lists_reverse(R1, TrUserData)},
-    if F@_4 == '$undef' -> S1;
-       true -> S1#{retired => F@_4}
+    S1 = #{dependencies => lists_reverse(R1, TrUserData)},
+    S2 = if F@_1 == '$undef' -> S1;
+	    true -> S1#{version => F@_1}
+	 end,
+    S3 = if F@_2 == '$undef' -> S2;
+	    true -> S2#{checksum => F@_2}
+	 end,
+    if F@_4 == '$undef' -> S3;
+       true -> S3#{retired => F@_4}
     end.
 
 d_field_Release_version(<<1:1, X:7, Rest/binary>>, N,
@@ -642,8 +738,8 @@ skip_64_Release(<<_:64, Rest/binary>>, Z1, Z2, F@_1,
 
 d_msg_RetirementStatus(Bin, TrUserData) ->
     dfp_read_field_def_RetirementStatus(Bin, 0, 0,
-					id('$undef', TrUserData),
-					id('$undef', TrUserData), TrUserData).
+					id('RETIRED_OTHER', TrUserData),
+					id(<<>>, TrUserData), TrUserData).
 
 dfp_read_field_def_RetirementStatus(<<8, Rest/binary>>,
 				    Z1, Z2, F@_1, F@_2, TrUserData) ->
@@ -655,9 +751,12 @@ dfp_read_field_def_RetirementStatus(<<18, Rest/binary>>,
 				     F@_2, TrUserData);
 dfp_read_field_def_RetirementStatus(<<>>, 0, 0, F@_1,
 				    F@_2, _) ->
-    S1 = #{reason => F@_1},
-    if F@_2 == '$undef' -> S1;
-       true -> S1#{message => F@_2}
+    S1 = #{},
+    S2 = if F@_1 == '$undef' -> S1;
+	    true -> S1#{reason => F@_1}
+	 end,
+    if F@_2 == '$undef' -> S2;
+       true -> S2#{message => F@_2}
     end;
 dfp_read_field_def_RetirementStatus(Other, Z1, Z2, F@_1,
 				    F@_2, TrUserData) ->
@@ -702,9 +801,12 @@ dg_read_field_def_RetirementStatus(<<0:1, X:7,
     end;
 dg_read_field_def_RetirementStatus(<<>>, 0, 0, F@_1,
 				   F@_2, _) ->
-    S1 = #{reason => F@_1},
-    if F@_2 == '$undef' -> S1;
-       true -> S1#{message => F@_2}
+    S1 = #{},
+    S2 = if F@_1 == '$undef' -> S1;
+	    true -> S1#{reason => F@_1}
+	 end,
+    if F@_2 == '$undef' -> S2;
+       true -> S2#{message => F@_2}
     end.
 
 d_field_RetirementStatus_reason(<<1:1, X:7,
@@ -785,11 +887,9 @@ skip_64_RetirementStatus(<<_:64, Rest/binary>>, Z1, Z2,
 
 d_msg_Dependency(Bin, TrUserData) ->
     dfp_read_field_def_Dependency(Bin, 0, 0,
-				  id('$undef', TrUserData),
-				  id('$undef', TrUserData),
-				  id('$undef', TrUserData),
-				  id('$undef', TrUserData),
-				  id('$undef', TrUserData), TrUserData).
+				  id(<<>>, TrUserData), id(<<>>, TrUserData),
+				  id(false, TrUserData), id(<<>>, TrUserData),
+				  id(<<>>, TrUserData), TrUserData).
 
 dfp_read_field_def_Dependency(<<10, Rest/binary>>, Z1,
 			      Z2, F@_1, F@_2, F@_3, F@_4, F@_5, TrUserData) ->
@@ -813,15 +913,21 @@ dfp_read_field_def_Dependency(<<42, Rest/binary>>, Z1,
 				  F@_3, F@_4, F@_5, TrUserData);
 dfp_read_field_def_Dependency(<<>>, 0, 0, F@_1, F@_2,
 			      F@_3, F@_4, F@_5, _) ->
-    S1 = #{package => F@_1, requirement => F@_2},
-    S2 = if F@_3 == '$undef' -> S1;
-	    true -> S1#{optional => F@_3}
+    S1 = #{},
+    S2 = if F@_1 == '$undef' -> S1;
+	    true -> S1#{package => F@_1}
 	 end,
-    S3 = if F@_4 == '$undef' -> S2;
-	    true -> S2#{app => F@_4}
+    S3 = if F@_2 == '$undef' -> S2;
+	    true -> S2#{requirement => F@_2}
 	 end,
-    if F@_5 == '$undef' -> S3;
-       true -> S3#{repository => F@_5}
+    S4 = if F@_3 == '$undef' -> S3;
+	    true -> S3#{optional => F@_3}
+	 end,
+    S5 = if F@_4 == '$undef' -> S4;
+	    true -> S4#{app => F@_4}
+	 end,
+    if F@_5 == '$undef' -> S5;
+       true -> S5#{repository => F@_5}
     end;
 dfp_read_field_def_Dependency(Other, Z1, Z2, F@_1, F@_2,
 			      F@_3, F@_4, F@_5, TrUserData) ->
@@ -874,15 +980,21 @@ dg_read_field_def_Dependency(<<0:1, X:7, Rest/binary>>,
     end;
 dg_read_field_def_Dependency(<<>>, 0, 0, F@_1, F@_2,
 			     F@_3, F@_4, F@_5, _) ->
-    S1 = #{package => F@_1, requirement => F@_2},
-    S2 = if F@_3 == '$undef' -> S1;
-	    true -> S1#{optional => F@_3}
+    S1 = #{},
+    S2 = if F@_1 == '$undef' -> S1;
+	    true -> S1#{package => F@_1}
 	 end,
-    S3 = if F@_4 == '$undef' -> S2;
-	    true -> S2#{app => F@_4}
+    S3 = if F@_2 == '$undef' -> S2;
+	    true -> S2#{requirement => F@_2}
 	 end,
-    if F@_5 == '$undef' -> S3;
-       true -> S3#{repository => F@_5}
+    S4 = if F@_3 == '$undef' -> S3;
+	    true -> S3#{optional => F@_3}
+	 end,
+    S5 = if F@_4 == '$undef' -> S4;
+	    true -> S4#{app => F@_4}
+	 end,
+    if F@_5 == '$undef' -> S5;
+       true -> S5#{repository => F@_5}
     end.
 
 d_field_Dependency_package(<<1:1, X:7, Rest/binary>>, N,
@@ -1081,77 +1193,22 @@ merge_msgs(Prev, New, MsgName, Opts) ->
 	  merge_msg_Dependency(Prev, New, TrUserData)
     end.
 
-merge_msg_Package(#{} = PMsg,
-		  #{name := NFname, repository := NFrepository} = NMsg,
-		  TrUserData) ->
-    S1 = #{name => NFname, repository => NFrepository},
-    case {PMsg, NMsg} of
-      {#{releases := PFreleases},
-       #{releases := NFreleases}} ->
-	  S1#{releases =>
-		  'erlang_++'(PFreleases, NFreleases, TrUserData)};
-      {_, #{releases := NFreleases}} ->
-	  S1#{releases => NFreleases};
-      {#{releases := PFreleases}, _} ->
-	  S1#{releases => PFreleases};
-      {_, _} -> S1
-    end.
-
-merge_msg_Release(#{} = PMsg,
-		  #{version := NFversion, checksum := NFchecksum} = NMsg,
-		  TrUserData) ->
-    S1 = #{version => NFversion, checksum => NFchecksum},
+merge_msg_Package(PMsg, NMsg, TrUserData) ->
+    S1 = #{},
     S2 = case {PMsg, NMsg} of
-	   {#{dependencies := PFdependencies},
-	    #{dependencies := NFdependencies}} ->
-	       S1#{dependencies =>
-		       'erlang_++'(PFdependencies, NFdependencies,
-				   TrUserData)};
-	   {_, #{dependencies := NFdependencies}} ->
-	       S1#{dependencies => NFdependencies};
-	   {#{dependencies := PFdependencies}, _} ->
-	       S1#{dependencies => PFdependencies};
+	   {#{releases := PFreleases},
+	    #{releases := NFreleases}} ->
+	       S1#{releases =>
+		       'erlang_++'(PFreleases, NFreleases, TrUserData)};
+	   {_, #{releases := NFreleases}} ->
+	       S1#{releases => NFreleases};
+	   {#{releases := PFreleases}, _} ->
+	       S1#{releases => PFreleases};
 	   {_, _} -> S1
 	 end,
-    case {PMsg, NMsg} of
-      {#{retired := PFretired}, #{retired := NFretired}} ->
-	  S2#{retired =>
-		  merge_msg_RetirementStatus(PFretired, NFretired,
-					     TrUserData)};
-      {_, #{retired := NFretired}} ->
-	  S2#{retired => NFretired};
-      {#{retired := PFretired}, _} ->
-	  S2#{retired => PFretired};
-      {_, _} -> S2
-    end.
-
-merge_msg_RetirementStatus(#{} = PMsg,
-			   #{reason := NFreason} = NMsg, _) ->
-    S1 = #{reason => NFreason},
-    case {PMsg, NMsg} of
-      {_, #{message := NFmessage}} ->
-	  S1#{message => NFmessage};
-      {#{message := PFmessage}, _} ->
-	  S1#{message => PFmessage};
-      _ -> S1
-    end.
-
-merge_msg_Dependency(#{} = PMsg,
-		     #{package := NFpackage, requirement := NFrequirement} =
-			 NMsg,
-		     _) ->
-    S1 = #{package => NFpackage,
-	   requirement => NFrequirement},
-    S2 = case {PMsg, NMsg} of
-	   {_, #{optional := NFoptional}} ->
-	       S1#{optional => NFoptional};
-	   {#{optional := PFoptional}, _} ->
-	       S1#{optional => PFoptional};
-	   _ -> S1
-	 end,
     S3 = case {PMsg, NMsg} of
-	   {_, #{app := NFapp}} -> S2#{app => NFapp};
-	   {#{app := PFapp}, _} -> S2#{app => PFapp};
+	   {_, #{name := NFname}} -> S2#{name => NFname};
+	   {#{name := PFname}, _} -> S2#{name => PFname};
 	   _ -> S2
 	 end,
     case {PMsg, NMsg} of
@@ -1160,6 +1217,97 @@ merge_msg_Dependency(#{} = PMsg,
       {#{repository := PFrepository}, _} ->
 	  S3#{repository => PFrepository};
       _ -> S3
+    end.
+
+merge_msg_Release(PMsg, NMsg, TrUserData) ->
+    S1 = #{},
+    S2 = case {PMsg, NMsg} of
+	   {_, #{version := NFversion}} ->
+	       S1#{version => NFversion};
+	   {#{version := PFversion}, _} ->
+	       S1#{version => PFversion};
+	   _ -> S1
+	 end,
+    S3 = case {PMsg, NMsg} of
+	   {_, #{checksum := NFchecksum}} ->
+	       S2#{checksum => NFchecksum};
+	   {#{checksum := PFchecksum}, _} ->
+	       S2#{checksum => PFchecksum};
+	   _ -> S2
+	 end,
+    S4 = case {PMsg, NMsg} of
+	   {#{dependencies := PFdependencies},
+	    #{dependencies := NFdependencies}} ->
+	       S3#{dependencies =>
+		       'erlang_++'(PFdependencies, NFdependencies,
+				   TrUserData)};
+	   {_, #{dependencies := NFdependencies}} ->
+	       S3#{dependencies => NFdependencies};
+	   {#{dependencies := PFdependencies}, _} ->
+	       S3#{dependencies => PFdependencies};
+	   {_, _} -> S3
+	 end,
+    case {PMsg, NMsg} of
+      {#{retired := PFretired}, #{retired := NFretired}} ->
+	  S4#{retired =>
+		  merge_msg_RetirementStatus(PFretired, NFretired,
+					     TrUserData)};
+      {_, #{retired := NFretired}} ->
+	  S4#{retired => NFretired};
+      {#{retired := PFretired}, _} ->
+	  S4#{retired => PFretired};
+      {_, _} -> S4
+    end.
+
+merge_msg_RetirementStatus(PMsg, NMsg, _) ->
+    S1 = #{},
+    S2 = case {PMsg, NMsg} of
+	   {_, #{reason := NFreason}} -> S1#{reason => NFreason};
+	   {#{reason := PFreason}, _} -> S1#{reason => PFreason};
+	   _ -> S1
+	 end,
+    case {PMsg, NMsg} of
+      {_, #{message := NFmessage}} ->
+	  S2#{message => NFmessage};
+      {#{message := PFmessage}, _} ->
+	  S2#{message => PFmessage};
+      _ -> S2
+    end.
+
+merge_msg_Dependency(PMsg, NMsg, _) ->
+    S1 = #{},
+    S2 = case {PMsg, NMsg} of
+	   {_, #{package := NFpackage}} ->
+	       S1#{package => NFpackage};
+	   {#{package := PFpackage}, _} ->
+	       S1#{package => PFpackage};
+	   _ -> S1
+	 end,
+    S3 = case {PMsg, NMsg} of
+	   {_, #{requirement := NFrequirement}} ->
+	       S2#{requirement => NFrequirement};
+	   {#{requirement := PFrequirement}, _} ->
+	       S2#{requirement => PFrequirement};
+	   _ -> S2
+	 end,
+    S4 = case {PMsg, NMsg} of
+	   {_, #{optional := NFoptional}} ->
+	       S3#{optional => NFoptional};
+	   {#{optional := PFoptional}, _} ->
+	       S3#{optional => PFoptional};
+	   _ -> S3
+	 end,
+    S5 = case {PMsg, NMsg} of
+	   {_, #{app := NFapp}} -> S4#{app => NFapp};
+	   {#{app := PFapp}, _} -> S4#{app => PFapp};
+	   _ -> S4
+	 end,
+    case {PMsg, NMsg} of
+      {_, #{repository := NFrepository}} ->
+	  S5#{repository => NFrepository};
+      {#{repository := PFrepository}, _} ->
+	  S5#{repository => PFrepository};
+      _ -> S5
     end.
 
 
@@ -1182,8 +1330,7 @@ verify_msg(Msg, MsgName, Opts) ->
     end.
 
 
-v_msg_Package(#{name := F2, repository := F3} = M, Path,
-	      TrUserData) ->
+v_msg_Package(#{} = M, Path, TrUserData) ->
     case M of
       #{releases := F1} ->
 	  if is_list(F1) ->
@@ -1196,8 +1343,15 @@ v_msg_Package(#{name := F2, repository := F3} = M, Path,
 	  end;
       _ -> ok
     end,
-    v_type_string(F2, [name | Path]),
-    v_type_string(F3, [repository | Path]),
+    case M of
+      #{name := F2} -> v_type_string(F2, [name | Path]);
+      _ -> ok
+    end,
+    case M of
+      #{repository := F3} ->
+	  v_type_string(F3, [repository | Path]);
+      _ -> ok
+    end,
     lists:foreach(fun (releases) -> ok;
 		      (name) -> ok;
 		      (repository) -> ok;
@@ -1207,16 +1361,22 @@ v_msg_Package(#{name := F2, repository := F3} = M, Path,
 		  maps:keys(M)),
     ok;
 v_msg_Package(M, Path, _TrUserData) when is_map(M) ->
-    mk_type_error({missing_fields,
-		   [name, repository] -- maps:keys(M), 'Package'},
+    mk_type_error({missing_fields, [] -- maps:keys(M),
+		   'Package'},
 		  M, Path);
 v_msg_Package(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'Package'}, X, Path).
 
-v_msg_Release(#{version := F1, checksum := F2} = M,
-	      Path, TrUserData) ->
-    v_type_string(F1, [version | Path]),
-    v_type_bytes(F2, [checksum | Path]),
+v_msg_Release(#{} = M, Path, TrUserData) ->
+    case M of
+      #{version := F1} -> v_type_string(F1, [version | Path]);
+      _ -> ok
+    end,
+    case M of
+      #{checksum := F2} ->
+	  v_type_bytes(F2, [checksum | Path]);
+      _ -> ok
+    end,
     case M of
       #{dependencies := F3} ->
 	  if is_list(F3) ->
@@ -1246,14 +1406,18 @@ v_msg_Release(#{version := F1, checksum := F2} = M,
 		  maps:keys(M)),
     ok;
 v_msg_Release(M, Path, _TrUserData) when is_map(M) ->
-    mk_type_error({missing_fields,
-		   [version, checksum] -- maps:keys(M), 'Release'},
+    mk_type_error({missing_fields, [] -- maps:keys(M),
+		   'Release'},
 		  M, Path);
 v_msg_Release(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'Release'}, X, Path).
 
-v_msg_RetirementStatus(#{reason := F1} = M, Path, _) ->
-    v_enum_RetirementReason(F1, [reason | Path]),
+v_msg_RetirementStatus(#{} = M, Path, _) ->
+    case M of
+      #{reason := F1} ->
+	  v_enum_RetirementReason(F1, [reason | Path]);
+      _ -> ok
+    end,
     case M of
       #{message := F2} -> v_type_string(F2, [message | Path]);
       _ -> ok
@@ -1267,18 +1431,23 @@ v_msg_RetirementStatus(#{reason := F1} = M, Path, _) ->
     ok;
 v_msg_RetirementStatus(M, Path, _TrUserData)
     when is_map(M) ->
-    mk_type_error({missing_fields, [reason] -- maps:keys(M),
+    mk_type_error({missing_fields, [] -- maps:keys(M),
 		   'RetirementStatus'},
 		  M, Path);
 v_msg_RetirementStatus(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'RetirementStatus'}, X,
 		  Path).
 
-v_msg_Dependency(#{package := F1, requirement := F2} =
-		     M,
-		 Path, _) ->
-    v_type_string(F1, [package | Path]),
-    v_type_string(F2, [requirement | Path]),
+v_msg_Dependency(#{} = M, Path, _) ->
+    case M of
+      #{package := F1} -> v_type_string(F1, [package | Path]);
+      _ -> ok
+    end,
+    case M of
+      #{requirement := F2} ->
+	  v_type_string(F2, [requirement | Path]);
+      _ -> ok
+    end,
     case M of
       #{optional := F3} -> v_type_bool(F3, [optional | Path]);
       _ -> ok
@@ -1303,8 +1472,8 @@ v_msg_Dependency(#{package := F1, requirement := F2} =
 		  maps:keys(M)),
     ok;
 v_msg_Dependency(M, Path, _TrUserData) when is_map(M) ->
-    mk_type_error({missing_fields,
-		   [package, requirement] -- maps:keys(M), 'Dependency'},
+    mk_type_error({missing_fields, [] -- maps:keys(M),
+		   'Dependency'},
 		  M, Path);
 v_msg_Dependency(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'Dependency'}, X, Path).
@@ -1391,14 +1560,14 @@ get_msg_defs() ->
 	 type => {msg, 'Release'}, occurrence => repeated,
 	 opts => []},
        #{name => name, fnum => 2, rnum => 3, type => string,
-	 occurrence => required, opts => []},
+	 occurrence => optional, opts => []},
        #{name => repository, fnum => 3, rnum => 4,
-	 type => string, occurrence => required, opts => []}]},
+	 type => string, occurrence => optional, opts => []}]},
      {{msg, 'Release'},
       [#{name => version, fnum => 1, rnum => 2,
-	 type => string, occurrence => required, opts => []},
+	 type => string, occurrence => optional, opts => []},
        #{name => checksum, fnum => 2, rnum => 3, type => bytes,
-	 occurrence => required, opts => []},
+	 occurrence => optional, opts => []},
        #{name => dependencies, fnum => 3, rnum => 4,
 	 type => {msg, 'Dependency'}, occurrence => repeated,
 	 opts => []},
@@ -1408,14 +1577,14 @@ get_msg_defs() ->
      {{msg, 'RetirementStatus'},
       [#{name => reason, fnum => 1, rnum => 2,
 	 type => {enum, 'RetirementReason'},
-	 occurrence => required, opts => []},
+	 occurrence => optional, opts => []},
        #{name => message, fnum => 2, rnum => 3, type => string,
 	 occurrence => optional, opts => []}]},
      {{msg, 'Dependency'},
       [#{name => package, fnum => 1, rnum => 2,
-	 type => string, occurrence => required, opts => []},
+	 type => string, occurrence => optional, opts => []},
        #{name => requirement, fnum => 2, rnum => 3,
-	 type => string, occurrence => required, opts => []},
+	 type => string, occurrence => optional, opts => []},
        #{name => optional, fnum => 3, rnum => 4, type => bool,
 	 occurrence => optional, opts => []},
        #{name => app, fnum => 4, rnum => 5, type => string,
@@ -1459,14 +1628,14 @@ find_msg_def('Package') ->
        type => {msg, 'Release'}, occurrence => repeated,
        opts => []},
      #{name => name, fnum => 2, rnum => 3, type => string,
-       occurrence => required, opts => []},
+       occurrence => optional, opts => []},
      #{name => repository, fnum => 3, rnum => 4,
-       type => string, occurrence => required, opts => []}];
+       type => string, occurrence => optional, opts => []}];
 find_msg_def('Release') ->
     [#{name => version, fnum => 1, rnum => 2,
-       type => string, occurrence => required, opts => []},
+       type => string, occurrence => optional, opts => []},
      #{name => checksum, fnum => 2, rnum => 3, type => bytes,
-       occurrence => required, opts => []},
+       occurrence => optional, opts => []},
      #{name => dependencies, fnum => 3, rnum => 4,
        type => {msg, 'Dependency'}, occurrence => repeated,
        opts => []},
@@ -1476,14 +1645,14 @@ find_msg_def('Release') ->
 find_msg_def('RetirementStatus') ->
     [#{name => reason, fnum => 1, rnum => 2,
        type => {enum, 'RetirementReason'},
-       occurrence => required, opts => []},
+       occurrence => optional, opts => []},
      #{name => message, fnum => 2, rnum => 3, type => string,
        occurrence => optional, opts => []}];
 find_msg_def('Dependency') ->
     [#{name => package, fnum => 1, rnum => 2,
-       type => string, occurrence => required, opts => []},
+       type => string, occurrence => optional, opts => []},
      #{name => requirement, fnum => 2, rnum => 3,
-       type => string, occurrence => required, opts => []},
+       type => string, occurrence => optional, opts => []},
      #{name => optional, fnum => 3, rnum => 4, type => bool,
        occurrence => optional, opts => []},
      #{name => app, fnum => 4, rnum => 5, type => string,
