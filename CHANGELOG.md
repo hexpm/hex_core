@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.3.0 (2018-12-14)
+
+* Swich from proto2 to proto3
+* Fix `hex_http:body` type
+* Fix `hex_http:request` spec
+
 ## 0.2.1 (2018-12-13)
 
 * Always return the whole response tuple from requests
