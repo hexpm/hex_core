@@ -4,7 +4,7 @@ message Versions {
   // All packages in the repository
   repeated Package packages = 1;
   // Name of repository
-  required string repository = 2;
+  string repository = 2;
 }
 
 message Package {

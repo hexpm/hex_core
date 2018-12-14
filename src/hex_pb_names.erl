@@ -29,8 +29,8 @@
 
 %% message types
 -type 'Names'() ::
-      #{packages                => ['Package'()],   % = 1
-        repository              => iodata()         % = 2
+      #{packages                => ['Package'()]    % = 1
+        %% repository           => iodata()         % = 2
        }.
 -type 'Package'() ::
       #{%% name                 => iodata()         % = 1
@@ -58,7 +58,7 @@ e_msg_Names(Msg, TrUserData) ->
     e_msg_Names(Msg, <<>>, TrUserData).
 
 
-e_msg_Names(#{repository := F2} = M, Bin, TrUserData) ->
+e_msg_Names(#{} = M, Bin, TrUserData) ->
     B1 = case M of
 	   #{packages := F1} ->
 	       TrF1 = id(F1, TrUserData),
@@ -67,9 +67,16 @@ e_msg_Names(#{repository := F2} = M, Bin, TrUserData) ->
 	       end;
 	   _ -> Bin
 	 end,
-    begin
-      TrF2 = id(F2, TrUserData),
-      e_type_string(TrF2, <<B1/binary, 18>>)
+    case M of
+      #{repository := F2} ->
+	  begin
+	    TrF2 = id(F2, TrUserData),
+	    case is_empty_string(TrF2) of
+	      true -> B1;
+	      false -> e_type_string(TrF2, <<B1/binary, 18>>)
+	    end
+	  end;
+      _ -> B1
     end.
 
 e_msg_Package(Msg, TrUserData) ->
@@ -181,7 +188,7 @@ decode_msg_2_doit('Package', Bin, TrUserData) ->
 
 d_msg_Names(Bin, TrUserData) ->
     dfp_read_field_def_Names(Bin, 0, 0, id([], TrUserData),
-			     id('$undef', TrUserData), TrUserData).
+			     id(<<>>, TrUserData), TrUserData).
 
 dfp_read_field_def_Names(<<10, Rest/binary>>, Z1, Z2,
 			 F@_1, F@_2, TrUserData) ->
@@ -193,8 +200,10 @@ dfp_read_field_def_Names(<<18, Rest/binary>>, Z1, Z2,
 			     TrUserData);
 dfp_read_field_def_Names(<<>>, 0, 0, R1, F@_2,
 			 TrUserData) ->
-    #{packages => lists_reverse(R1, TrUserData),
-      repository => F@_2};
+    S1 = #{packages => lists_reverse(R1, TrUserData)},
+    if F@_2 == '$undef' -> S1;
+       true -> S1#{repository => F@_2}
+    end;
 dfp_read_field_def_Names(Other, Z1, Z2, F@_1, F@_2,
 			 TrUserData) ->
     dg_read_field_def_Names(Other, Z1, Z2, F@_1, F@_2,
@@ -231,8 +240,10 @@ dg_read_field_def_Names(<<0:1, X:7, Rest/binary>>, N,
     end;
 dg_read_field_def_Names(<<>>, 0, 0, R1, F@_2,
 			TrUserData) ->
-    #{packages => lists_reverse(R1, TrUserData),
-      repository => F@_2}.
+    S1 = #{packages => lists_reverse(R1, TrUserData)},
+    if F@_2 == '$undef' -> S1;
+       true -> S1#{repository => F@_2}
+    end.
 
 d_field_Names_packages(<<1:1, X:7, Rest/binary>>, N,
 		       Acc, F@_1, F@_2, TrUserData)
@@ -502,19 +513,25 @@ merge_msgs(Prev, New, MsgName, Opts) ->
       'Package' -> merge_msg_Package(Prev, New, TrUserData)
     end.
 
-merge_msg_Names(#{} = PMsg,
-		#{repository := NFrepository} = NMsg, TrUserData) ->
-    S1 = #{repository => NFrepository},
+merge_msg_Names(PMsg, NMsg, TrUserData) ->
+    S1 = #{},
+    S2 = case {PMsg, NMsg} of
+	   {#{packages := PFpackages},
+	    #{packages := NFpackages}} ->
+	       S1#{packages =>
+		       'erlang_++'(PFpackages, NFpackages, TrUserData)};
+	   {_, #{packages := NFpackages}} ->
+	       S1#{packages => NFpackages};
+	   {#{packages := PFpackages}, _} ->
+	       S1#{packages => PFpackages};
+	   {_, _} -> S1
+	 end,
     case {PMsg, NMsg} of
-      {#{packages := PFpackages},
-       #{packages := NFpackages}} ->
-	  S1#{packages =>
-		  'erlang_++'(PFpackages, NFpackages, TrUserData)};
-      {_, #{packages := NFpackages}} ->
-	  S1#{packages => NFpackages};
-      {#{packages := PFpackages}, _} ->
-	  S1#{packages => PFpackages};
-      {_, _} -> S1
+      {_, #{repository := NFrepository}} ->
+	  S2#{repository => NFrepository};
+      {#{repository := PFrepository}, _} ->
+	  S2#{repository => PFrepository};
+      _ -> S2
     end.
 
 merge_msg_Package(PMsg, NMsg, _) ->
@@ -546,8 +563,7 @@ verify_msg(Msg, MsgName, Opts) ->
     end.
 
 
-v_msg_Names(#{repository := F2} = M, Path,
-	    TrUserData) ->
+v_msg_Names(#{} = M, Path, TrUserData) ->
     case M of
       #{packages := F1} ->
 	  if is_list(F1) ->
@@ -560,7 +576,11 @@ v_msg_Names(#{repository := F2} = M, Path,
 	  end;
       _ -> ok
     end,
-    v_type_string(F2, [repository | Path]),
+    case M of
+      #{repository := F2} ->
+	  v_type_string(F2, [repository | Path]);
+      _ -> ok
+    end,
     lists:foreach(fun (packages) -> ok;
 		      (repository) -> ok;
 		      (OtherKey) ->
@@ -569,8 +589,8 @@ v_msg_Names(#{repository := F2} = M, Path,
 		  maps:keys(M)),
     ok;
 v_msg_Names(M, Path, _TrUserData) when is_map(M) ->
-    mk_type_error({missing_fields,
-		   [repository] -- maps:keys(M), 'Names'},
+    mk_type_error({missing_fields, [] -- maps:keys(M),
+		   'Names'},
 		  M, Path);
 v_msg_Names(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'Names'}, X, Path).
@@ -642,7 +662,7 @@ get_msg_defs() ->
 	 type => {msg, 'Package'}, occurrence => repeated,
 	 opts => []},
        #{name => repository, fnum => 2, rnum => 3,
-	 type => string, occurrence => required, opts => []}]},
+	 type => string, occurrence => optional, opts => []}]},
      {{msg, 'Package'},
       [#{name => name, fnum => 1, rnum => 2, type => string,
 	 occurrence => optional, opts => []},
@@ -679,7 +699,7 @@ find_msg_def('Names') ->
        type => {msg, 'Package'}, occurrence => repeated,
        opts => []},
      #{name => repository, fnum => 2, rnum => 3,
-       type => string, occurrence => required, opts => []}];
+       type => string, occurrence => optional, opts => []}];
 find_msg_def('Package') ->
     [#{name => name, fnum => 1, rnum => 2, type => string,
        occurrence => optional, opts => []},

@@ -30,9 +30,9 @@
 
 %% message types
 -type 'Package'() ::
-      #{releases                => ['Release'()],   % = 1
-        name                    => iodata(),        % = 2
-        repository              => iodata()         % = 3
+      #{releases                => ['Release'()]    % = 1
+        %% name                 => iodata()         % = 2
+        %% repository           => iodata()         % = 3
        }.
 -type 'Release'() ::
       #{%% version              => iodata(),        % = 1
@@ -76,8 +76,7 @@ e_msg_Package(Msg, TrUserData) ->
     e_msg_Package(Msg, <<>>, TrUserData).
 
 
-e_msg_Package(#{name := F2, repository := F3} = M, Bin,
-	      TrUserData) ->
+e_msg_Package(#{} = M, Bin, TrUserData) ->
     B1 = case M of
 	   #{releases := F1} ->
 	       TrF1 = id(F1, TrUserData),
@@ -86,13 +85,27 @@ e_msg_Package(#{name := F2, repository := F3} = M, Bin,
 	       end;
 	   _ -> Bin
 	 end,
-    B2 = begin
-	   TrF2 = id(F2, TrUserData),
-	   e_type_string(TrF2, <<B1/binary, 18>>)
+    B2 = case M of
+	   #{name := F2} ->
+	       begin
+		 TrF2 = id(F2, TrUserData),
+		 case is_empty_string(TrF2) of
+		   true -> B1;
+		   false -> e_type_string(TrF2, <<B1/binary, 18>>)
+		 end
+	       end;
+	   _ -> B1
 	 end,
-    begin
-      TrF3 = id(F3, TrUserData),
-      e_type_string(TrF3, <<B2/binary, 26>>)
+    case M of
+      #{repository := F3} ->
+	  begin
+	    TrF3 = id(F3, TrUserData),
+	    case is_empty_string(TrF3) of
+	      true -> B2;
+	      false -> e_type_string(TrF3, <<B2/binary, 26>>)
+	    end
+	  end;
+      _ -> B2
     end.
 
 e_msg_Release(Msg, TrUserData) ->
@@ -362,8 +375,8 @@ decode_msg_2_doit('Dependency', Bin, TrUserData) ->
 
 d_msg_Package(Bin, TrUserData) ->
     dfp_read_field_def_Package(Bin, 0, 0,
-			       id([], TrUserData), id('$undef', TrUserData),
-			       id('$undef', TrUserData), TrUserData).
+			       id([], TrUserData), id(<<>>, TrUserData),
+			       id(<<>>, TrUserData), TrUserData).
 
 dfp_read_field_def_Package(<<10, Rest/binary>>, Z1, Z2,
 			   F@_1, F@_2, F@_3, TrUserData) ->
@@ -379,8 +392,13 @@ dfp_read_field_def_Package(<<26, Rest/binary>>, Z1, Z2,
 			       F@_3, TrUserData);
 dfp_read_field_def_Package(<<>>, 0, 0, R1, F@_2, F@_3,
 			   TrUserData) ->
-    #{releases => lists_reverse(R1, TrUserData),
-      name => F@_2, repository => F@_3};
+    S1 = #{releases => lists_reverse(R1, TrUserData)},
+    S2 = if F@_2 == '$undef' -> S1;
+	    true -> S1#{name => F@_2}
+	 end,
+    if F@_3 == '$undef' -> S2;
+       true -> S2#{repository => F@_3}
+    end;
 dfp_read_field_def_Package(Other, Z1, Z2, F@_1, F@_2,
 			   F@_3, TrUserData) ->
     dg_read_field_def_Package(Other, Z1, Z2, F@_1, F@_2,
@@ -425,8 +443,13 @@ dg_read_field_def_Package(<<0:1, X:7, Rest/binary>>, N,
     end;
 dg_read_field_def_Package(<<>>, 0, 0, R1, F@_2, F@_3,
 			  TrUserData) ->
-    #{releases => lists_reverse(R1, TrUserData),
-      name => F@_2, repository => F@_3}.
+    S1 = #{releases => lists_reverse(R1, TrUserData)},
+    S2 = if F@_2 == '$undef' -> S1;
+	    true -> S1#{name => F@_2}
+	 end,
+    if F@_3 == '$undef' -> S2;
+       true -> S2#{repository => F@_3}
+    end.
 
 d_field_Package_releases(<<1:1, X:7, Rest/binary>>, N,
 			 Acc, F@_1, F@_2, F@_3, TrUserData)
@@ -1170,20 +1193,30 @@ merge_msgs(Prev, New, MsgName, Opts) ->
 	  merge_msg_Dependency(Prev, New, TrUserData)
     end.
 
-merge_msg_Package(#{} = PMsg,
-		  #{name := NFname, repository := NFrepository} = NMsg,
-		  TrUserData) ->
-    S1 = #{name => NFname, repository => NFrepository},
+merge_msg_Package(PMsg, NMsg, TrUserData) ->
+    S1 = #{},
+    S2 = case {PMsg, NMsg} of
+	   {#{releases := PFreleases},
+	    #{releases := NFreleases}} ->
+	       S1#{releases =>
+		       'erlang_++'(PFreleases, NFreleases, TrUserData)};
+	   {_, #{releases := NFreleases}} ->
+	       S1#{releases => NFreleases};
+	   {#{releases := PFreleases}, _} ->
+	       S1#{releases => PFreleases};
+	   {_, _} -> S1
+	 end,
+    S3 = case {PMsg, NMsg} of
+	   {_, #{name := NFname}} -> S2#{name => NFname};
+	   {#{name := PFname}, _} -> S2#{name => PFname};
+	   _ -> S2
+	 end,
     case {PMsg, NMsg} of
-      {#{releases := PFreleases},
-       #{releases := NFreleases}} ->
-	  S1#{releases =>
-		  'erlang_++'(PFreleases, NFreleases, TrUserData)};
-      {_, #{releases := NFreleases}} ->
-	  S1#{releases => NFreleases};
-      {#{releases := PFreleases}, _} ->
-	  S1#{releases => PFreleases};
-      {_, _} -> S1
+      {_, #{repository := NFrepository}} ->
+	  S3#{repository => NFrepository};
+      {#{repository := PFrepository}, _} ->
+	  S3#{repository => PFrepository};
+      _ -> S3
     end.
 
 merge_msg_Release(PMsg, NMsg, TrUserData) ->
@@ -1297,8 +1330,7 @@ verify_msg(Msg, MsgName, Opts) ->
     end.
 
 
-v_msg_Package(#{name := F2, repository := F3} = M, Path,
-	      TrUserData) ->
+v_msg_Package(#{} = M, Path, TrUserData) ->
     case M of
       #{releases := F1} ->
 	  if is_list(F1) ->
@@ -1311,8 +1343,15 @@ v_msg_Package(#{name := F2, repository := F3} = M, Path,
 	  end;
       _ -> ok
     end,
-    v_type_string(F2, [name | Path]),
-    v_type_string(F3, [repository | Path]),
+    case M of
+      #{name := F2} -> v_type_string(F2, [name | Path]);
+      _ -> ok
+    end,
+    case M of
+      #{repository := F3} ->
+	  v_type_string(F3, [repository | Path]);
+      _ -> ok
+    end,
     lists:foreach(fun (releases) -> ok;
 		      (name) -> ok;
 		      (repository) -> ok;
@@ -1322,8 +1361,8 @@ v_msg_Package(#{name := F2, repository := F3} = M, Path,
 		  maps:keys(M)),
     ok;
 v_msg_Package(M, Path, _TrUserData) when is_map(M) ->
-    mk_type_error({missing_fields,
-		   [name, repository] -- maps:keys(M), 'Package'},
+    mk_type_error({missing_fields, [] -- maps:keys(M),
+		   'Package'},
 		  M, Path);
 v_msg_Package(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'Package'}, X, Path).
@@ -1521,9 +1560,9 @@ get_msg_defs() ->
 	 type => {msg, 'Release'}, occurrence => repeated,
 	 opts => []},
        #{name => name, fnum => 2, rnum => 3, type => string,
-	 occurrence => required, opts => []},
+	 occurrence => optional, opts => []},
        #{name => repository, fnum => 3, rnum => 4,
-	 type => string, occurrence => required, opts => []}]},
+	 type => string, occurrence => optional, opts => []}]},
      {{msg, 'Release'},
       [#{name => version, fnum => 1, rnum => 2,
 	 type => string, occurrence => optional, opts => []},
@@ -1589,9 +1628,9 @@ find_msg_def('Package') ->
        type => {msg, 'Release'}, occurrence => repeated,
        opts => []},
      #{name => name, fnum => 2, rnum => 3, type => string,
-       occurrence => required, opts => []},
+       occurrence => optional, opts => []},
      #{name => repository, fnum => 3, rnum => 4,
-       type => string, occurrence => required, opts => []}];
+       type => string, occurrence => optional, opts => []}];
 find_msg_def('Release') ->
     [#{name => version, fnum => 1, rnum => 2,
        type => string, occurrence => optional, opts => []},
