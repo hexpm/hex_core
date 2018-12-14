@@ -29,7 +29,8 @@ encode_names(Names) ->
 %% @doc
 %% Decode message created with encode_names/1.
 decode_names(Payload) ->
-    hex_pb_names:decode_msg(Payload, 'Names').
+    Names = hex_pb_names:decode_msg(Payload, 'Names'),
+    remove_deprecated_repository_field(Names).
 
 %% @doc
 %% Encode Versions message.
@@ -39,7 +40,11 @@ encode_versions(Versions) ->
 %% @doc
 %% Decode message created with encode_versions/1.
 decode_versions(Payload) ->
-    hex_pb_versions:decode_msg(Payload, 'Versions').
+    Versions = hex_pb_versions:decode_msg(Payload, 'Versions'),
+    remove_deprecated_repository_field(Versions).
+
+remove_deprecated_repository_field(#{packages := Packages} = Map) when is_list(Packages) ->
+    maps:put(packages, lists:map(fun(Map2) -> maps:remove(repository, Map2) end, Packages), Map).
 
 %% @doc
 %% Encode Package message.

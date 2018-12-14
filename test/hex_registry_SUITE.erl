@@ -16,8 +16,8 @@ names_test(_Config) ->
     Names = #{
         repository => <<"hexpm">>,
         packages => [
-            #{name => <<"foo">>, repository => <<>>},
-            #{name => <<"bar">>, repository => <<>>}
+            #{name => <<"foo">>},
+            #{name => <<"bar">>}
         ]
     },
     Payload = hex_registry:encode_names(Names),
@@ -31,14 +31,12 @@ versions_test(_Config) ->
             #{
                 name => <<"foo">>,
                 versions => [<<"1.0.0-rc.1">>, <<"1.1.0-rc.2">>, <<"1.1.0">>],
-                retired => [0, 1],
-                repository => <<>>
+                retired => [0, 1]
             },
             #{
                 name => <<"bar">>,
                 versions => [<<"1.0.0">>],
-                retired => [],
-                repository => <<>>
+                retired => []
             }
         ]
     },
