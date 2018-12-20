@@ -34,7 +34,6 @@
        }.
 -type 'Package'() ::
       #{%% name                 => iodata()         % = 1
-        %% repository           => iodata()         % = 2
        }.
 -export_type(['Names'/0, 'Package'/0]).
 
@@ -84,27 +83,16 @@ e_msg_Package(Msg, TrUserData) ->
 
 
 e_msg_Package(#{} = M, Bin, TrUserData) ->
-    B1 = case M of
-	   #{name := F1} ->
-	       begin
-		 TrF1 = id(F1, TrUserData),
-		 case is_empty_string(TrF1) of
-		   true -> Bin;
-		   false -> e_type_string(TrF1, <<Bin/binary, 10>>)
-		 end
-	       end;
-	   _ -> Bin
-	 end,
     case M of
-      #{repository := F2} ->
+      #{name := F1} ->
 	  begin
-	    TrF2 = id(F2, TrUserData),
-	    case is_empty_string(TrF2) of
-	      true -> B1;
-	      false -> e_type_string(TrF2, <<B1/binary, 18>>)
+	    TrF1 = id(F1, TrUserData),
+	    case is_empty_string(TrF1) of
+	      true -> Bin;
+	      false -> e_type_string(TrF1, <<Bin/binary, 10>>)
 	    end
 	  end;
-      _ -> B1
+      _ -> Bin
     end.
 
 e_mfield_Names_packages(Msg, Bin, TrUserData) ->
@@ -315,134 +303,99 @@ skip_64_Names(<<_:64, Rest/binary>>, Z1, Z2, F@_1, F@_2,
 
 d_msg_Package(Bin, TrUserData) ->
     dfp_read_field_def_Package(Bin, 0, 0,
-			       id(<<>>, TrUserData), id(<<>>, TrUserData),
-			       TrUserData).
+			       id(<<>>, TrUserData), TrUserData).
 
 dfp_read_field_def_Package(<<10, Rest/binary>>, Z1, Z2,
-			   F@_1, F@_2, TrUserData) ->
-    d_field_Package_name(Rest, Z1, Z2, F@_1, F@_2,
-			 TrUserData);
-dfp_read_field_def_Package(<<18, Rest/binary>>, Z1, Z2,
-			   F@_1, F@_2, TrUserData) ->
-    d_field_Package_repository(Rest, Z1, Z2, F@_1, F@_2,
-			       TrUserData);
-dfp_read_field_def_Package(<<>>, 0, 0, F@_1, F@_2, _) ->
+			   F@_1, TrUserData) ->
+    d_field_Package_name(Rest, Z1, Z2, F@_1, TrUserData);
+dfp_read_field_def_Package(<<>>, 0, 0, F@_1, _) ->
     S1 = #{},
-    S2 = if F@_1 == '$undef' -> S1;
-	    true -> S1#{name => F@_1}
-	 end,
-    if F@_2 == '$undef' -> S2;
-       true -> S2#{repository => F@_2}
+    if F@_1 == '$undef' -> S1;
+       true -> S1#{name => F@_1}
     end;
-dfp_read_field_def_Package(Other, Z1, Z2, F@_1, F@_2,
+dfp_read_field_def_Package(Other, Z1, Z2, F@_1,
 			   TrUserData) ->
-    dg_read_field_def_Package(Other, Z1, Z2, F@_1, F@_2,
+    dg_read_field_def_Package(Other, Z1, Z2, F@_1,
 			      TrUserData).
 
 dg_read_field_def_Package(<<1:1, X:7, Rest/binary>>, N,
-			  Acc, F@_1, F@_2, TrUserData)
+			  Acc, F@_1, TrUserData)
     when N < 32 - 7 ->
     dg_read_field_def_Package(Rest, N + 7, X bsl N + Acc,
-			      F@_1, F@_2, TrUserData);
+			      F@_1, TrUserData);
 dg_read_field_def_Package(<<0:1, X:7, Rest/binary>>, N,
-			  Acc, F@_1, F@_2, TrUserData) ->
+			  Acc, F@_1, TrUserData) ->
     Key = X bsl N + Acc,
     case Key of
       10 ->
-	  d_field_Package_name(Rest, 0, 0, F@_1, F@_2,
-			       TrUserData);
-      18 ->
-	  d_field_Package_repository(Rest, 0, 0, F@_1, F@_2,
-				     TrUserData);
+	  d_field_Package_name(Rest, 0, 0, F@_1, TrUserData);
       _ ->
 	  case Key band 7 of
-	    0 ->
-		skip_varint_Package(Rest, 0, 0, F@_1, F@_2, TrUserData);
-	    1 ->
-		skip_64_Package(Rest, 0, 0, F@_1, F@_2, TrUserData);
+	    0 -> skip_varint_Package(Rest, 0, 0, F@_1, TrUserData);
+	    1 -> skip_64_Package(Rest, 0, 0, F@_1, TrUserData);
 	    2 ->
-		skip_length_delimited_Package(Rest, 0, 0, F@_1, F@_2,
+		skip_length_delimited_Package(Rest, 0, 0, F@_1,
 					      TrUserData);
 	    3 ->
-		skip_group_Package(Rest, Key bsr 3, 0, F@_1, F@_2,
+		skip_group_Package(Rest, Key bsr 3, 0, F@_1,
 				   TrUserData);
-	    5 -> skip_32_Package(Rest, 0, 0, F@_1, F@_2, TrUserData)
+	    5 -> skip_32_Package(Rest, 0, 0, F@_1, TrUserData)
 	  end
     end;
-dg_read_field_def_Package(<<>>, 0, 0, F@_1, F@_2, _) ->
+dg_read_field_def_Package(<<>>, 0, 0, F@_1, _) ->
     S1 = #{},
-    S2 = if F@_1 == '$undef' -> S1;
-	    true -> S1#{name => F@_1}
-	 end,
-    if F@_2 == '$undef' -> S2;
-       true -> S2#{repository => F@_2}
+    if F@_1 == '$undef' -> S1;
+       true -> S1#{name => F@_1}
     end.
 
 d_field_Package_name(<<1:1, X:7, Rest/binary>>, N, Acc,
-		     F@_1, F@_2, TrUserData)
+		     F@_1, TrUserData)
     when N < 57 ->
     d_field_Package_name(Rest, N + 7, X bsl N + Acc, F@_1,
-			 F@_2, TrUserData);
+			 TrUserData);
 d_field_Package_name(<<0:1, X:7, Rest/binary>>, N, Acc,
-		     _, F@_2, TrUserData) ->
+		     _, TrUserData) ->
     {NewFValue, RestF} = begin
 			   Len = X bsl N + Acc,
 			   <<Bytes:Len/binary, Rest2/binary>> = Rest,
 			   {binary:copy(Bytes), Rest2}
 			 end,
-    dfp_read_field_def_Package(RestF, 0, 0, NewFValue, F@_2,
-			       TrUserData).
-
-d_field_Package_repository(<<1:1, X:7, Rest/binary>>, N,
-			   Acc, F@_1, F@_2, TrUserData)
-    when N < 57 ->
-    d_field_Package_repository(Rest, N + 7, X bsl N + Acc,
-			       F@_1, F@_2, TrUserData);
-d_field_Package_repository(<<0:1, X:7, Rest/binary>>, N,
-			   Acc, F@_1, _, TrUserData) ->
-    {NewFValue, RestF} = begin
-			   Len = X bsl N + Acc,
-			   <<Bytes:Len/binary, Rest2/binary>> = Rest,
-			   {binary:copy(Bytes), Rest2}
-			 end,
-    dfp_read_field_def_Package(RestF, 0, 0, F@_1, NewFValue,
+    dfp_read_field_def_Package(RestF, 0, 0, NewFValue,
 			       TrUserData).
 
 skip_varint_Package(<<1:1, _:7, Rest/binary>>, Z1, Z2,
-		    F@_1, F@_2, TrUserData) ->
-    skip_varint_Package(Rest, Z1, Z2, F@_1, F@_2,
-			TrUserData);
+		    F@_1, TrUserData) ->
+    skip_varint_Package(Rest, Z1, Z2, F@_1, TrUserData);
 skip_varint_Package(<<0:1, _:7, Rest/binary>>, Z1, Z2,
-		    F@_1, F@_2, TrUserData) ->
-    dfp_read_field_def_Package(Rest, Z1, Z2, F@_1, F@_2,
+		    F@_1, TrUserData) ->
+    dfp_read_field_def_Package(Rest, Z1, Z2, F@_1,
 			       TrUserData).
 
 skip_length_delimited_Package(<<1:1, X:7, Rest/binary>>,
-			      N, Acc, F@_1, F@_2, TrUserData)
+			      N, Acc, F@_1, TrUserData)
     when N < 57 ->
     skip_length_delimited_Package(Rest, N + 7,
-				  X bsl N + Acc, F@_1, F@_2, TrUserData);
+				  X bsl N + Acc, F@_1, TrUserData);
 skip_length_delimited_Package(<<0:1, X:7, Rest/binary>>,
-			      N, Acc, F@_1, F@_2, TrUserData) ->
+			      N, Acc, F@_1, TrUserData) ->
     Length = X bsl N + Acc,
     <<_:Length/binary, Rest2/binary>> = Rest,
-    dfp_read_field_def_Package(Rest2, 0, 0, F@_1, F@_2,
+    dfp_read_field_def_Package(Rest2, 0, 0, F@_1,
 			       TrUserData).
 
-skip_group_Package(Bin, FNum, Z2, F@_1, F@_2,
-		   TrUserData) ->
+skip_group_Package(Bin, FNum, Z2, F@_1, TrUserData) ->
     {_, Rest} = read_group(Bin, FNum),
-    dfp_read_field_def_Package(Rest, 0, Z2, F@_1, F@_2,
+    dfp_read_field_def_Package(Rest, 0, Z2, F@_1,
 			       TrUserData).
 
 skip_32_Package(<<_:32, Rest/binary>>, Z1, Z2, F@_1,
-		F@_2, TrUserData) ->
-    dfp_read_field_def_Package(Rest, Z1, Z2, F@_1, F@_2,
+		TrUserData) ->
+    dfp_read_field_def_Package(Rest, Z1, Z2, F@_1,
 			       TrUserData).
 
 skip_64_Package(<<_:64, Rest/binary>>, Z1, Z2, F@_1,
-		F@_2, TrUserData) ->
-    dfp_read_field_def_Package(Rest, Z1, Z2, F@_1, F@_2,
+		TrUserData) ->
+    dfp_read_field_def_Package(Rest, Z1, Z2, F@_1,
 			       TrUserData).
 
 read_group(Bin, FieldNum) ->
@@ -536,17 +489,10 @@ merge_msg_Names(PMsg, NMsg, TrUserData) ->
 
 merge_msg_Package(PMsg, NMsg, _) ->
     S1 = #{},
-    S2 = case {PMsg, NMsg} of
-	   {_, #{name := NFname}} -> S1#{name => NFname};
-	   {#{name := PFname}, _} -> S1#{name => PFname};
-	   _ -> S1
-	 end,
     case {PMsg, NMsg} of
-      {_, #{repository := NFrepository}} ->
-	  S2#{repository => NFrepository};
-      {#{repository := PFrepository}, _} ->
-	  S2#{repository => PFrepository};
-      _ -> S2
+      {_, #{name := NFname}} -> S1#{name => NFname};
+      {#{name := PFname}, _} -> S1#{name => PFname};
+      _ -> S1
     end.
 
 
@@ -600,13 +546,7 @@ v_msg_Package(#{} = M, Path, _) ->
       #{name := F1} -> v_type_string(F1, [name | Path]);
       _ -> ok
     end,
-    case M of
-      #{repository := F2} ->
-	  v_type_string(F2, [repository | Path]);
-      _ -> ok
-    end,
     lists:foreach(fun (name) -> ok;
-		      (repository) -> ok;
 		      (OtherKey) ->
 			  mk_type_error({extraneous_key, OtherKey}, M, Path)
 		  end,
@@ -665,9 +605,7 @@ get_msg_defs() ->
 	 type => string, occurrence => optional, opts => []}]},
      {{msg, 'Package'},
       [#{name => name, fnum => 1, rnum => 2, type => string,
-	 occurrence => optional, opts => []},
-       #{name => repository, fnum => 2, rnum => 3,
-	 type => string, occurrence => optional, opts => []}]}].
+	 occurrence => optional, opts => []}]}].
 
 
 get_msg_names() -> ['Names', 'Package'].
@@ -702,9 +640,7 @@ find_msg_def('Names') ->
        type => string, occurrence => optional, opts => []}];
 find_msg_def('Package') ->
     [#{name => name, fnum => 1, rnum => 2, type => string,
-       occurrence => optional, opts => []},
-     #{name => repository, fnum => 2, rnum => 3,
-       type => string, occurrence => optional, opts => []}];
+       occurrence => optional, opts => []}];
 find_msg_def(_) -> error.
 
 

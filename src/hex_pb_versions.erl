@@ -36,7 +36,6 @@
       #{%% name                 => iodata(),        % = 1
         versions                => [iodata()],      % = 2
         retired                 => [integer()]      % = 3, 32 bits
-        %% repository           => iodata()         % = 4
        }.
 -export_type(['Versions'/0, 'Package'/0]).
 
@@ -105,24 +104,13 @@ e_msg_Package(#{} = M, Bin, TrUserData) ->
 	       end;
 	   _ -> B1
 	 end,
-    B3 = case M of
-	   #{retired := F3} ->
-	       TrF3 = id(F3, TrUserData),
-	       if TrF3 == [] -> B2;
-		  true -> e_field_Package_retired(TrF3, B2, TrUserData)
-	       end;
-	   _ -> B2
-	 end,
     case M of
-      #{repository := F4} ->
-	  begin
-	    TrF4 = id(F4, TrUserData),
-	    case is_empty_string(TrF4) of
-	      true -> B3;
-	      false -> e_type_string(TrF4, <<B3/binary, 34>>)
-	    end
+      #{retired := F3} ->
+	  TrF3 = id(F3, TrUserData),
+	  if TrF3 == [] -> B2;
+	     true -> e_field_Package_retired(TrF3, B2, TrUserData)
 	  end;
-      _ -> B3
+      _ -> B2
     end.
 
 e_mfield_Versions_packages(Msg, Bin, TrUserData) ->
@@ -370,136 +358,122 @@ skip_64_Versions(<<_:64, Rest/binary>>, Z1, Z2, F@_1,
 d_msg_Package(Bin, TrUserData) ->
     dfp_read_field_def_Package(Bin, 0, 0,
 			       id(<<>>, TrUserData), id([], TrUserData),
-			       id([], TrUserData), id(<<>>, TrUserData),
-			       TrUserData).
+			       id([], TrUserData), TrUserData).
 
 dfp_read_field_def_Package(<<10, Rest/binary>>, Z1, Z2,
-			   F@_1, F@_2, F@_3, F@_4, TrUserData) ->
+			   F@_1, F@_2, F@_3, TrUserData) ->
     d_field_Package_name(Rest, Z1, Z2, F@_1, F@_2, F@_3,
-			 F@_4, TrUserData);
+			 TrUserData);
 dfp_read_field_def_Package(<<18, Rest/binary>>, Z1, Z2,
-			   F@_1, F@_2, F@_3, F@_4, TrUserData) ->
+			   F@_1, F@_2, F@_3, TrUserData) ->
     d_field_Package_versions(Rest, Z1, Z2, F@_1, F@_2, F@_3,
-			     F@_4, TrUserData);
+			     TrUserData);
 dfp_read_field_def_Package(<<26, Rest/binary>>, Z1, Z2,
-			   F@_1, F@_2, F@_3, F@_4, TrUserData) ->
+			   F@_1, F@_2, F@_3, TrUserData) ->
     d_pfield_Package_retired(Rest, Z1, Z2, F@_1, F@_2, F@_3,
-			     F@_4, TrUserData);
+			     TrUserData);
 dfp_read_field_def_Package(<<24, Rest/binary>>, Z1, Z2,
-			   F@_1, F@_2, F@_3, F@_4, TrUserData) ->
+			   F@_1, F@_2, F@_3, TrUserData) ->
     d_field_Package_retired(Rest, Z1, Z2, F@_1, F@_2, F@_3,
-			    F@_4, TrUserData);
-dfp_read_field_def_Package(<<34, Rest/binary>>, Z1, Z2,
-			   F@_1, F@_2, F@_3, F@_4, TrUserData) ->
-    d_field_Package_repository(Rest, Z1, Z2, F@_1, F@_2,
-			       F@_3, F@_4, TrUserData);
+			    TrUserData);
 dfp_read_field_def_Package(<<>>, 0, 0, F@_1, R1, R2,
-			   F@_4, TrUserData) ->
+			   TrUserData) ->
     S1 = #{versions => lists_reverse(R1, TrUserData),
 	   retired => lists_reverse(R2, TrUserData)},
-    S2 = if F@_1 == '$undef' -> S1;
-	    true -> S1#{name => F@_1}
-	 end,
-    if F@_4 == '$undef' -> S2;
-       true -> S2#{repository => F@_4}
+    if F@_1 == '$undef' -> S1;
+       true -> S1#{name => F@_1}
     end;
 dfp_read_field_def_Package(Other, Z1, Z2, F@_1, F@_2,
-			   F@_3, F@_4, TrUserData) ->
+			   F@_3, TrUserData) ->
     dg_read_field_def_Package(Other, Z1, Z2, F@_1, F@_2,
-			      F@_3, F@_4, TrUserData).
+			      F@_3, TrUserData).
 
 dg_read_field_def_Package(<<1:1, X:7, Rest/binary>>, N,
-			  Acc, F@_1, F@_2, F@_3, F@_4, TrUserData)
+			  Acc, F@_1, F@_2, F@_3, TrUserData)
     when N < 32 - 7 ->
     dg_read_field_def_Package(Rest, N + 7, X bsl N + Acc,
-			      F@_1, F@_2, F@_3, F@_4, TrUserData);
+			      F@_1, F@_2, F@_3, TrUserData);
 dg_read_field_def_Package(<<0:1, X:7, Rest/binary>>, N,
-			  Acc, F@_1, F@_2, F@_3, F@_4, TrUserData) ->
+			  Acc, F@_1, F@_2, F@_3, TrUserData) ->
     Key = X bsl N + Acc,
     case Key of
       10 ->
-	  d_field_Package_name(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4,
+	  d_field_Package_name(Rest, 0, 0, F@_1, F@_2, F@_3,
 			       TrUserData);
       18 ->
 	  d_field_Package_versions(Rest, 0, 0, F@_1, F@_2, F@_3,
-				   F@_4, TrUserData);
+				   TrUserData);
       26 ->
 	  d_pfield_Package_retired(Rest, 0, 0, F@_1, F@_2, F@_3,
-				   F@_4, TrUserData);
+				   TrUserData);
       24 ->
 	  d_field_Package_retired(Rest, 0, 0, F@_1, F@_2, F@_3,
-				  F@_4, TrUserData);
-      34 ->
-	  d_field_Package_repository(Rest, 0, 0, F@_1, F@_2, F@_3,
-				     F@_4, TrUserData);
+				  TrUserData);
       _ ->
 	  case Key band 7 of
 	    0 ->
-		skip_varint_Package(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4,
+		skip_varint_Package(Rest, 0, 0, F@_1, F@_2, F@_3,
 				    TrUserData);
 	    1 ->
-		skip_64_Package(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4,
+		skip_64_Package(Rest, 0, 0, F@_1, F@_2, F@_3,
 				TrUserData);
 	    2 ->
 		skip_length_delimited_Package(Rest, 0, 0, F@_1, F@_2,
-					      F@_3, F@_4, TrUserData);
+					      F@_3, TrUserData);
 	    3 ->
 		skip_group_Package(Rest, Key bsr 3, 0, F@_1, F@_2, F@_3,
-				   F@_4, TrUserData);
+				   TrUserData);
 	    5 ->
-		skip_32_Package(Rest, 0, 0, F@_1, F@_2, F@_3, F@_4,
+		skip_32_Package(Rest, 0, 0, F@_1, F@_2, F@_3,
 				TrUserData)
 	  end
     end;
 dg_read_field_def_Package(<<>>, 0, 0, F@_1, R1, R2,
-			  F@_4, TrUserData) ->
+			  TrUserData) ->
     S1 = #{versions => lists_reverse(R1, TrUserData),
 	   retired => lists_reverse(R2, TrUserData)},
-    S2 = if F@_1 == '$undef' -> S1;
-	    true -> S1#{name => F@_1}
-	 end,
-    if F@_4 == '$undef' -> S2;
-       true -> S2#{repository => F@_4}
+    if F@_1 == '$undef' -> S1;
+       true -> S1#{name => F@_1}
     end.
 
 d_field_Package_name(<<1:1, X:7, Rest/binary>>, N, Acc,
-		     F@_1, F@_2, F@_3, F@_4, TrUserData)
+		     F@_1, F@_2, F@_3, TrUserData)
     when N < 57 ->
     d_field_Package_name(Rest, N + 7, X bsl N + Acc, F@_1,
-			 F@_2, F@_3, F@_4, TrUserData);
+			 F@_2, F@_3, TrUserData);
 d_field_Package_name(<<0:1, X:7, Rest/binary>>, N, Acc,
-		     _, F@_2, F@_3, F@_4, TrUserData) ->
+		     _, F@_2, F@_3, TrUserData) ->
     {NewFValue, RestF} = begin
 			   Len = X bsl N + Acc,
 			   <<Bytes:Len/binary, Rest2/binary>> = Rest,
 			   {binary:copy(Bytes), Rest2}
 			 end,
     dfp_read_field_def_Package(RestF, 0, 0, NewFValue, F@_2,
-			       F@_3, F@_4, TrUserData).
+			       F@_3, TrUserData).
 
 d_field_Package_versions(<<1:1, X:7, Rest/binary>>, N,
-			 Acc, F@_1, F@_2, F@_3, F@_4, TrUserData)
+			 Acc, F@_1, F@_2, F@_3, TrUserData)
     when N < 57 ->
     d_field_Package_versions(Rest, N + 7, X bsl N + Acc,
-			     F@_1, F@_2, F@_3, F@_4, TrUserData);
+			     F@_1, F@_2, F@_3, TrUserData);
 d_field_Package_versions(<<0:1, X:7, Rest/binary>>, N,
-			 Acc, F@_1, Prev, F@_3, F@_4, TrUserData) ->
+			 Acc, F@_1, Prev, F@_3, TrUserData) ->
     {NewFValue, RestF} = begin
 			   Len = X bsl N + Acc,
 			   <<Bytes:Len/binary, Rest2/binary>> = Rest,
 			   {binary:copy(Bytes), Rest2}
 			 end,
     dfp_read_field_def_Package(RestF, 0, 0, F@_1,
-			       cons(NewFValue, Prev, TrUserData), F@_3, F@_4,
+			       cons(NewFValue, Prev, TrUserData), F@_3,
 			       TrUserData).
 
 d_field_Package_retired(<<1:1, X:7, Rest/binary>>, N,
-			Acc, F@_1, F@_2, F@_3, F@_4, TrUserData)
+			Acc, F@_1, F@_2, F@_3, TrUserData)
     when N < 57 ->
     d_field_Package_retired(Rest, N + 7, X bsl N + Acc,
-			    F@_1, F@_2, F@_3, F@_4, TrUserData);
+			    F@_1, F@_2, F@_3, TrUserData);
 d_field_Package_retired(<<0:1, X:7, Rest/binary>>, N,
-			Acc, F@_1, F@_2, Prev, F@_4, TrUserData) ->
+			Acc, F@_1, F@_2, Prev, TrUserData) ->
     {NewFValue, RestF} = {begin
 			    <<Res:32/signed-native>> = <<(X bsl N +
 							    Acc):32/unsigned-native>>,
@@ -507,22 +481,21 @@ d_field_Package_retired(<<0:1, X:7, Rest/binary>>, N,
 			  end,
 			  Rest},
     dfp_read_field_def_Package(RestF, 0, 0, F@_1, F@_2,
-			       cons(NewFValue, Prev, TrUserData), F@_4,
-			       TrUserData).
+			       cons(NewFValue, Prev, TrUserData), TrUserData).
 
 d_pfield_Package_retired(<<1:1, X:7, Rest/binary>>, N,
-			 Acc, F@_1, F@_2, F@_3, F@_4, TrUserData)
+			 Acc, F@_1, F@_2, F@_3, TrUserData)
     when N < 57 ->
     d_pfield_Package_retired(Rest, N + 7, X bsl N + Acc,
-			     F@_1, F@_2, F@_3, F@_4, TrUserData);
+			     F@_1, F@_2, F@_3, TrUserData);
 d_pfield_Package_retired(<<0:1, X:7, Rest/binary>>, N,
-			 Acc, F@_1, F@_2, E, F@_4, TrUserData) ->
+			 Acc, F@_1, F@_2, E, TrUserData) ->
     Len = X bsl N + Acc,
     <<PackedBytes:Len/binary, Rest2/binary>> = Rest,
     NewSeq = d_packed_field_Package_retired(PackedBytes, 0,
 					    0, E),
     dfp_read_field_def_Package(Rest2, 0, 0, F@_1, F@_2,
-			       NewSeq, F@_4, TrUserData).
+			       NewSeq, TrUserData).
 
 d_packed_field_Package_retired(<<1:1, X:7,
 				 Rest/binary>>,
@@ -544,58 +517,42 @@ d_packed_field_Package_retired(<<0:1, X:7,
 d_packed_field_Package_retired(<<>>, 0, 0, AccSeq) ->
     AccSeq.
 
-d_field_Package_repository(<<1:1, X:7, Rest/binary>>, N,
-			   Acc, F@_1, F@_2, F@_3, F@_4, TrUserData)
-    when N < 57 ->
-    d_field_Package_repository(Rest, N + 7, X bsl N + Acc,
-			       F@_1, F@_2, F@_3, F@_4, TrUserData);
-d_field_Package_repository(<<0:1, X:7, Rest/binary>>, N,
-			   Acc, F@_1, F@_2, F@_3, _, TrUserData) ->
-    {NewFValue, RestF} = begin
-			   Len = X bsl N + Acc,
-			   <<Bytes:Len/binary, Rest2/binary>> = Rest,
-			   {binary:copy(Bytes), Rest2}
-			 end,
-    dfp_read_field_def_Package(RestF, 0, 0, F@_1, F@_2,
-			       F@_3, NewFValue, TrUserData).
-
 skip_varint_Package(<<1:1, _:7, Rest/binary>>, Z1, Z2,
-		    F@_1, F@_2, F@_3, F@_4, TrUserData) ->
+		    F@_1, F@_2, F@_3, TrUserData) ->
     skip_varint_Package(Rest, Z1, Z2, F@_1, F@_2, F@_3,
-			F@_4, TrUserData);
+			TrUserData);
 skip_varint_Package(<<0:1, _:7, Rest/binary>>, Z1, Z2,
-		    F@_1, F@_2, F@_3, F@_4, TrUserData) ->
+		    F@_1, F@_2, F@_3, TrUserData) ->
     dfp_read_field_def_Package(Rest, Z1, Z2, F@_1, F@_2,
-			       F@_3, F@_4, TrUserData).
+			       F@_3, TrUserData).
 
 skip_length_delimited_Package(<<1:1, X:7, Rest/binary>>,
-			      N, Acc, F@_1, F@_2, F@_3, F@_4, TrUserData)
+			      N, Acc, F@_1, F@_2, F@_3, TrUserData)
     when N < 57 ->
     skip_length_delimited_Package(Rest, N + 7,
-				  X bsl N + Acc, F@_1, F@_2, F@_3, F@_4,
-				  TrUserData);
+				  X bsl N + Acc, F@_1, F@_2, F@_3, TrUserData);
 skip_length_delimited_Package(<<0:1, X:7, Rest/binary>>,
-			      N, Acc, F@_1, F@_2, F@_3, F@_4, TrUserData) ->
+			      N, Acc, F@_1, F@_2, F@_3, TrUserData) ->
     Length = X bsl N + Acc,
     <<_:Length/binary, Rest2/binary>> = Rest,
     dfp_read_field_def_Package(Rest2, 0, 0, F@_1, F@_2,
-			       F@_3, F@_4, TrUserData).
+			       F@_3, TrUserData).
 
 skip_group_Package(Bin, FNum, Z2, F@_1, F@_2, F@_3,
-		   F@_4, TrUserData) ->
+		   TrUserData) ->
     {_, Rest} = read_group(Bin, FNum),
     dfp_read_field_def_Package(Rest, 0, Z2, F@_1, F@_2,
-			       F@_3, F@_4, TrUserData).
+			       F@_3, TrUserData).
 
 skip_32_Package(<<_:32, Rest/binary>>, Z1, Z2, F@_1,
-		F@_2, F@_3, F@_4, TrUserData) ->
+		F@_2, F@_3, TrUserData) ->
     dfp_read_field_def_Package(Rest, Z1, Z2, F@_1, F@_2,
-			       F@_3, F@_4, TrUserData).
+			       F@_3, TrUserData).
 
 skip_64_Package(<<_:64, Rest/binary>>, Z1, Z2, F@_1,
-		F@_2, F@_3, F@_4, TrUserData) ->
+		F@_2, F@_3, TrUserData) ->
     dfp_read_field_def_Package(Rest, Z1, Z2, F@_1, F@_2,
-			       F@_3, F@_4, TrUserData).
+			       F@_3, TrUserData).
 
 read_group(Bin, FieldNum) ->
     {NumBytes, EndTagLen} = read_gr_b(Bin, 0, 0, 0, 0, FieldNum),
@@ -704,22 +661,15 @@ merge_msg_Package(PMsg, NMsg, TrUserData) ->
 	       S2#{versions => PFversions};
 	   {_, _} -> S2
 	 end,
-    S4 = case {PMsg, NMsg} of
-	   {#{retired := PFretired}, #{retired := NFretired}} ->
-	       S3#{retired =>
-		       'erlang_++'(PFretired, NFretired, TrUserData)};
-	   {_, #{retired := NFretired}} ->
-	       S3#{retired => NFretired};
-	   {#{retired := PFretired}, _} ->
-	       S3#{retired => PFretired};
-	   {_, _} -> S3
-	 end,
     case {PMsg, NMsg} of
-      {_, #{repository := NFrepository}} ->
-	  S4#{repository => NFrepository};
-      {#{repository := PFrepository}, _} ->
-	  S4#{repository => PFrepository};
-      _ -> S4
+      {#{retired := PFretired}, #{retired := NFretired}} ->
+	  S3#{retired =>
+		  'erlang_++'(PFretired, NFretired, TrUserData)};
+      {_, #{retired := NFretired}} ->
+	  S3#{retired => NFretired};
+      {#{retired := PFretired}, _} ->
+	  S3#{retired => PFretired};
+      {_, _} -> S3
     end.
 
 
@@ -798,15 +748,9 @@ v_msg_Package(#{} = M, Path, _) ->
 	  end;
       _ -> ok
     end,
-    case M of
-      #{repository := F4} ->
-	  v_type_string(F4, [repository | Path]);
-      _ -> ok
-    end,
     lists:foreach(fun (name) -> ok;
 		      (versions) -> ok;
 		      (retired) -> ok;
-		      (repository) -> ok;
 		      (OtherKey) ->
 			  mk_type_error({extraneous_key, OtherKey}, M, Path)
 		  end,
@@ -879,9 +823,7 @@ get_msg_defs() ->
        #{name => versions, fnum => 2, rnum => 3,
 	 type => string, occurrence => repeated, opts => []},
        #{name => retired, fnum => 3, rnum => 4, type => int32,
-	 occurrence => repeated, opts => [packed]},
-       #{name => repository, fnum => 4, rnum => 5,
-	 type => string, occurrence => optional, opts => []}]}].
+	 occurrence => repeated, opts => [packed]}]}].
 
 
 get_msg_names() -> ['Versions', 'Package'].
@@ -920,9 +862,7 @@ find_msg_def('Package') ->
      #{name => versions, fnum => 2, rnum => 3,
        type => string, occurrence => repeated, opts => []},
      #{name => retired, fnum => 3, rnum => 4, type => int32,
-       occurrence => repeated, opts => [packed]},
-     #{name => repository, fnum => 4, rnum => 5,
-       type => string, occurrence => optional, opts => []}];
+       occurrence => repeated, opts => [packed]}];
 find_msg_def(_) -> error.
 
 

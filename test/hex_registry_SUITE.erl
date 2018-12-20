@@ -13,70 +13,77 @@ all() ->
     [names_test, versions_test, package_test, signed_test].
 
 names_test(_Config) ->
+    Packages = [
+        #{name => <<"foo">>},
+        #{name => <<"bar">>}
+    ],
     Names = #{
         repository => <<"hexpm">>,
-        packages => [
-            #{name => <<"foo">>},
-            #{name => <<"bar">>}
-        ]
+        packages => Packages
     },
     Payload = hex_registry:encode_names(Names),
-    ?assertMatch(Names, hex_registry:decode_names(Payload)),
+    ?assertMatch({ok, Packages}, hex_registry:decode_names(Payload, <<"hexpm">>)),
+    ?assertMatch({error, unverified}, hex_registry:decode_names(Payload, <<"other_repo">>)),
     ok.
 
 versions_test(_Config) ->
+    Packages = [
+        #{
+            name => <<"foo">>,
+            versions => [<<"1.0.0-rc.1">>, <<"1.1.0-rc.2">>, <<"1.1.0">>],
+            retired => [0, 1]
+        },
+        #{
+            name => <<"bar">>,
+            versions => [<<"1.0.0">>],
+            retired => []
+        }
+    ],
     Versions = #{
         repository => <<"hexpm">>,
-        packages => [
-            #{
-                name => <<"foo">>,
-                versions => [<<"1.0.0-rc.1">>, <<"1.1.0-rc.2">>, <<"1.1.0">>],
-                retired => [0, 1]
-            },
-            #{
-                name => <<"bar">>,
-                versions => [<<"1.0.0">>],
-                retired => []
-            }
-        ]
+        packages => Packages
     },
     Payload = hex_registry:encode_versions(Versions),
-    ?assertMatch(Versions, hex_registry:decode_versions(Payload)),
+    ?assertMatch({ok, Packages}, hex_registry:decode_versions(Payload, <<"hexpm">>)),
+    ?assertMatch({error, unverified}, hex_registry:decode_versions(Payload, <<"other_repo">>)),
     ok.
 
 package_test(_Config) ->
+    Releases = [
+        #{
+            version => <<"1.0.0">>,
+            checksum => <<"some checksum">>,
+            dependencies => [
+                #{
+                    package => <<"foo">>,
+                    requirement => <<"~> 1.0">>,
+                    optional => false,
+                    app => <<"foo_app">>,
+                    repository => <<"hexpm">>
+                },
+                #{
+                    package => <<"bar">>,
+                    requirement => <<"~> 1.0">>,
+                    optional => false,
+                    app => <<>>,
+                    repository => <<>>
+                }
+            ],
+            retired => #{
+                reason => 'RETIRED_SECURITY',
+                message => <<"CVE-XXXX">>
+            }
+        }
+    ],
     Package = #{
         name => <<"foobar">>,
         repository => <<"hexpm">>,
-        releases => [
-            #{
-                version => <<"1.0.0">>,
-                checksum => <<"some checksum">>,
-                dependencies => [
-                    #{
-                        package => <<"foo">>,
-                        requirement => <<"~> 1.0">>,
-                        optional => false,
-                        app => <<"foo_app">>,
-                        repository => <<"hexpm">>
-                    },
-                    #{
-                        package => <<"bar">>,
-                        requirement => <<"~> 1.0">>,
-                        optional => false,
-                        app => <<>>,
-                        repository => <<>>
-                    }
-                ],
-                retired => #{
-                    reason => 'RETIRED_SECURITY',
-                    message => <<"CVE-XXXX">>
-                }
-            }
-        ]
+        releases => Releases
     },
     Payload = hex_registry:encode_package(Package),
-    ?assertMatch(Package, hex_registry:decode_package(Payload)),
+    ?assertMatch({ok, Releases}, hex_registry:decode_package(Payload, <<"hexpm">>, <<"foobar">>)),
+    ?assertMatch({error, unverified}, hex_registry:decode_package(Payload, <<"other_repo">>, <<"foobar">>)),
+    ?assertMatch({error, unverified}, hex_registry:decode_package(Payload, <<"hexpm">>, <<"other_package">>)),
     ok.
 
 signed_test(_Config) ->
@@ -90,7 +97,7 @@ signed_test(_Config) ->
     Signed = hex_registry:sign_protobuf(Payload, TestPrivateKey),
     #{payload := Payload} = hex_registry:decode_signed(Signed),
     {ok, Payload} = hex_registry:decode_and_verify_signed(Signed, TestPublicKey),
-    Names = hex_registry:decode_names(Payload),
+    {ok, []} = hex_registry:decode_names(Payload, <<"hexpm">>),
 
     {error, bad_key} = hex_registry:decode_and_verify_signed(Signed, <<"bad">>),
 

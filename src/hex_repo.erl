@@ -24,8 +24,8 @@
 %%     ]}}}
 %% '''
 %% @end
-get_names(Config) when is_map(Config) ->
-    Decoder = fun hex_registry:decode_names/1,
+get_names(#{repo_name := Repository} = Config) when is_map(Config) ->
+    Decoder = fun(Data) -> hex_registry:decode_names(Data, Repository) end,
     get_protobuf(Config, <<"/names">>, Decoder).
 
 %% @doc
@@ -44,8 +44,8 @@ get_names(Config) when is_map(Config) ->
 %%     ]}}}
 %% '''
 %% @end
-get_versions(Config) when is_map(Config) ->
-    Decoder = fun hex_registry:decode_versions/1,
+get_versions(#{repo_name := Repository} = Config) when is_map(Config) ->
+    Decoder = fun(Data) -> hex_registry:decode_versions(Data, Repository) end,
     get_protobuf(Config, <<"/versions">>, Decoder).
 
 %% @doc
@@ -64,8 +64,8 @@ get_versions(Config) when is_map(Config) ->
 %%     ]}}}
 %% '''
 %% @end
-get_package(Config, Name) when is_binary(Name) and is_map(Config) ->
-    Decoder = fun hex_registry:decode_package/1,
+get_package(#{repo_name := Repository} = Config, Name) when is_binary(Name) and is_map(Config) ->
+    Decoder = fun(Data) -> hex_registry:decode_package(Data, Repository, Name) end,
     get_protobuf(Config, <<"/packages/", Name/binary>>, Decoder).
 
 %% @doc
@@ -124,13 +124,13 @@ decode(Signed, PublicKey, Decoder, Config) ->
         true ->
             case hex_registry:decode_and_verify_signed(Signed, PublicKey) of
                 {ok, Payload} ->
-                    {ok, Decoder(Payload)};
+                    Decoder(Payload);
                 Other ->
                     Other
             end;
         false ->
             #{payload := Payload} = hex_registry:decode_signed(Signed),
-            {ok, Decoder(Payload)}
+            Decoder(Payload)
     end.
 
 tarball_url(URI, Name, Version) ->
