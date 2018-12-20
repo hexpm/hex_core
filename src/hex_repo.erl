@@ -18,10 +18,10 @@
 %% ```
 %% > hex_repo:get_names(hex_core:default_config()).
 %% {ok, {200, ...,
-%%     #{packages => [
+%%     [
 %%         #{name => <<"package1">>},
 %%         #{name => <<"package2">>},
-%%     ]}}}
+%%     ]}}
 %% '''
 %% @end
 get_names(#{repo_name := Repository} = Config) when is_map(Config) ->
@@ -36,12 +36,12 @@ get_names(#{repo_name := Repository} = Config) when is_map(Config) ->
 %% ```
 %% > hex_repo:get_versions(Config).
 %% {ok, {200, ...,
-%%     #{packages => [
+%%     [
 %%         #{name => <<"package1">>, retired => [],
 %%           versions => [<<"1.0.0">>]},
 %%         #{name => <<"package2">>, retired => [<<"0.5.0>>"],
 %%           versions => [<<"0.5.0">>, <<"1.0.0">>]},
-%%     ]}}}
+%%     ]}}
 %% '''
 %% @end
 get_versions(#{repo_name := Repository} = Config) when is_map(Config) ->
@@ -56,12 +56,12 @@ get_versions(#{repo_name := Repository} = Config) when is_map(Config) ->
 %% ```
 %% > hex_repo:get_package(hex_core:default_config(), <<"package1">>).
 %% {ok, {200, ...,
-%%     #{releases => [
+%%     {
 %%         #{checksum => ..., version => <<"0.5.0">>, dependencies => []},
 %%         #{checksum => ..., version => <<"1.0.0">>, dependencies => [
 %%             #{package => <<"package2">>, optional => true, requirement => <<"~> 0.1">>}
 %%         ]},
-%%     ]}}}
+%%     ]}}
 %% '''
 %% @end
 get_package(#{repo_name := Repository} = Config, Name) when is_binary(Name) and is_map(Config) ->

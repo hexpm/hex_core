@@ -31,10 +31,10 @@ Get all package versions from repository:
 ```erlang
 > hex_repo:get_versions(Config).
 {ok, {200, ...,
-    #{packages => [
+    [
         #{name => <<"package1">>, retired => [], versions => [<<"1.0.0">>]},
         #{name => <<"package2">>, retired => [], versions => [<<"0.5.0">>]},
-    ]}}}
+    ]}}
 ```
 
 Get package releases from repository:
@@ -42,10 +42,10 @@ Get package releases from repository:
 ```erlang
 > hex_repo:get_package(Config, <<"package1">>).
 {ok, {200, ...,
-    #{releases => [
+    [
         #{checksum => ..., version => <<"0.5.0">>, dependencies => []}],
         #{checksum => ..., version => <<"1.0.0">>, dependencies => []}],
-    ]}}}
+    ]}}
 ```
 
 ### API
