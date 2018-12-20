@@ -1,6 +1,6 @@
 # Release process
 
-1. Bump version in `src/hex_core.app.src` and `doc/tpl.html`
+1. Bump version (see below for all files)
 
 2. Ensure CHANGELOG is updated and add current date
 
@@ -15,3 +15,11 @@
 7. Spot check docs: `rebar3 as docs edoc`
 
 8. Publish docs: `rebar3 hex docs`
+
+## Places where version is mentioned
+
+```
+src/hex_core.app.src
+doc/tpl.html
+src/hex_core.hrl
+```
