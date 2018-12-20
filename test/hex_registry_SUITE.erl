@@ -21,7 +21,7 @@ names_test(_Config) ->
         ]
     },
     Payload = hex_registry:encode_names(Names),
-    ?assertMatch(Names, hex_registry:decode_names(Payload)),
+    Names = hex_registry:decode_names(Payload),
     ok.
 
 versions_test(_Config) ->
@@ -41,7 +41,7 @@ versions_test(_Config) ->
         ]
     },
     Payload = hex_registry:encode_versions(Versions),
-    ?assertMatch(Versions, hex_registry:decode_versions(Payload)),
+    Versions = hex_registry:decode_versions(Payload),
     ok.
 
 package_test(_Config) ->
@@ -62,10 +62,7 @@ package_test(_Config) ->
                     },
                     #{
                         package => <<"bar">>,
-                        requirement => <<"~> 1.0">>,
-                        optional => false,
-                        app => <<>>,
-                        repository => <<>>
+                        requirement => <<"~> 1.0">>
                     }
                 ],
                 retired => #{
@@ -76,7 +73,7 @@ package_test(_Config) ->
         ]
     },
     Payload = hex_registry:encode_package(Package),
-    ?assertMatch(Package, hex_registry:decode_package(Payload)),
+    Package = hex_registry:decode_package(Payload),
     ok.
 
 signed_test(_Config) ->

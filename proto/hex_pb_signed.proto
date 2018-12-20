@@ -1,8 +1,8 @@
-syntax = "proto3";
+syntax = "proto2";
 
 message Signed {
   // Signed contents
-  bytes payload = 1;
+  required bytes payload = 1;
   // The signature
-  bytes signature = 2;
+  optional bytes signature = 2;
 }

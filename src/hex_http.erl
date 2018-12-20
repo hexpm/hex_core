@@ -8,11 +8,11 @@
 -type method() :: get | post | put | patch | delete.
 -type status() :: non_neg_integer().
 -type headers() :: #{binary() => binary()}.
--type body() :: binary() | {string(), binary()} | nil.
+-type body() :: nil.
 -type adapter_config() :: map().
 
 -callback request(method(), URI :: binary(), headers(), body(), adapter_config()) ->
-    {ok, {status(), headers(), binary()}} |
+    {ok, status(), headers(), binary()} |
     {error, term()}.
 
 -spec request(hex_core:config(), method(), URI :: binary(), headers(), body()) ->

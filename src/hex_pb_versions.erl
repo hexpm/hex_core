@@ -29,11 +29,11 @@
 
 %% message types
 -type 'Versions'() ::
-      #{packages                => ['Package'()]    % = 1
-        %% repository           => iodata()         % = 2
+      #{packages                => ['Package'()],   % = 1
+        repository              => iodata()         % = 2
        }.
 -type 'Package'() ::
-      #{%% name                 => iodata(),        % = 1
+      #{name                    => iodata(),        % = 1
         versions                => [iodata()],      % = 2
         retired                 => [integer()]      % = 3, 32 bits
         %% repository           => iodata()         % = 4
@@ -60,7 +60,8 @@ e_msg_Versions(Msg, TrUserData) ->
     e_msg_Versions(Msg, <<>>, TrUserData).
 
 
-e_msg_Versions(#{} = M, Bin, TrUserData) ->
+e_msg_Versions(#{repository := F2} = M, Bin,
+	       TrUserData) ->
     B1 = case M of
 	   #{packages := F1} ->
 	       TrF1 = id(F1, TrUserData),
@@ -69,33 +70,19 @@ e_msg_Versions(#{} = M, Bin, TrUserData) ->
 	       end;
 	   _ -> Bin
 	 end,
-    case M of
-      #{repository := F2} ->
-	  begin
-	    TrF2 = id(F2, TrUserData),
-	    case is_empty_string(TrF2) of
-	      true -> B1;
-	      false -> e_type_string(TrF2, <<B1/binary, 18>>)
-	    end
-	  end;
-      _ -> B1
+    begin
+      TrF2 = id(F2, TrUserData),
+      e_type_string(TrF2, <<B1/binary, 18>>)
     end.
 
 e_msg_Package(Msg, TrUserData) ->
     e_msg_Package(Msg, <<>>, TrUserData).
 
 
-e_msg_Package(#{} = M, Bin, TrUserData) ->
-    B1 = case M of
-	   #{name := F1} ->
-	       begin
-		 TrF1 = id(F1, TrUserData),
-		 case is_empty_string(TrF1) of
-		   true -> Bin;
-		   false -> e_type_string(TrF1, <<Bin/binary, 10>>)
-		 end
-	       end;
-	   _ -> Bin
+e_msg_Package(#{name := F1} = M, Bin, TrUserData) ->
+    B1 = begin
+	   TrF1 = id(F1, TrUserData),
+	   e_type_string(TrF1, <<Bin/binary, 10>>)
 	 end,
     B2 = case M of
 	   #{versions := F2} ->
@@ -117,10 +104,7 @@ e_msg_Package(#{} = M, Bin, TrUserData) ->
       #{repository := F4} ->
 	  begin
 	    TrF4 = id(F4, TrUserData),
-	    case is_empty_string(TrF4) of
-	      true -> B3;
-	      false -> e_type_string(TrF4, <<B3/binary, 34>>)
-	    end
+	    e_type_string(TrF4, <<B3/binary, 34>>)
 	  end;
       _ -> B3
     end.
@@ -177,25 +161,6 @@ e_varint(N, Bin) ->
     Bin2 = <<Bin/binary, (N band 127 bor 128)>>,
     e_varint(N bsr 7, Bin2).
 
-is_empty_string("") -> true;
-is_empty_string(<<>>) -> true;
-is_empty_string(L) when is_list(L) ->
-    not string_has_chars(L);
-is_empty_string(B) when is_binary(B) -> false.
-
-string_has_chars([C | _]) when is_integer(C) -> true;
-string_has_chars([H | T]) ->
-    case string_has_chars(H) of
-      true -> true;
-      false -> string_has_chars(T)
-    end;
-string_has_chars(B)
-    when is_binary(B), byte_size(B) =/= 0 ->
-    true;
-string_has_chars(C) when is_integer(C) -> true;
-string_has_chars(<<>>) -> false;
-string_has_chars([]) -> false.
-
 
 decode_msg(Bin, MsgName) when is_binary(Bin) ->
     decode_msg(Bin, MsgName, []).
@@ -235,7 +200,7 @@ decode_msg_2_doit('Package', Bin, TrUserData) ->
 
 d_msg_Versions(Bin, TrUserData) ->
     dfp_read_field_def_Versions(Bin, 0, 0,
-				id([], TrUserData), id(<<>>, TrUserData),
+				id([], TrUserData), id('$undef', TrUserData),
 				TrUserData).
 
 dfp_read_field_def_Versions(<<10, Rest/binary>>, Z1, Z2,
@@ -248,10 +213,8 @@ dfp_read_field_def_Versions(<<18, Rest/binary>>, Z1, Z2,
 				TrUserData);
 dfp_read_field_def_Versions(<<>>, 0, 0, R1, F@_2,
 			    TrUserData) ->
-    S1 = #{packages => lists_reverse(R1, TrUserData)},
-    if F@_2 == '$undef' -> S1;
-       true -> S1#{repository => F@_2}
-    end;
+    #{packages => lists_reverse(R1, TrUserData),
+      repository => F@_2};
 dfp_read_field_def_Versions(Other, Z1, Z2, F@_1, F@_2,
 			    TrUserData) ->
     dg_read_field_def_Versions(Other, Z1, Z2, F@_1, F@_2,
@@ -291,10 +254,8 @@ dg_read_field_def_Versions(<<0:1, X:7, Rest/binary>>, N,
     end;
 dg_read_field_def_Versions(<<>>, 0, 0, R1, F@_2,
 			   TrUserData) ->
-    S1 = #{packages => lists_reverse(R1, TrUserData)},
-    if F@_2 == '$undef' -> S1;
-       true -> S1#{repository => F@_2}
-    end.
+    #{packages => lists_reverse(R1, TrUserData),
+      repository => F@_2}.
 
 d_field_Versions_packages(<<1:1, X:7, Rest/binary>>, N,
 			  Acc, F@_1, F@_2, TrUserData)
@@ -369,8 +330,8 @@ skip_64_Versions(<<_:64, Rest/binary>>, Z1, Z2, F@_1,
 
 d_msg_Package(Bin, TrUserData) ->
     dfp_read_field_def_Package(Bin, 0, 0,
-			       id(<<>>, TrUserData), id([], TrUserData),
-			       id([], TrUserData), id(<<>>, TrUserData),
+			       id('$undef', TrUserData), id([], TrUserData),
+			       id([], TrUserData), id('$undef', TrUserData),
 			       TrUserData).
 
 dfp_read_field_def_Package(<<10, Rest/binary>>, Z1, Z2,
@@ -395,13 +356,11 @@ dfp_read_field_def_Package(<<34, Rest/binary>>, Z1, Z2,
 			       F@_3, F@_4, TrUserData);
 dfp_read_field_def_Package(<<>>, 0, 0, F@_1, R1, R2,
 			   F@_4, TrUserData) ->
-    S1 = #{versions => lists_reverse(R1, TrUserData),
+    S1 = #{name => F@_1,
+	   versions => lists_reverse(R1, TrUserData),
 	   retired => lists_reverse(R2, TrUserData)},
-    S2 = if F@_1 == '$undef' -> S1;
-	    true -> S1#{name => F@_1}
-	 end,
-    if F@_4 == '$undef' -> S2;
-       true -> S2#{repository => F@_4}
+    if F@_4 == '$undef' -> S1;
+       true -> S1#{repository => F@_4}
     end;
 dfp_read_field_def_Package(Other, Z1, Z2, F@_1, F@_2,
 			   F@_3, F@_4, TrUserData) ->
@@ -453,13 +412,11 @@ dg_read_field_def_Package(<<0:1, X:7, Rest/binary>>, N,
     end;
 dg_read_field_def_Package(<<>>, 0, 0, F@_1, R1, R2,
 			  F@_4, TrUserData) ->
-    S1 = #{versions => lists_reverse(R1, TrUserData),
+    S1 = #{name => F@_1,
+	   versions => lists_reverse(R1, TrUserData),
 	   retired => lists_reverse(R2, TrUserData)},
-    S2 = if F@_1 == '$undef' -> S1;
-	    true -> S1#{name => F@_1}
-	 end,
-    if F@_4 == '$undef' -> S2;
-       true -> S2#{repository => F@_4}
+    if F@_4 == '$undef' -> S1;
+       true -> S1#{repository => F@_4}
     end.
 
 d_field_Package_name(<<1:1, X:7, Rest/binary>>, N, Acc,
@@ -665,61 +622,51 @@ merge_msgs(Prev, New, MsgName, Opts) ->
       'Package' -> merge_msg_Package(Prev, New, TrUserData)
     end.
 
-merge_msg_Versions(PMsg, NMsg, TrUserData) ->
-    S1 = #{},
-    S2 = case {PMsg, NMsg} of
-	   {#{packages := PFpackages},
-	    #{packages := NFpackages}} ->
-	       S1#{packages =>
-		       'erlang_++'(PFpackages, NFpackages, TrUserData)};
-	   {_, #{packages := NFpackages}} ->
-	       S1#{packages => NFpackages};
-	   {#{packages := PFpackages}, _} ->
-	       S1#{packages => PFpackages};
-	   {_, _} -> S1
-	 end,
+merge_msg_Versions(#{} = PMsg,
+		   #{repository := NFrepository} = NMsg, TrUserData) ->
+    S1 = #{repository => NFrepository},
     case {PMsg, NMsg} of
-      {_, #{repository := NFrepository}} ->
-	  S2#{repository => NFrepository};
-      {#{repository := PFrepository}, _} ->
-	  S2#{repository => PFrepository};
-      _ -> S2
+      {#{packages := PFpackages},
+       #{packages := NFpackages}} ->
+	  S1#{packages =>
+		  'erlang_++'(PFpackages, NFpackages, TrUserData)};
+      {_, #{packages := NFpackages}} ->
+	  S1#{packages => NFpackages};
+      {#{packages := PFpackages}, _} ->
+	  S1#{packages => PFpackages};
+      {_, _} -> S1
     end.
 
-merge_msg_Package(PMsg, NMsg, TrUserData) ->
-    S1 = #{},
+merge_msg_Package(#{} = PMsg, #{name := NFname} = NMsg,
+		  TrUserData) ->
+    S1 = #{name => NFname},
     S2 = case {PMsg, NMsg} of
-	   {_, #{name := NFname}} -> S1#{name => NFname};
-	   {#{name := PFname}, _} -> S1#{name => PFname};
-	   _ -> S1
-	 end,
-    S3 = case {PMsg, NMsg} of
 	   {#{versions := PFversions},
 	    #{versions := NFversions}} ->
-	       S2#{versions =>
+	       S1#{versions =>
 		       'erlang_++'(PFversions, NFversions, TrUserData)};
 	   {_, #{versions := NFversions}} ->
-	       S2#{versions => NFversions};
+	       S1#{versions => NFversions};
 	   {#{versions := PFversions}, _} ->
-	       S2#{versions => PFversions};
-	   {_, _} -> S2
+	       S1#{versions => PFversions};
+	   {_, _} -> S1
 	 end,
-    S4 = case {PMsg, NMsg} of
+    S3 = case {PMsg, NMsg} of
 	   {#{retired := PFretired}, #{retired := NFretired}} ->
-	       S3#{retired =>
+	       S2#{retired =>
 		       'erlang_++'(PFretired, NFretired, TrUserData)};
 	   {_, #{retired := NFretired}} ->
-	       S3#{retired => NFretired};
+	       S2#{retired => NFretired};
 	   {#{retired := PFretired}, _} ->
-	       S3#{retired => PFretired};
-	   {_, _} -> S3
+	       S2#{retired => PFretired};
+	   {_, _} -> S2
 	 end,
     case {PMsg, NMsg} of
       {_, #{repository := NFrepository}} ->
-	  S4#{repository => NFrepository};
+	  S3#{repository => NFrepository};
       {#{repository := PFrepository}, _} ->
-	  S4#{repository => PFrepository};
-      _ -> S4
+	  S3#{repository => PFrepository};
+      _ -> S3
     end.
 
 
@@ -737,7 +684,8 @@ verify_msg(Msg, MsgName, Opts) ->
     end.
 
 
-v_msg_Versions(#{} = M, Path, TrUserData) ->
+v_msg_Versions(#{repository := F2} = M, Path,
+	       TrUserData) ->
     case M of
       #{packages := F1} ->
 	  if is_list(F1) ->
@@ -750,11 +698,7 @@ v_msg_Versions(#{} = M, Path, TrUserData) ->
 	  end;
       _ -> ok
     end,
-    case M of
-      #{repository := F2} ->
-	  v_type_string(F2, [repository | Path]);
-      _ -> ok
-    end,
+    v_type_string(F2, [repository | Path]),
     lists:foreach(fun (packages) -> ok;
 		      (repository) -> ok;
 		      (OtherKey) ->
@@ -763,17 +707,14 @@ v_msg_Versions(#{} = M, Path, TrUserData) ->
 		  maps:keys(M)),
     ok;
 v_msg_Versions(M, Path, _TrUserData) when is_map(M) ->
-    mk_type_error({missing_fields, [] -- maps:keys(M),
-		   'Versions'},
+    mk_type_error({missing_fields,
+		   [repository] -- maps:keys(M), 'Versions'},
 		  M, Path);
 v_msg_Versions(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'Versions'}, X, Path).
 
-v_msg_Package(#{} = M, Path, _) ->
-    case M of
-      #{name := F1} -> v_type_string(F1, [name | Path]);
-      _ -> ok
-    end,
+v_msg_Package(#{name := F1} = M, Path, _) ->
+    v_type_string(F1, [name | Path]),
     case M of
       #{versions := F2} ->
 	  if is_list(F2) ->
@@ -813,7 +754,7 @@ v_msg_Package(#{} = M, Path, _) ->
 		  maps:keys(M)),
     ok;
 v_msg_Package(M, Path, _TrUserData) when is_map(M) ->
-    mk_type_error({missing_fields, [] -- maps:keys(M),
+    mk_type_error({missing_fields, [name] -- maps:keys(M),
 		   'Package'},
 		  M, Path);
 v_msg_Package(X, Path, _TrUserData) ->
@@ -872,10 +813,10 @@ get_msg_defs() ->
 	 type => {msg, 'Package'}, occurrence => repeated,
 	 opts => []},
        #{name => repository, fnum => 2, rnum => 3,
-	 type => string, occurrence => optional, opts => []}]},
+	 type => string, occurrence => required, opts => []}]},
      {{msg, 'Package'},
       [#{name => name, fnum => 1, rnum => 2, type => string,
-	 occurrence => optional, opts => []},
+	 occurrence => required, opts => []},
        #{name => versions, fnum => 2, rnum => 3,
 	 type => string, occurrence => repeated, opts => []},
        #{name => retired, fnum => 3, rnum => 4, type => int32,
@@ -913,10 +854,10 @@ find_msg_def('Versions') ->
        type => {msg, 'Package'}, occurrence => repeated,
        opts => []},
      #{name => repository, fnum => 2, rnum => 3,
-       type => string, occurrence => optional, opts => []}];
+       type => string, occurrence => required, opts => []}];
 find_msg_def('Package') ->
     [#{name => name, fnum => 1, rnum => 2, type => string,
-       occurrence => optional, opts => []},
+       occurrence => required, opts => []},
      #{name => versions, fnum => 2, rnum => 3,
        type => string, occurrence => repeated, opts => []},
      #{name => retired, fnum => 3, rnum => 4, type => int32,
