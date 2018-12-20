@@ -36,7 +36,7 @@ default_config() ->
         http_adapter => hex_http_httpc,
         http_adapter_config => #{profile => default},
         http_user_agent_fragment => <<"(httpc)">>,
-        repo_name => "hexpm",
+        repo_name => <<"hexpm">>,
         repo_url => <<"https://repo.hex.pm">>,
         repo_public_key => ?HEXPM_PUBLIC_KEY,
         repo_verify => true
