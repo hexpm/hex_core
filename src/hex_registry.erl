@@ -79,7 +79,7 @@ decode_signed(Signed) ->
 
 %% @doc
 %% Decode message created with sign_protobuf/2 and verify it against public key.
--spec decode_and_verify_signed(binary(), public_key()) -> {ok, binary()} | {error, term()}.
+-spec decode_and_verify_signed(map(), public_key()) -> {ok, binary()} | {error, term()}.
 decode_and_verify_signed(Signed, PublicKey) ->
     #{payload := Payload, signature := Signature} = decode_signed(Signed),
     case verify(Payload, Signature, PublicKey) of
