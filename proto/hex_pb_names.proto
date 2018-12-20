@@ -10,6 +10,7 @@ message Names {
 message Package {
   // Package name
   required string name = 1;
+
   // If set, the name of the package repository (NEVER USED, DEPRECATED)
-  optional string repository = 2;
+  // string repository = 2;
 }

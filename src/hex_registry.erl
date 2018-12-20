@@ -1,11 +1,11 @@
 -module(hex_registry).
 -export([
     encode_names/1,
-    decode_names/1,
+    decode_names/2,
     encode_versions/1,
-    decode_versions/1,
+    decode_versions/2,
     encode_package/1,
-    decode_package/1,
+    decode_package/3,
     sign_protobuf/2,
     decode_signed/1,
     decode_and_verify_signed/2,
@@ -28,9 +28,13 @@ encode_names(Names) ->
 
 %% @doc
 %% Decode message created with encode_names/1.
-decode_names(Payload) ->
-    Names = hex_pb_names:decode_msg(Payload, 'Names'),
-    remove_deprecated_repository_field(Names).
+decode_names(Payload, Repository) ->
+    case hex_pb_names:decode_msg(Payload, 'Names') of
+        #{repository := Repository, packages := Packages} ->
+            {ok, Packages};
+        _ ->
+            {error, unverified}
+    end.
 
 %% @doc
 %% Encode Versions message.
@@ -39,12 +43,13 @@ encode_versions(Versions) ->
 
 %% @doc
 %% Decode message created with encode_versions/1.
-decode_versions(Payload) ->
-    Versions = hex_pb_versions:decode_msg(Payload, 'Versions'),
-    remove_deprecated_repository_field(Versions).
-
-remove_deprecated_repository_field(#{packages := Packages} = Map) when is_list(Packages) ->
-    maps:put(packages, lists:map(fun(Map2) -> maps:remove(repository, Map2) end, Packages), Map).
+decode_versions(Payload, Repository) ->
+    case hex_pb_versions:decode_msg(Payload, 'Versions') of
+        #{repository := Repository, packages := Packages} ->
+            {ok, Packages};
+        _ ->
+            {error, unverified}
+    end.
 
 %% @doc
 %% Encode Package message.
@@ -53,8 +58,13 @@ encode_package(Package) ->
 
 %% @doc
 %% Decode message created with encode_package/1.
-decode_package(Payload) ->
-    hex_pb_package:decode_msg(Payload, 'Package').
+decode_package(Payload, Repository, Package) ->
+    case hex_pb_package:decode_msg(Payload, 'Package') of
+        #{repository := Repository, name := Package, releases := Releases} ->
+            {ok, Releases};
+        _ ->
+            {error, unverified}
+    end.
 
 %% @doc
 %% Encode Signed message.

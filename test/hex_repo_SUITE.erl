@@ -8,6 +8,7 @@
 -define(CONFIG, #{
     http_adapter => hex_http_test,
     http_user_agent_fragment => <<"(test)">>,
+    repo_name => <<"hexpm">>,
     repo_url => <<"https://repo.test">>,
     repo_public_key => ct:get_config({ssl_certs, test_pub}),
     repo_verify => true
@@ -21,19 +22,19 @@ all() ->
     [get_names_test, get_versions_test, get_package_test, get_tarball_test].
 
 get_names_test(_Config) ->
-    {ok, {200, _, #{packages := Packages}}} = hex_repo:get_names(?CONFIG),
+    {ok, {200, _, Packages}} = hex_repo:get_names(?CONFIG),
     [#{name := <<"ecto">>}] =
         lists:filter(fun(#{name := Name}) -> Name == <<"ecto">> end, Packages),
     ok.
 
 get_versions_test(_Config) ->
-    {ok, {200, _, #{packages := Packages}}} = hex_repo:get_versions(?CONFIG),
+    {ok, {200, _, Packages}} = hex_repo:get_versions(?CONFIG),
     [#{name := <<"ecto">>, versions := _}] =
         lists:filter(fun(#{name := Name}) -> Name == <<"ecto">> end, Packages),
     ok.
 
 get_package_test(_Config) ->
-    {ok, {200, _, #{releases := Releases}}} = hex_repo:get_package(?CONFIG, <<"ecto">>),
+    {ok, {200, _, Releases}} = hex_repo:get_package(?CONFIG, <<"ecto">>),
     [#{version := <<"1.0.0">>}] =
         lists:filter(fun(#{version := Version}) -> Version == <<"1.0.0">> end, Releases),
 

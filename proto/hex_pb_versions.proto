@@ -15,5 +15,5 @@ message Package {
   // Zero-based indexes of retired versions in the versions field, see package.proto
   repeated int32 retired = 3 [packed=true];
   // If set, the name of the package repository (NEVER USED, DEPRECATED)
-  optional string repository = 4;
+  // string repository = 4;
 }
