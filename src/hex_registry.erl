@@ -32,6 +32,11 @@ decode_names(Payload, Repository) ->
     case hex_pb_names:decode_msg(Payload, 'Names') of
         #{repository := Repository, packages := Packages} ->
             {ok, Packages};
+        % gpb (proto2) decodes missing required fields as $undef
+        % this will likely change when we update to proto3 and use optional fields
+        #{repository := '$undef', packages := Packages} ->
+            warn_outdated_registry(),
+            {ok, Packages};
         _ ->
             {error, unverified}
     end.
@@ -47,6 +52,11 @@ decode_versions(Payload, Repository) ->
     case hex_pb_versions:decode_msg(Payload, 'Versions') of
         #{repository := Repository, packages := Packages} ->
             {ok, Packages};
+        % gpb (proto2) decodes missing required fields as $undef
+        % this will likely change when we update to proto3 and use optional fields
+        #{repository := '$undef', packages := Packages} ->
+            warn_outdated_registry(),
+            {ok, Packages};
         _ ->
             {error, unverified}
     end.
@@ -61,6 +71,11 @@ encode_package(Package) ->
 decode_package(Payload, Repository, Package) ->
     case hex_pb_package:decode_msg(Payload, 'Package') of
         #{repository := Repository, name := Package, releases := Releases} ->
+            {ok, Releases};
+        % gpb (proto2) decodes missing required fields as $undef
+        % this will likely change when we update to proto3 and use optional fields
+        #{repository := '$undef', name := '$undef', releases := Releases} ->
+            warn_outdated_registry(),
             {ok, Releases};
         _ ->
             {error, unverified}
@@ -117,3 +132,10 @@ key(Binary) when is_binary(Binary) ->
         [Entry | _] -> {ok, public_key:pem_entry_decode(Entry)};
         _ -> {error, bad_key}
     end.
+
+warn_outdated_registry() ->
+    io:format(
+        "Fetched deprecatated registry record version, for security reasons this " ++
+            "registry version will not work on future Hex updates. The repository " ++
+            "you are using should update to ensure future compatability with Hex clients."
+    ).
