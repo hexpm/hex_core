@@ -2,7 +2,7 @@
   {description, "Reference implementation of Hex specifications"},
   {vsn, "0.3.0"},
   {registered, []},
-  {applications, [kernel, stdlib]},
+  {applications, [kernel, stdlib, ssl, inets]},
   {licenses, ["Apache 2.0"]},
   {links, [
     {"GitHub", "https://github.com/hexpm/hex_core"},
