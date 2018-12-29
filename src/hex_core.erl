@@ -26,6 +26,7 @@ J1i2xWFndWa6nfFnRxZmCStCOZWYYPlaxr+FZceFbpMwzTNs4g3d4tLNUcbKAIH4
     repo_url => binary(),
     repo_public_key => binary(),
     repo_verify => boolean(),
+    repo_verify_origin => boolean(),
     organization => binary()
 }.
 
@@ -39,5 +40,6 @@ default_config() ->
         repo_name => <<"hexpm">>,
         repo_url => <<"https://repo.hex.pm">>,
         repo_public_key => ?HEXPM_PUBLIC_KEY,
-        repo_verify => true
+        repo_verify => true,
+        repo_verify_origin => true
     }.

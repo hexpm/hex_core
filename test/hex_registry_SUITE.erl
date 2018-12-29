@@ -23,6 +23,7 @@ names_test(_Config) ->
     },
     Payload = hex_registry:encode_names(Names),
     ?assertMatch({ok, Packages}, hex_registry:decode_names(Payload, <<"hexpm">>)),
+    ?assertMatch({ok, Packages}, hex_registry:decode_names(Payload, no_verify)),
     ?assertMatch({error, unverified}, hex_registry:decode_names(Payload, <<"other_repo">>)),
     ok.
 
@@ -45,6 +46,7 @@ versions_test(_Config) ->
     },
     Payload = hex_registry:encode_versions(Versions),
     ?assertMatch({ok, Packages}, hex_registry:decode_versions(Payload, <<"hexpm">>)),
+    ?assertMatch({ok, Packages}, hex_registry:decode_versions(Payload, no_verify)),
     ?assertMatch({error, unverified}, hex_registry:decode_versions(Payload, <<"other_repo">>)),
     ok.
 
@@ -82,6 +84,7 @@ package_test(_Config) ->
     },
     Payload = hex_registry:encode_package(Package),
     ?assertMatch({ok, Releases}, hex_registry:decode_package(Payload, <<"hexpm">>, <<"foobar">>)),
+    ?assertMatch({ok, Releases}, hex_registry:decode_package(Payload, no_verify, no_verify)),
     ?assertMatch({error, unverified}, hex_registry:decode_package(Payload, <<"other_repo">>, <<"foobar">>)),
     ?assertMatch({error, unverified}, hex_registry:decode_package(Payload, <<"hexpm">>, <<"other_package">>)),
     ok.

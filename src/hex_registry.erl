@@ -28,6 +28,10 @@ encode_names(Names) ->
 
 %% @doc
 %% Decode message created with encode_names/1.
+decode_names(Payload, no_verify) ->
+    #{packages := Packages} = hex_pb_names:decode_msg(Payload, 'Names'),
+    {ok, Packages};
+
 decode_names(Payload, Repository) ->
     case hex_pb_names:decode_msg(Payload, 'Names') of
         #{repository := Repository, packages := Packages} ->
@@ -43,6 +47,10 @@ encode_versions(Versions) ->
 
 %% @doc
 %% Decode message created with encode_versions/1.
+decode_versions(Payload, no_verify) ->
+    #{packages := Packages} = hex_pb_versions:decode_msg(Payload, 'Versions'),
+    {ok, Packages};
+
 decode_versions(Payload, Repository) ->
     case hex_pb_versions:decode_msg(Payload, 'Versions') of
         #{repository := Repository, packages := Packages} ->
@@ -58,6 +66,10 @@ encode_package(Package) ->
 
 %% @doc
 %% Decode message created with encode_package/1.
+decode_package(Payload, no_verify, no_verify) ->
+    #{releases := Releases} = hex_pb_package:decode_msg(Payload, 'Package'),
+    {ok, Releases};
+
 decode_package(Payload, Repository, Package) ->
     case hex_pb_package:decode_msg(Payload, 'Package') of
         #{repository := Repository, name := Package, releases := Releases} ->
