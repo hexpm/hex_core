@@ -65,7 +65,13 @@ get_versions(#{repo_name := Repository} = Config) when is_map(Config) ->
 %% '''
 %% @end
 get_package(#{repo_name := Repository} = Config, Name) when is_binary(Name) and is_map(Config) ->
-    Decoder = fun(Data) -> hex_registry:decode_package(Data, Repository, Name) end,
+    Verify = maps:get(repo_verify_origin, Config, true),
+    Decoder = fun(Data) ->
+        case Verify of
+            true -> hex_registry:decode_package(Data, Repository, Name);
+            false -> hex_registry:decode_package(Data, no_verify, no_verify)
+        end
+    end,
     get_protobuf(Config, <<"/packages/", Name/binary>>, Decoder).
 
 %% @doc
