@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.4.0 (2018-12-30)
+
+* Revert swich from proto2 to proto3
+* Verify authenticity of signed payload
+* Add `repo_verify_origin` config option
+
 ## 0.3.0 (2018-12-14)
 
 * Swich from proto2 to proto3
