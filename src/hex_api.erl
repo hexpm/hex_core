@@ -84,7 +84,7 @@ encode_body(Body) ->
 make_headers(Config) ->
     maps:fold(fun set_header/3, #{}, Config).
 
-set_header(api_key, Token, Headers) -> maps:put(<<"authorization">>, Token, Headers);
+set_header(api_key, Token, Headers) when is_binary(Token) -> maps:put(<<"authorization">>, Token, Headers);
 set_header(_, _, Headers) -> Headers.
 
 put_new(Key, Value, Map) ->
