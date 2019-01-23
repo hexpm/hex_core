@@ -165,6 +165,6 @@ tarball_filename(Name, Version) ->
 make_headers(Config) ->
     maps:fold(fun set_header/3, #{}, Config).
 
-set_header(http_etag, ETag, Headers) -> maps:put(<<"if-none-match">>, ETag, Headers);
-set_header(repo_key, Token, Headers) -> maps:put(<<"authorization">>, Token, Headers);
+set_header(http_etag, ETag, Headers) when is_binary(ETag) -> maps:put(<<"if-none-match">>, ETag, Headers);
+set_header(repo_key, Token, Headers) when is_binary(Token) -> maps:put(<<"authorization">>, Token, Headers);
 set_header(_, _, Headers) -> Headers.

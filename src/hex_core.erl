@@ -16,30 +16,35 @@ J1i2xWFndWa6nfFnRxZmCStCOZWYYPlaxr+FZceFbpMwzTNs4g3d4tLNUcbKAIH4
 
 
 -type config() :: #{
+    api_key => binary() | undefined,
     api_url => binary(),
-    api_key => binary(),
     http_adapter => module(),
     http_etag => binary(),
+    http_adapter_config => map(),
     http_user_agent_fragment => binary(),
+    organization => binary() | undefined,
+    repo_key => binary() | undefined,
     repo_name => binary(),
-    repo_key => binary(),
-    repo_url => binary(),
     repo_public_key => binary(),
+    repo_url => binary(),
     repo_verify => boolean(),
-    repo_verify_origin => boolean(),
-    organization => binary()
+    repo_verify_origin => boolean()
 }.
 
 -spec default_config() -> config().
 default_config() ->
     #{
+        api_key => undefined,
         api_url => <<"https://hex.pm/api">>,
         http_adapter => hex_http_httpc,
         http_adapter_config => #{profile => default},
+        http_etag => undefined,
         http_user_agent_fragment => <<"(httpc)">>,
+        organization => undefined,
+        repo_key => undefined,
         repo_name => <<"hexpm">>,
-        repo_url => <<"https://repo.hex.pm">>,
         repo_public_key => ?HEXPM_PUBLIC_KEY,
+        repo_url => <<"https://repo.hex.pm">>,
         repo_verify => true,
         repo_verify_origin => true
     }.
