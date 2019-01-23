@@ -25,7 +25,13 @@
 %% '''
 %% @end
 get_names(#{repo_name := Repository} = Config) when is_map(Config) ->
-    Decoder = fun(Data) -> hex_registry:decode_names(Data, Repository) end,
+    Verify = maps:get(repo_verify_origin, Config, true),
+    Decoder = fun(Data) ->
+        case Verify of
+            true -> hex_registry:decode_names(Data, Repository);
+            false -> hex_registry:decode_names(Data, no_verify)
+        end
+    end,
     get_protobuf(Config, <<"/names">>, Decoder).
 
 %% @doc
@@ -45,7 +51,13 @@ get_names(#{repo_name := Repository} = Config) when is_map(Config) ->
 %% '''
 %% @end
 get_versions(#{repo_name := Repository} = Config) when is_map(Config) ->
-    Decoder = fun(Data) -> hex_registry:decode_versions(Data, Repository) end,
+    Verify = maps:get(repo_verify_origin, Config, true),
+    Decoder = fun(Data) ->
+        case Verify of
+            true -> hex_registry:decode_versions(Data, Repository);
+            false -> hex_registry:decode_versions(Data, no_verify)
+        end
+    end,
     get_protobuf(Config, <<"/versions">>, Decoder).
 
 %% @doc
@@ -104,11 +116,10 @@ get(Config, URI, Headers) ->
     hex_http:request(Config, get, URI, Headers, nil).
 
 get_protobuf(Config, Path, Decoder) ->
-    URI = maps:get(repo_url, Config),
     PublicKey = maps:get(repo_public_key, Config),
     ReqHeaders = make_headers(Config),
 
-    case get(Config, <<URI/binary, Path/binary>>, ReqHeaders) of
+    case get(Config, build_url(Path, Config), ReqHeaders) of
         {ok, {200, RespHeaders, Compressed}} ->
             Signed = zlib:gunzip(Compressed),
             case decode(Signed, PublicKey, Decoder, Config) of
@@ -142,6 +153,11 @@ decode(Signed, PublicKey, Decoder, Config) ->
 tarball_url(URI, Name, Version) ->
     Filename = tarball_filename(Name, Version),
     <<URI/binary, "/tarballs/", Filename/binary>>.
+
+build_url(Path, #{repo_url := URI, organization := Org}) when is_binary(Org) ->
+    <<URI/binary, "/repos/", Org/binary, Path/binary>>;
+build_url(Path, #{repo_url := URI}) ->
+    <<URI/binary, Path/binary>>.
 
 tarball_filename(Name, Version) ->
     <<Name/binary, "-", Version/binary, ".tar">>.
