@@ -19,7 +19,7 @@ J1i2xWFndWa6nfFnRxZmCStCOZWYYPlaxr+FZceFbpMwzTNs4g3d4tLNUcbKAIH4
     api_key => binary() | undefined,
     api_url => binary(),
     http_adapter => module(),
-    http_etag => binary(),
+    http_etag => binary() | undefined,
     http_adapter_config => map(),
     http_user_agent_fragment => binary(),
     organization => binary() | undefined,
