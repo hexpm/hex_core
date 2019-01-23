@@ -3,6 +3,6 @@
 
 api_key() ->
     case os:getenv("TEST_API_KEY") of
-        false -> nil;
+        false -> undefined;
         Token -> list_to_binary(Token)
     end.

@@ -184,10 +184,10 @@ encode_metadata(Meta) ->
 
 do_unpack(Files, Output) ->
     State = #{
-        checksum => nil,
-        contents => nil,
+        checksum => undefined,
+        contents => undefined,
         files => Files,
-        metadata => nil,
+        metadata => undefined,
         output => Output
     },
     State1 = check_files(State),
@@ -445,7 +445,7 @@ gzip_no_header(Uncompressed) ->
 
 binarify(Binary) when is_binary(Binary) -> Binary;
 binarify(Number) when is_number(Number) -> Number;
-binarify(Atom) when Atom == nil orelse is_boolean(Atom) -> Atom;
+binarify(Atom) when Atom == undefined orelse is_boolean(Atom) -> Atom;
 binarify(Atom) when is_atom(Atom) -> atom_to_binary(Atom, utf8);
 binarify(List) when is_list(List) ->
     [binarify(E) || E <- List];

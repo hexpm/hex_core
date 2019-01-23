@@ -21,7 +21,7 @@ request(Method, URI, ReqHeaders, Body, AdapterConfig) ->
 build_request(URI, ReqHeaders, Body) ->
     build_request2(binary_to_list(URI), dump_headers(ReqHeaders), Body).
 
-build_request2(URI, ReqHeaders, nil) ->
+build_request2(URI, ReqHeaders, undefined) ->
     {URI, ReqHeaders};
 build_request2(URI, ReqHeaders, {ContentType, Body}) ->
     {URI, ReqHeaders, ContentType, Body}.

@@ -9,7 +9,7 @@
 -define(ERL_CONTENT_TYPE, <<"application/vnd.hex+erlang">>).
 
 get(Config, Path) ->
-    request(Config, get, Path, nil).
+    request(Config, get, Path, undefined).
 
 post(Config, Path, Body) ->
     request(Config, post, Path, encode_body(Body)).
@@ -18,7 +18,7 @@ put(Config, Path, Body) ->
     request(Config, put, Path, encode_body(Body)).
 
 delete(Config, Path) ->
-    request(Config, delete, Path, nil).
+    request(Config, delete, Path, undefined).
 
 %% @private
 encode_query_string(List) ->

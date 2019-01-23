@@ -113,7 +113,7 @@ get_tarball(Config, Name, Version) ->
 %%====================================================================
 
 get(Config, URI, Headers) ->
-    hex_http:request(Config, get, URI, Headers, nil).
+    hex_http:request(Config, get, URI, Headers, undefined).
 
 get_protobuf(Config, Path, Decoder) ->
     PublicKey = maps:get(repo_public_key, Config),
