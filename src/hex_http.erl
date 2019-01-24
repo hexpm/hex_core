@@ -8,7 +8,7 @@
 -type method() :: get | post | put | patch | delete.
 -type status() :: non_neg_integer().
 -type headers() :: #{binary() => binary()}.
--type body() :: undefined.
+-type body() :: {ContentType :: binary(), Body :: binary()} | undefined.
 -type adapter_config() :: map().
 
 -callback request(method(), URI :: binary(), headers(), body(), adapter_config()) ->
