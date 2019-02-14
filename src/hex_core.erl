@@ -1,5 +1,8 @@
 -module(hex_core).
--export([default_config/0]).
+
+-include("hex_core.hrl").
+
+-export([default_config/0, version/0]).
 
 -export_type([config/0]).
 
@@ -48,3 +51,6 @@ default_config() ->
         repo_verify => true,
         repo_verify_origin => true
     }.
+
+version() ->
+  ?HEX_CORE_VERSION.
