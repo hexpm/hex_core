@@ -97,10 +97,9 @@ get_package(#{repo_name := Repository} = Config, Name) when is_binary(Name) and 
 %% '''
 %% @end
 get_tarball(Config, Name, Version) ->
-    URI = maps:get(repo_url, Config),
     ReqHeaders = make_headers(Config),
 
-    case get(Config, tarball_url(URI, Name, Version), ReqHeaders) of
+    case get(Config, tarball_url(Name, Version, Config), ReqHeaders) of
         {ok, {200, RespHeaders, Tarball}} ->
             {ok, {200, RespHeaders, Tarball}};
 
@@ -150,7 +149,10 @@ decode(Signed, PublicKey, Decoder, Config) ->
             Decoder(Payload)
     end.
 
-tarball_url(URI, Name, Version) ->
+tarball_url(Name, Version, #{repo_url := URI, organization := Org}) when is_binary(Org) ->
+    Filename = tarball_filename(Name, Version),
+    <<URI/binary, "/repos/", Org/binary, "/tarballs/", Filename/binary>>;
+tarball_url(Name, Version, #{repo_url := URI}) ->
     Filename = tarball_filename(Name, Version),
     <<URI/binary, "/tarballs/", Filename/binary>>.
 

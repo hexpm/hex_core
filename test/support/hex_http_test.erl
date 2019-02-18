@@ -3,6 +3,7 @@
 -export([request/5]).
 -define(TEST_REPO_URL, "https://repo.test").
 -define(TEST_API_URL, "https://api.test").
+-define(TEST_ORG_URL, "https://repo.test/repos/org").
 -define(PRIVATE_KEY, ct:get_config({ssl_certs, test_priv})).
 -define(PUBLIC_KEY, ct:get_config({ssl_certs, test_pub}).
 
@@ -81,6 +82,17 @@ fixture(get, <<?TEST_REPO_URL, "/packages/ecto">>, _, _) ->
     {ok, {200, Headers, Compressed}};
 
 fixture(get, <<?TEST_REPO_URL, "/tarballs/ecto-1.0.0.tar">>, _, _) ->
+    Headers = #{
+      <<"etag">> => <<"\"dummy\"">>
+    },
+    Metadata = #{
+        <<"name">> => <<"ecto">>,
+        <<"version">> => <<"1.0.0">>
+    },
+    {ok, {Tarball, _Checksum}} = hex_tarball:create(Metadata, []),
+    {ok, {200, Headers, Tarball}};
+
+fixture(get, <<?TEST_ORG_URL, "/tarballs/ecto-1.0.0.tar">>, _, _) ->
     Headers = #{
       <<"etag">> => <<"\"dummy\"">>
     },
