@@ -70,8 +70,6 @@ encode(Binary) when is_binary(Binary) ->
 encode(String) when is_list(String) ->
     http_uri:encode(String).
 
-build_url(Path, #{api_url := URI, organization := Org}) when is_binary(Org) ->
-    <<URI/binary, "/repos/", Org/binary, Path/binary>>;
 build_url(Path, #{api_url := URI}) ->
     <<URI/binary, Path/binary>>.
 

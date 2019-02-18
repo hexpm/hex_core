@@ -105,17 +105,6 @@ Create package tarball:
 The default configuration, provided by `hex_core:default_config/0`, uses built-in httpc-based adapter and Hex.pm APIs:
 <https://hex.pm/api> and <https://repo.hex.pm>.
 
-Organizations on Hex.pm (or any compatible server) can be configured as following:
-
-```erlang
-Config = maps:merge(hex_core:default_config(), #{
-    api_key => APIKey,
-    organization => <<"acme">>,
-    repo_key => RepoKey,
-    repo_url => <<"https://repo.hex.pm/repos/acme">>
-}).
-```
-
 HTTP client configuration can be overriden as follows:
 
 ```erlang

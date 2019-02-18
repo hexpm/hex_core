@@ -154,8 +154,6 @@ tarball_url(URI, Name, Version) ->
     Filename = tarball_filename(Name, Version),
     <<URI/binary, "/tarballs/", Filename/binary>>.
 
-build_url(Path, #{repo_url := URI, organization := Org}) when is_binary(Org) ->
-    <<URI/binary, "/repos/", Org/binary, Path/binary>>;
 build_url(Path, #{repo_url := URI}) ->
     <<URI/binary, Path/binary>>.
 
