@@ -5,13 +5,11 @@
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("common_test/include/ct.hrl").
 
--define(CONFIG, #{
+-define(CONFIG, (hex_core:default_config())#{
     http_adapter => hex_http_test,
     http_user_agent_fragment => <<"(test)">>,
-    repo_name => <<"hexpm">>,
     repo_url => <<"https://repo.test">>,
-    repo_public_key => ct:get_config({ssl_certs, test_pub}),
-    repo_verify => true
+    repo_public_key => ct:get_config({ssl_certs, test_pub})
 }).
 % -define(CONFIG, hex_core:default_config()).
 

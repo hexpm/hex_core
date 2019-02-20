@@ -16,13 +16,17 @@
 %% ]}}
 %% '''
 list(Config, PackageName) when is_binary(PackageName) and is_map(Config) ->
-    hex_api:get(Config, ["packages", PackageName, "owners"]).
+    Path = hex_api:build_repository_path(Config, ["packages", PackageName, "owners"]),
+    hex_api:get(Config, Path).
 
 get(Config, PackageName, UsernameOrEmail) when is_binary(PackageName) and is_map(Config) ->
-    hex_api:get(Config, ["packages", PackageName, "owners", UsernameOrEmail]).
+    Path = hex_api:build_repository_path(Config, ["packages", PackageName, "owners", UsernameOrEmail]),
+    hex_api:get(Config, Path).
 
 add(Config, PackageName, UsernameOrEmail) when is_binary(PackageName) and is_map(Config) ->
-    hex_api:put(Config, ["packages", PackageName, "owners", UsernameOrEmail], #{}).
+    Path = hex_api:build_repository_path(Config, ["packages", PackageName, "owners", UsernameOrEmail]),
+    hex_api:put(Config, Path, #{}).
 
 delete(Config, PackageName, UsernameOrEmail) when is_binary(PackageName) and is_map(Config) ->
-    hex_api:delete(Config, ["packages", PackageName, "owners", UsernameOrEmail]).
+    Path = hex_api:build_repository_path(Config, ["packages", PackageName, "owners", UsernameOrEmail]),
+    hex_api:delete(Config, Path).
