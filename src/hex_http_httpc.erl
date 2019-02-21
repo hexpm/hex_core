@@ -1,3 +1,5 @@
+%% @hidden
+
 -module(hex_http_httpc).
 -behaviour(hex_http).
 -export([request/5]).

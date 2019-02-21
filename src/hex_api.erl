@@ -1,4 +1,7 @@
+%% @hidden
+
 -module(hex_api).
+
 -export([
     delete/2,
     get/2,
