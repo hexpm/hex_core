@@ -36,6 +36,13 @@ release_test(_Config) ->
         <<"app">> := <<"decimal">>, <<"optional">> := false, <<"requirement">> := <<"~> 1.0">>}} = Requirements,
     ok.
 
+publish_test(_Config) ->
+    {ok, {200, _, Release}} = hex_api_release:get(?CONFIG, <<"dummy_tarball">>),
+    #{<<"version">> := <<"1.0.0">>, <<"requirements">> := Requirements} = Release,
+    #{<<"decimal">> := #{
+        <<"app">> := <<"decimal">>, <<"optional">> := false, <<"requirement">> := <<"~> 1.0">>}} = Requirements,
+    ok.
+
 user_test(_Config) ->
     {ok, {200, _, User}} = hex_api_user:get(?CONFIG, <<"josevalim">>),
     #{<<"username">> := <<"josevalim">>, <<"packages">> := _} = User,

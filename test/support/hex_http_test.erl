@@ -134,6 +134,21 @@ fixture(get, <<?TEST_API_URL, "/packages/ecto/releases/1.0.0">>, _, _) ->
     },
     {ok, {200, api_headers(), term_to_binary(Payload)}};
 
+%% /publish
+
+fixture(get, <<?TEST_API_URL, "/publish">>, _, _) ->
+    Payload = #{
+        <<"version">> => <<"1.0.0">>,
+        <<"requirements">> => #{
+            <<"decimal">> => #{
+                <<"requirement">> => <<"~> 1.0">>,
+                <<"optional">> => false,
+                <<"app">> => <<"decimal">>
+            }
+        }
+    },
+    {ok, {200, api_headers(), term_to_binary(Payload)}};
+
 %% /packages
 
 fixture(get, <<?TEST_API_URL, "/packages?search=ecto", _/binary>>, _, _) ->
