@@ -29,7 +29,7 @@
 %%   (defaults to hexpm public key `https://hex.pm/docs/public_keys').
 %% * `repo_url' - URL to the repository (default: `https://repo.hex.pm').
 %% * `repo_organization' - Name of the organization repository, appends `/repos/:name'
-%%    to the repository URL.
+%%    to the repository URL and overrides the `repo_name' option.
 %% * `repo_verify' - If `true' will verify the repository signature (default: `true').
 %% * `repo_verify_origin' - If `true' will verify the repository signature origin,
 %%   requires protobuf messages as of hex_core v0.4.0 (default: `true').

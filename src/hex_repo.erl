@@ -24,11 +24,11 @@
 %%     ]}}
 %% '''
 %% @end
-get_names(#{repo_name := Repository} = Config) when is_map(Config) ->
+get_names(Config) when is_map(Config) ->
     Verify = maps:get(repo_verify_origin, Config, true),
     Decoder = fun(Data) ->
         case Verify of
-            true -> hex_registry:decode_names(Data, Repository);
+            true -> hex_registry:decode_names(Data, repo_name(Config));
             false -> hex_registry:decode_names(Data, no_verify)
         end
     end,
@@ -50,11 +50,11 @@ get_names(#{repo_name := Repository} = Config) when is_map(Config) ->
 %%     ]}}
 %% '''
 %% @end
-get_versions(#{repo_name := Repository} = Config) when is_map(Config) ->
+get_versions(Config) when is_map(Config) ->
     Verify = maps:get(repo_verify_origin, Config, true),
     Decoder = fun(Data) ->
         case Verify of
-            true -> hex_registry:decode_versions(Data, Repository);
+            true -> hex_registry:decode_versions(Data, repo_name(Config));
             false -> hex_registry:decode_versions(Data, no_verify)
         end
     end,
@@ -76,11 +76,11 @@ get_versions(#{repo_name := Repository} = Config) when is_map(Config) ->
 %%     ]}}
 %% '''
 %% @end
-get_package(#{repo_name := Repository} = Config, Name) when is_binary(Name) and is_map(Config) ->
+get_package(Config, Name) when is_binary(Name) and is_map(Config) ->
     Verify = maps:get(repo_verify_origin, Config, true),
     Decoder = fun(Data) ->
         case Verify of
-            true -> hex_registry:decode_package(Data, Repository, Name);
+            true -> hex_registry:decode_package(Data, repo_name(Config), Name);
             false -> hex_registry:decode_package(Data, no_verify, no_verify)
         end
     end,
@@ -148,6 +148,9 @@ decode(Signed, PublicKey, Decoder, Config) ->
             #{payload := Payload} = hex_registry:decode_signed(Signed),
             Decoder(Payload)
     end.
+
+repo_name(#{repo_organization := Name}) when is_binary(Name) -> Name;
+repo_name(#{repo_name := Name}) when is_binary(Name) -> Name.
 
 tarball_url(Config, Name, Version) ->
     Filename = tarball_filename(Name, Version),
