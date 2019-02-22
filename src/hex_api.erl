@@ -1,10 +1,16 @@
+%% @hidden
+
 -module(hex_api).
+
 -export([
     delete/2,
     get/2,
     post/3,
     put/3,
-    encode_query_string/1
+    encode_query_string/1,
+    build_repository_path/2,
+    build_organization_path/2,
+    join_path_segments/1
 ]).
 -define(ERL_CONTENT_TYPE, <<"application/vnd.hex+erlang">>).
 
@@ -35,16 +41,29 @@ encode_query_string(List) ->
     Encoded = http_uri:encode(QueryString),
     list_to_binary(Encoded).
 
+%% @private
+build_repository_path(#{api_repository := Repo}, Path) when is_binary(Repo) ->
+    ["repos", Repo | Path];
+build_repository_path(#{api_repository := undefined}, Path) ->
+    Path.
+
+%% @private
+build_organization_path(#{api_organization := Org}, Path) when is_binary(Org) ->
+    ["orgs", Org | Path];
+build_organization_path(#{api_organization := undefined}, Path) ->
+    Path.
+
+%% @private
+join_path_segments(Segments) ->
+    erlang:iolist_to_binary(join(<<"/">>, lists:map(fun encode/1, Segments))).
+
 %%====================================================================
 %% Internal functions
 %%====================================================================
 
 request(Config, Method, PathSegments, Body) when is_list(PathSegments) ->
-    Path =
-        erlang:iolist_to_binary(
-            join(<<"/">>,
-                lists:map(fun encode/1, PathSegments))),
-    request(Config, Method, <<"/", Path/binary>>, Body);
+    Path = join_path_segments(PathSegments),
+    request(Config, Method, Path, Body);
 request(Config, Method, Path, Body) when is_binary(Path) and is_map(Config) ->
     DefaultHeaders = make_headers(Config),
     ReqHeaders = maps:merge(maps:get(http_headers, Config, #{}), DefaultHeaders),
@@ -71,7 +90,7 @@ encode(String) when is_list(String) ->
     http_uri:encode(String).
 
 build_url(Path, #{api_url := URI}) ->
-    <<URI/binary, Path/binary>>.
+    <<URI/binary, "/", Path/binary>>.
 
 encode_body({_ContentType, _Body} = Body) ->
     Body;

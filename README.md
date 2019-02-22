@@ -105,7 +105,7 @@ Create package tarball:
 The default configuration, provided by `hex_core:default_config/0`, uses built-in httpc-based adapter and Hex.pm APIs:
 <https://hex.pm/api> and <https://repo.hex.pm>.
 
-HTTP client configuration can be overriden as follows:
+HTTP client configuration can be overridden as follows:
 
 ```erlang
 Config = maps:merge(hex_core:default_config(), #{
@@ -122,6 +122,8 @@ hex_repo:get_names(Config).
 request(Method, URI, ReqHeaders) ->
     %% ...
 ```
+
+See the [`hex_core` module](hex_core.html) for more information about the configuration.
 
 ## Wrapper Module
 

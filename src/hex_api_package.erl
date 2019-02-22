@@ -25,7 +25,8 @@
 %% '''
 %% @end
 get(Config, Name) when is_binary(Name) and is_map(Config) ->
-    hex_api:get(Config, ["packages", Name]).
+    Path = hex_api:build_repository_path(Config, ["packages", Name]),
+    hex_api:get(Config, Path).
 
 %% @doc
 %% Searches packages.
@@ -41,4 +42,6 @@ get(Config, Name) when is_binary(Name) and is_map(Config) ->
 %% '''
 search(Config, Query, SearchParams) when is_binary(Query) and is_list(SearchParams) and is_map(Config) ->
     QueryString = hex_api:encode_query_string([{search, Query} | SearchParams]),
-    hex_api:get(Config, <<"/packages?", QueryString/binary>>).
+    Path = hex_api:join_path_segments(hex_api:build_repository_path(Config, ["packages"])),
+    PathQuery = <<Path/binary, "?", QueryString/binary>>,
+    hex_api:get(Config, PathQuery).

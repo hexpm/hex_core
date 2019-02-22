@@ -5,7 +5,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("common_test/include/ct.hrl").
 
--define(CONFIG, #{
+-define(CONFIG, (hex_core:default_config())#{
     http_adapter => hex_http_test,
     http_user_agent_fragment => <<"(test)">>,
     api_url => <<"https://api.test">>,
@@ -31,6 +31,13 @@ package_test(_Config) ->
 
 release_test(_Config) ->
     {ok, {200, _, Release}} = hex_api_release:get(?CONFIG, <<"ecto">>, <<"1.0.0">>),
+    #{<<"version">> := <<"1.0.0">>, <<"requirements">> := Requirements} = Release,
+    #{<<"decimal">> := #{
+        <<"app">> := <<"decimal">>, <<"optional">> := false, <<"requirement">> := <<"~> 1.0">>}} = Requirements,
+    ok.
+
+publish_test(_Config) ->
+    {ok, {200, _, Release}} = hex_api_release:get(?CONFIG, <<"dummy_tarball">>),
     #{<<"version">> := <<"1.0.0">>, <<"requirements">> := Requirements} = Release,
     #{<<"decimal">> := #{
         <<"app">> := <<"decimal">>, <<"optional">> := false, <<"requirement">> := <<"~> 1.0">>}} = Requirements,
