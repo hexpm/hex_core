@@ -34,6 +34,8 @@ filenames="hex_core.hrl \
 search_to_replace="hex_core \
                    hex_erl_tar \
                    hex_filename \
+                   hex_pb_names \
+                   hex_pb_versions \
                    hex_pb_package \
                    hex_pb_signed \
                    hex_registry \
