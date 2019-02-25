@@ -35,10 +35,7 @@
 %%   requires protobuf messages as of hex_core v0.4.0 (default: `true').
 
 -module(hex_core).
-
--include("hex_core.hrl").
-
--export([default_config/0, version/0]).
+-export([default_config/0]).
 
 -export_type([config/0]).
 
@@ -91,6 +88,3 @@ default_config() ->
         repo_verify => true,
         repo_verify_origin => true
     }.
-
-version() ->
-  ?HEX_CORE_VERSION.
