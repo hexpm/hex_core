@@ -35,6 +35,7 @@ filenames="hex_core.hrl \
 
 search_to_replace="hex_core: \
                    hex_core) \
+                   hex_core.hrl \
                    hex_erl_tar \
                    hex_filename \
                    hex_pb_names \
