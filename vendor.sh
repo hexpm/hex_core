@@ -31,7 +31,8 @@ filenames="hex_core.hrl \
            hex_api_user.erl \
            safe_erl_term.xrl"
 
-search_to_replace="hex_core \
+search_to_replace="hex_core: \
+                   hex_core) \
                    hex_erl_tar \
                    hex_filename \
                    hex_pb_names \
