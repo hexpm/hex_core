@@ -6,6 +6,9 @@
     list/2
 ]).
 
+%% @doc
+%% Lists all owners of package.
+%%
 %% Examples:
 %%
 %% ```
@@ -19,14 +22,14 @@ list(Config, PackageName) when is_binary(PackageName) and is_map(Config) ->
     Path = hex_api:build_repository_path(Config, ["packages", PackageName, "owners"]),
     hex_api:get(Config, Path).
 
-get(Config, PackageName, UsernameOrEmail) when is_binary(PackageName) and is_map(Config) ->
+get(Config, PackageName, UsernameOrEmail) when is_binary(PackageName) and is_binary(UsernameOrEmail) and is_map(Config) ->
     Path = hex_api:build_repository_path(Config, ["packages", PackageName, "owners", UsernameOrEmail]),
     hex_api:get(Config, Path).
 
-add(Config, PackageName, UsernameOrEmail) when is_binary(PackageName) and is_map(Config) ->
+add(Config, PackageName, UsernameOrEmail) when is_binary(PackageName) and is_binary(UsernameOrEmail) and is_map(Config) ->
     Path = hex_api:build_repository_path(Config, ["packages", PackageName, "owners", UsernameOrEmail]),
     hex_api:put(Config, Path, #{}).
 
-delete(Config, PackageName, UsernameOrEmail) when is_binary(PackageName) and is_map(Config) ->
+delete(Config, PackageName, UsernameOrEmail) when is_binary(PackageName) and is_binary(UsernameOrEmail) and is_map(Config) ->
     Path = hex_api:build_repository_path(Config, ["packages", PackageName, "owners", UsernameOrEmail]),
     hex_api:delete(Config, Path).
