@@ -1,5 +1,5 @@
 -module(hex_tarball).
--export([create/2, create_docs/1, unpack/2, format_checksum/1, format_error/1]).
+-export([create/2, create_docs/1, unpack/2, unpack_docs/2, format_checksum/1, format_error/1]).
 -ifdef(TEST).
 -export([do_decode_metadata/1, gzip/1, normalize_requirements/1]).
 -endif.
@@ -123,6 +123,42 @@ unpack(Tarball, _) when byte_size(Tarball) > ?TARBALL_MAX_SIZE ->
     {error, {tarball, too_big}};
 
 unpack(Tarball, Output) ->
+    case hex_erl_tar:extract({binary, Tarball}, [memory]) of
+        {ok, []} ->
+            {error, {tarball, empty}};
+
+        {ok, FileList} ->
+            do_unpack(maps:from_list(FileList), Output);
+
+        {error, Reason} ->
+            {error, {tarball, Reason}}
+    end.
+
+%% @doc
+%% Unpacks a documentation tarball.
+%%
+%% Examples:
+%%
+%% ```
+%% > hex_tarball:unpack_docs(Tarball, memory).
+%% {ok,#{checksum => <<...>>,
+%%       contents => [{"src/foo.erl",<<"-module(foo).">>}],
+%%       metadata => #{<<"name">> => <<"foo">>, ...}}}
+%%
+%% > hex_tarball:unpack_docs(Tarball, "path/to/unpack").
+%% {ok,#{checksum => <<...>>,
+%%       metadata => #{<<"name">> => <<"foo">>, ...}}}
+%% '''
+-spec unpack_docs(tarball(), memory) ->
+                {ok, #{checksum => checksum(), metadata => metadata(), contents => contents()}} |
+                {error, term()};
+            (tarball(), filename()) ->
+                {ok, #{checksum => checksum(), metadata => metadata()}} |
+                {error, term()}.
+unpack_docs(Tarball, _) when byte_size(Tarball) > ?TARBALL_MAX_SIZE ->
+    {error, {tarball, too_big}};
+
+unpack_docs(Tarball, Output) ->
     case hex_erl_tar:extract({binary, Tarball}, [memory]) of
         {ok, []} ->
             {error, {tarball, empty}};
