@@ -29,15 +29,18 @@
 %% @doc
 %% Creates a package tarball.
 %%
+%% Returns the binary of the tarball the "inner checksum" and "outer checksum".
+%% The inner checksum is deprecated in favor of the inner checksum.
+%%
 %% Examples:
 %%
 %% ```
 %% > Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
 %% > Files = [{"src/foo.erl", <<"-module(foo).">>}],
-%% > {ok, {Tarball, Checksum}} = hex_tarball:create(Metadata, Files).
+%% > {ok, {Tarball, InnerChecksum, OuterChecksum}} = hex_tarball:create(Metadata, Files).
 %% > Tarball.
 %% <<86,69,...>>
-%% > Checksum.
+%% > OuterChecksum.
 %% <<40,32,...>>
 %% '''
 %% @end
@@ -46,17 +49,18 @@ create(Metadata, Files) ->
     MetadataBinary = encode_metadata(Metadata),
     ContentsTarball = create_memory_tarball(Files),
     ContentsTarballCompressed = gzip(ContentsTarball),
-    Checksum = checksum(?VERSION, MetadataBinary, ContentsTarballCompressed),
-    ChecksumBase16 = encode_base16(Checksum),
+    InnerChecksum = inner_checksum(?VERSION, MetadataBinary, ContentsTarballCompressed),
+    InnerChecksumBase16 = encode_base16(InnerChecksum),
 
     OuterFiles = [
        {"VERSION", ?VERSION},
-       {"CHECKSUM", ChecksumBase16},
+       {"CHECKSUM", InnerChecksumBase16},
        {"metadata.config", MetadataBinary},
        {"contents.tar.gz", ContentsTarballCompressed}
     ],
 
     Tarball = create_memory_tarball(OuterFiles),
+    OuterChecksum = checksum(Tarball),
 
     UncompressedSize = byte_size(ContentsTarball),
 
@@ -65,7 +69,7 @@ create(Metadata, Files) ->
             {error, {tarball, too_big}};
 
         false ->
-            {ok, {Tarball, Checksum}}
+            {ok, {Tarball, InnerChecksum, OuterChecksum}}
     end.
 
 %% @doc
@@ -87,7 +91,6 @@ create_docs(Files) ->
     UncompressedTarball = create_memory_tarball(Files),
     UncompressedSize = byte_size(UncompressedTarball),
     Tarball = gzip(UncompressedTarball),
-    Checksum = checksum(Tarball),
     Size = byte_size(Tarball),
 
     case(Size > ?TARBALL_MAX_SIZE) or (UncompressedSize > ?TARBALL_MAX_UNCOMPRESSED_SIZE) of
@@ -95,22 +98,25 @@ create_docs(Files) ->
             {error, {tarball, too_big}};
 
         false ->
-            {ok, {Tarball, Checksum}}
+            {ok, {Tarball, checksum(Tarball)}}
     end.
 
 %% @doc
 %% Unpacks a package tarball.
 %%
+%% Remember to verify the outer tarball checksum against the registry checksum
+%% returned from `hex_repo:get_package(Config, Package)`.
+%%
 %% Examples:
 %%
 %% ```
 %% > hex_tarball:unpack(Tarball, memory).
-%% {ok,#{checksum => <<...>>,
+%% {ok,#{outer_checksum => <<...>>,
 %%       contents => [{"src/foo.erl",<<"-module(foo).">>}],
 %%       metadata => #{<<"name">> => <<"foo">>, ...}}}
 %%
 %% > hex_tarball:unpack(Tarball, "path/to/unpack").
-%% {ok,#{checksum => <<...>>,
+%% {ok,#{outer_checksum => <<...>>,
 %%       metadata => #{<<"name">> => <<"foo">>, ...}}}
 %% '''
 -spec unpack(tarball(), memory) ->
@@ -128,7 +134,8 @@ unpack(Tarball, Output) ->
             {error, {tarball, empty}};
 
         {ok, FileList} ->
-            do_unpack(maps:from_list(FileList), Output);
+            OuterChecksum = crypto:hash(sha256, Tarball),
+            do_unpack(maps:from_list(FileList), OuterChecksum, Output);
 
         {error, Reason} ->
             {error, {tarball, Reason}}
@@ -166,13 +173,12 @@ format_error({checksum_mismatch, ExpectedChecksum, ActualChecksum}) ->
 %% Internal functions
 %%====================================================================
 
-checksum(Version, MetadataBinary, ContentsBinary) ->
+inner_checksum(Version, MetadataBinary, ContentsBinary) ->
     Blob = <<Version/binary, MetadataBinary/binary, ContentsBinary/binary>>,
     crypto:hash(sha256, Blob).
 
-checksum(ContentsBinary) ->
-    Blob = <<ContentsBinary/binary>>,
-    crypto:hash(sha256, Blob).
+checksum(ContentsBinary) when is_binary(ContentsBinary) ->
+    crypto:hash(sha256, ContentsBinary).
 
 encode_metadata(Meta) ->
     Data = lists:map(
@@ -182,9 +188,10 @@ encode_metadata(Meta) ->
         end, maps:to_list(Meta)),
     iolist_to_binary(Data).
 
-do_unpack(Files, Output) ->
+do_unpack(Files, OuterChecksum, Output) ->
     State = #{
-        checksum => undefined,
+        inner_checksum => undefined,
+        outer_checksum => OuterChecksum,
         contents => undefined,
         files => Files,
         metadata => undefined,
@@ -192,23 +199,22 @@ do_unpack(Files, Output) ->
     },
     State1 = check_files(State),
     State2 = check_version(State1),
-    State3 = check_checksum(State2),
+    State3 = check_inner_checksum(State2),
     State4 = decode_metadata(State3),
     finish_unpack(State4).
 
 finish_unpack({error, _} = Error) ->
     Error;
-finish_unpack(#{metadata := Metadata, files := Files, output := Output}) ->
+finish_unpack(#{metadata := Metadata, files := Files, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum, output := Output}) ->
     _Version = maps:get("VERSION", Files),
-    Checksum = decode_base16(maps:get("CHECKSUM", Files)),
     ContentsBinary = maps:get("contents.tar.gz", Files),
     case unpack_tarball(ContentsBinary, Output) of
         ok ->
             copy_metadata_config(Output, maps:get("metadata.config", Files)),
-            {ok, #{checksum => Checksum, metadata => Metadata}};
+            {ok, #{inner_checksum => InnerChecksum, outer_checksum => OuterChecksum, metadata => Metadata}};
 
         {ok, Contents} ->
-            {ok, #{checksum => Checksum, metadata => Metadata, contents => Contents}};
+            {ok, #{inner_checksum => InnerChecksum, outer_checksum => OuterChecksum, metadata => Metadata, contents => Contents}};
 
         {error, Reason} ->
             {error, {inner_tarball, Reason}}
@@ -241,26 +247,27 @@ check_version(#{files := Files} = State) ->
             {error, {tarball, {bad_version, Version}}}
     end.
 
-check_checksum({error, _} = Error) ->
+% Note: This checksum is deprecated
+check_inner_checksum({error, _} = Error) ->
     Error;
-check_checksum(#{files := Files} = State) ->
+check_inner_checksum(#{files := Files} = State) ->
     ChecksumBase16 = maps:get("CHECKSUM", Files),
     ExpectedChecksum = decode_base16(ChecksumBase16),
 
     Version = maps:get("VERSION", Files),
     MetadataBinary = maps:get("metadata.config", Files),
     ContentsBinary = maps:get("contents.tar.gz", Files),
-    ActualChecksum = checksum(Version, MetadataBinary, ContentsBinary),
+    ActualChecksum = inner_checksum(Version, MetadataBinary, ContentsBinary),
 
     if
         byte_size(ExpectedChecksum) /= 32 ->
-            {error, {tarball, invalid_checksum}};
+            {error, {tarball, invalid_inner_checksum}};
 
         ExpectedChecksum == ActualChecksum ->
-            maps:put(checksum, ExpectedChecksum, State);
+            maps:put(inner_checksum, ExpectedChecksum, State);
 
         true ->
-            {error, {tarball, {checksum_mismatch, ExpectedChecksum, ActualChecksum}}}
+            {error, {tarball, {inner_checksum_mismatch, ExpectedChecksum, ActualChecksum}}}
     end.
 
 decode_metadata({error, _} = Error) ->

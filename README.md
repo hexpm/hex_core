@@ -91,13 +91,16 @@ Publish package tarball:
 Unpack package tarball:
 
 ```erlang
-{ok, #{checksum := Checksum, contents := Contents, metadata := Metadata}} = hex_tarball:unpack(Tarball, memory).
+{ok, #{outer_checksum := Checksum, contents := Contents, metadata := Metadata}} = hex_tarball:unpack(Tarball, memory).
 ```
+
+Remember to verify the outer tarball checksum against the registry checksum
+returned from `hex_repo:get_package(Config, Package)`.
 
 Create package tarball:
 
 ```erlang
-{ok, {Tarball, Checksum}} = hex_tarball:create(Metadata, Contents).
+{ok, {Tarball, InnerChecksum, OuterChecksum}} = hex_tarball:create(Metadata, Contents).
 ```
 
 ## Configuration
