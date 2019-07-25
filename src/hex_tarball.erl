@@ -37,11 +37,10 @@
 %% ```
 %% > Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
 %% > Files = [{"src/foo.erl", <<"-module(foo).">>}],
-%% > {ok, {Tarball, InnerChecksum, OuterChecksum}} = hex_tarball:create(Metadata, Files).
-%% > Tarball.
-%% <<86,69,...>>
-%% > OuterChecksum.
-%% <<40,32,...>>
+%% > hex_tarball:create(Metadata, Files).
+%% {ok, #{tarball => <<86,69,...>>,
+%%        outer_checksum => <<40,32,...>>,
+%%        inner_checksum => <<178,12,...>>}}
 %% '''
 %% @end
 -spec create(metadata(), files()) -> {ok, {tarball(), checksum()}}.
@@ -69,7 +68,7 @@ create(Metadata, Files) ->
             {error, {tarball, too_big}};
 
         false ->
-            {ok, {Tarball, InnerChecksum, OuterChecksum}}
+            {ok, #{tarball => Tarball, outer_checksum => OuterChecksum, inner_checksum => InnerChecksum}}
     end.
 
 %% @doc
@@ -79,11 +78,9 @@ create(Metadata, Files) ->
 %%
 %% ```
 %% > Files = [{"doc/index.html", <<"Docs">>}],
-%% > {ok, {Tarball, Checksum}} = hex_tarball:create_docs(Files).
-%% > Tarball.
-%% %%=> <<86,69,...>>
-%% > Checksum.
-%% %%=> <<40,32,...>>
+%% > hex_tarball:create_docs(Files).
+%% {ok, #{tarball => <<86,69,...>>,
+%%        checksum => <<40,32,...>>}
 %% '''
 %% @end
 -spec create_docs(files()) -> {ok, {tarball(), checksum()}}.
@@ -98,7 +95,7 @@ create_docs(Files) ->
             {error, {tarball, too_big}};
 
         false ->
-            {ok, {Tarball, checksum(Tarball)}}
+            {ok, #{tarball => Tarball, checksum => checksum(Tarball)}}
     end.
 
 %% @doc

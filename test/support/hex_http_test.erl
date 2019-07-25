@@ -89,7 +89,7 @@ fixture(get, <<?TEST_REPO_URL, "/tarballs/ecto-1.0.0.tar">>, _, _) ->
         <<"name">> => <<"ecto">>,
         <<"version">> => <<"1.0.0">>
     },
-    {ok, {Tarball, _InnerChecksum, _OuterChecksum}} = hex_tarball:create(Metadata, []),
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, []),
     {ok, {200, Headers, Tarball}};
 
 fixture(get, <<?TEST_REPO_URL, _/binary>>, _, _) ->

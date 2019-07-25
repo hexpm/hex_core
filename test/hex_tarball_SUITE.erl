@@ -21,7 +21,7 @@ memory_test(_Config) ->
       <<"build_tool">> => <<"rebar3">>
      },
     Contents = [{"src/foo.erl", <<"-module(foo).">>}],
-    {ok, {Tarball, InnerChecksum, OuterChecksum}} = hex_tarball:create(Metadata, Contents),
+    {ok, #{tarball := Tarball, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:create(Metadata, Contents),
     {ok, #{inner_checksum := InnerChecksum, outer_checksum := OuterChecksum, contents := Contents, metadata := Metadata}} = hex_tarball:unpack(Tarball, memory),
     ok.
 
@@ -41,7 +41,7 @@ disk_test(Config) ->
 
     Files = [{"empty", EmptyDir}, {"src", SrcDir}, {"src/foo.erl", Foo}],
     Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>, <<"build_tool">> => <<"rebar3">>},
-    {ok, {Tarball, InnerChecksum, OuterChecksum}} = hex_tarball:create(Metadata, Files),
+    {ok, #{tarball := Tarball, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:create(Metadata, Files),
     ?assertEqual(<<"6D47908182CC721920B2F2C1D5777ED9E9EDBD86A29638448D97588AA0419C98">>,
                  hex_tarball:format_checksum(OuterChecksum)),
     {ok, #{inner_checksum := InnerChecksum, outer_checksum := OuterChecksum, metadata := Metadata}} = hex_tarball:unpack(Tarball, UnpackDir),
@@ -69,7 +69,7 @@ timestamps_and_permissions_test(Config) ->
              {"foo.sh", Foo}
             ],
 
-    {ok, {Tarball, InnerChecksum, OuterChecksum}} = hex_tarball:create(Metadata, Files),
+    {ok, #{tarball := Tarball, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:create(Metadata, Files),
 
     %% inside tarball
     {ok, Files2} = hex_erl_tar:extract({binary, Tarball}, [memory]),
@@ -108,7 +108,7 @@ symlinks_test(Config) ->
              {"dir/bar.sh", BarSh}
             ],
 
-    {ok, {Tarball, InnerChecksum, OuterChecksum}} = hex_tarball:create(Metadata, Files),
+    {ok, #{tarball := Tarball, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:create(Metadata, Files),
     UnpackDir = filename:join(BaseDir, "symlinks"),
     {ok, #{inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:unpack(Tarball, UnpackDir),
     {ok, _} = file:read_link_info(filename:join([UnpackDir, "dir", "bar.sh"])),
@@ -118,13 +118,13 @@ build_tools_test(_Config) ->
     Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
     Contents = [],
 
-    {ok, {Tarball1, _, _}} = hex_tarball:create(maps:put(<<"files">>, [<<"Makefile">>], Metadata), Contents),
+    {ok, #{tarball := Tarball1}} = hex_tarball:create(maps:put(<<"files">>, [<<"Makefile">>], Metadata), Contents),
     {ok, #{metadata := #{<<"build_tools">> := [<<"make">>]}}} = hex_tarball:unpack(Tarball1, memory),
 
-    {ok, {Tarball2, _, _}} = hex_tarball:create(maps:put(<<"build_tools">>, [<<"mix">>], Metadata), Contents),
+    {ok, #{tarball := Tarball2}} = hex_tarball:create(maps:put(<<"build_tools">>, [<<"mix">>], Metadata), Contents),
     {ok, #{metadata := #{<<"build_tools">> := [<<"mix">>]}}} = hex_tarball:unpack(Tarball2, memory),
 
-    {ok, {Tarball3, _, _}} = hex_tarball:create(Metadata, Contents),
+    {ok, #{tarball := Tarball3}} = hex_tarball:create(Metadata, Contents),
     {ok, #{metadata := Metadata2}} = hex_tarball:unpack(Tarball3, memory),
     false = maps:is_key(<<"build_tools">>, Metadata2),
 
@@ -187,7 +187,7 @@ decode_metadata_test(_Config) ->
 
 unpack_error_handling_test(_Config) ->
     Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
-    {ok, {Tarball, InnerChecksum, OuterChecksum}} = hex_tarball:create(Metadata, [{"rebar.config", <<"">>}]),
+    {ok, #{tarball := Tarball, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:create(Metadata, [{"rebar.config", <<"">>}]),
     {ok, #{inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:unpack(Tarball, memory),
     {ok, OuterFileList} = hex_erl_tar:extract({binary, Tarball}, [memory]),
     OuterFiles = maps:from_list(OuterFileList),
@@ -230,7 +230,7 @@ unpack_error_handling_test(_Config) ->
 
 docs_test(_Config) ->
     Files = [{"doc/index.html", <<"Docs">>}],
-    {ok, {Tarball, _Checksum}} = hex_tarball:create_docs(Files),
+    {ok, #{tarball := Tarball, checksum := _Checksum}} = hex_tarball:create_docs(Files),
 
     %% TODO: add hex_tarball:unpack_docs/2
     Tarball2 = zlib:gunzip(Tarball),
