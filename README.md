@@ -100,7 +100,9 @@ returned from `hex_repo:get_package(Config, Package)`.
 Create package tarball:
 
 ```erlang
-{ok, {Tarball, InnerChecksum, OuterChecksum}} = hex_tarball:create(Metadata, Contents).
+{ok, #{tarball := Tarball,
+       inner_checksum := InnerChecksum,
+       outer_checksum := OuterChecksum}} = hex_tarball:create(Metadata, Contents).
 ```
 
 ## Configuration
