@@ -153,7 +153,6 @@ format_checksum(Checksum) ->
 format_error({tarball, empty}) -> "empty tarball";
 format_error({tarball, too_big}) -> "tarball is too big";
 format_error({tarball, {missing_files, Files}}) -> io_lib:format("missing files: ~p", [Files]);
-format_error({tarball, {invalid_files, Files}}) -> io_lib:format("invalid files: ~p", [Files]);
 format_error({tarball, {bad_version, Vsn}}) -> io_lib:format("unsupported version: ~p", [Vsn]);
 format_error({tarball, invalid_checksum}) -> "invalid tarball checksum";
 format_error({tarball, Reason}) -> "tarball error, " ++ hex_erl_tar:format_error(Reason);
@@ -230,10 +229,7 @@ check_files(#{files := Files} = State) ->
             State;
 
         {error, {missing_keys, Keys}} ->
-            {error, {tarball, {missing_files, Keys}}};
-
-        {error, {unknown_keys, Keys}} ->
-            {error, {tarball, {invalid_files, Keys}}}
+            {error, {tarball, {missing_files, Keys}}}
     end.
 
 check_version({error, _} = Error) ->
@@ -471,8 +467,9 @@ diff_keys(Map, RequiredKeys, OptionalKeys) ->
         {[], []} ->
             ok;
 
-        {_, [_ | _]} ->
-            {error, {unknown_keys, UnknownKeys}};
+        % Server should validate this but clients should not
+        % {_, [_ | _]} ->
+        %     {error, {unknown_keys, UnknownKeys}};
 
         _ ->
             {error, {missing_keys, MissingKeys}}

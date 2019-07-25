@@ -201,9 +201,6 @@ unpack_error_handling_test(_Config) ->
     {error, {tarball, {missing_files, ["VERSION", "CHECKSUM"]}}} =
         unpack_files(#{"metadata.config" => <<"">>, "contents.tar.gz" => <<"">>}),
 
-    {error, {tarball, {invalid_files, ["invalid.txt"]}}} =
-        unpack_files(#{"invalid.txt" => <<"">>}),
-
     {error, {tarball, {bad_version, <<"1">>}}} =
         unpack_files(OuterFiles#{"VERSION" => <<"1">>}),
 
