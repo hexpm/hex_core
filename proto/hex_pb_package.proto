@@ -13,7 +13,7 @@ message Release {
   // Release version
   required string version = 1;
   // sha256 checksum of "inner" package tarball
-  // this field is deprecated in favor of outer_checksum
+  // deprecated in favor of outer_checksum
   required bytes inner_checksum = 2;
   // All dependencies of the release
   repeated Dependency dependencies = 3;
@@ -21,7 +21,8 @@ message Release {
   // resolved if it has already been locked in a project
   optional RetirementStatus retired = 4;
   // sha256 checksum of outer package tarball
-  required bytes outer_checksum = 5;
+  // required when encoding but optional when decoding
+  optional bytes outer_checksum = 5;
 }
 
 message RetirementStatus {

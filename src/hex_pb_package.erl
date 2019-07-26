@@ -37,9 +37,9 @@
 -type 'Release'() ::
       #{version                 => iodata(),        % = 1
         inner_checksum          => iodata(),        % = 2
-        dependencies            => ['Dependency'()], % = 3
-        %% retired              => 'RetirementStatus'(), % = 4
-        outer_checksum          => iodata()         % = 5
+        dependencies            => ['Dependency'()] % = 3
+        %% retired              => 'RetirementStatus'() % = 4
+        %% outer_checksum       => iodata()         % = 5
        }.
 -type 'RetirementStatus'() ::
       #{reason                  => 'RETIRED_OTHER' | 'RETIRED_INVALID' | 'RETIRED_SECURITY' | 'RETIRED_DEPRECATED' | 'RETIRED_RENAMED' | integer() % = 1, enum RetirementReason
@@ -100,8 +100,7 @@ e_msg_Release(Msg, TrUserData) ->
     e_msg_Release(Msg, <<>>, TrUserData).
 
 
-e_msg_Release(#{version := F1, inner_checksum := F2,
-		outer_checksum := F5} =
+e_msg_Release(#{version := F1, inner_checksum := F2} =
 		  M,
 	      Bin, TrUserData) ->
     B1 = begin
@@ -130,9 +129,13 @@ e_msg_Release(#{version := F1, inner_checksum := F2,
 	       end;
 	   _ -> B3
 	 end,
-    begin
-      TrF5 = id(F5, TrUserData),
-      e_type_bytes(TrF5, <<B4/binary, 42>>)
+    case M of
+      #{outer_checksum := F5} ->
+	  begin
+	    TrF5 = id(F5, TrUserData),
+	    e_type_bytes(TrF5, <<B4/binary, 42>>)
+	  end;
+      _ -> B4
     end.
 
 e_msg_RetirementStatus(Msg, TrUserData) ->
@@ -486,10 +489,12 @@ dfp_read_field_def_Release(<<42, Rest/binary>>, Z1, Z2,
 dfp_read_field_def_Release(<<>>, 0, 0, F@_1, F@_2, R1,
 			   F@_4, F@_5, TrUserData) ->
     S1 = #{version => F@_1, inner_checksum => F@_2,
-	   dependencies => lists_reverse(R1, TrUserData),
-	   outer_checksum => F@_5},
-    if F@_4 == '$undef' -> S1;
-       true -> S1#{retired => F@_4}
+	   dependencies => lists_reverse(R1, TrUserData)},
+    S2 = if F@_4 == '$undef' -> S1;
+	    true -> S1#{retired => F@_4}
+	 end,
+    if F@_5 == '$undef' -> S2;
+       true -> S2#{outer_checksum => F@_5}
     end;
 dfp_read_field_def_Release(Other, Z1, Z2, F@_1, F@_2,
 			   F@_3, F@_4, F@_5, TrUserData) ->
@@ -542,10 +547,12 @@ dg_read_field_def_Release(<<0:1, X:7, Rest/binary>>, N,
 dg_read_field_def_Release(<<>>, 0, 0, F@_1, F@_2, R1,
 			  F@_4, F@_5, TrUserData) ->
     S1 = #{version => F@_1, inner_checksum => F@_2,
-	   dependencies => lists_reverse(R1, TrUserData),
-	   outer_checksum => F@_5},
-    if F@_4 == '$undef' -> S1;
-       true -> S1#{retired => F@_4}
+	   dependencies => lists_reverse(R1, TrUserData)},
+    S2 = if F@_4 == '$undef' -> S1;
+	    true -> S1#{retired => F@_4}
+	 end,
+    if F@_5 == '$undef' -> S2;
+       true -> S2#{outer_checksum => F@_5}
     end.
 
 d_field_Release_version(<<1:1, X:7, Rest/binary>>, N,
@@ -1139,13 +1146,11 @@ merge_msg_Package(#{} = PMsg,
 
 merge_msg_Release(#{} = PMsg,
 		  #{version := NFversion,
-		    inner_checksum := NFinner_checksum,
-		    outer_checksum := NFouter_checksum} =
+		    inner_checksum := NFinner_checksum} =
 		      NMsg,
 		  TrUserData) ->
     S1 = #{version => NFversion,
-	   inner_checksum => NFinner_checksum,
-	   outer_checksum => NFouter_checksum},
+	   inner_checksum => NFinner_checksum},
     S2 = case {PMsg, NMsg} of
 	   {#{dependencies := PFdependencies},
 	    #{dependencies := NFdependencies}} ->
@@ -1158,16 +1163,23 @@ merge_msg_Release(#{} = PMsg,
 	       S1#{dependencies => PFdependencies};
 	   {_, _} -> S1
 	 end,
+    S3 = case {PMsg, NMsg} of
+	   {#{retired := PFretired}, #{retired := NFretired}} ->
+	       S2#{retired =>
+		       merge_msg_RetirementStatus(PFretired, NFretired,
+						  TrUserData)};
+	   {_, #{retired := NFretired}} ->
+	       S2#{retired => NFretired};
+	   {#{retired := PFretired}, _} ->
+	       S2#{retired => PFretired};
+	   {_, _} -> S2
+	 end,
     case {PMsg, NMsg} of
-      {#{retired := PFretired}, #{retired := NFretired}} ->
-	  S2#{retired =>
-		  merge_msg_RetirementStatus(PFretired, NFretired,
-					     TrUserData)};
-      {_, #{retired := NFretired}} ->
-	  S2#{retired => NFretired};
-      {#{retired := PFretired}, _} ->
-	  S2#{retired => PFretired};
-      {_, _} -> S2
+      {_, #{outer_checksum := NFouter_checksum}} ->
+	  S3#{outer_checksum => NFouter_checksum};
+      {#{outer_checksum := PFouter_checksum}, _} ->
+	  S3#{outer_checksum => PFouter_checksum};
+      _ -> S3
     end.
 
 merge_msg_RetirementStatus(#{} = PMsg,
@@ -1258,8 +1270,7 @@ v_msg_Package(M, Path, _TrUserData) when is_map(M) ->
 v_msg_Package(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'Package'}, X, Path).
 
-v_msg_Release(#{version := F1, inner_checksum := F2,
-		outer_checksum := F5} =
+v_msg_Release(#{version := F1, inner_checksum := F2} =
 		  M,
 	      Path, TrUserData) ->
     v_type_string(F1, [version | Path]),
@@ -1283,7 +1294,11 @@ v_msg_Release(#{version := F1, inner_checksum := F2,
 				 TrUserData);
       _ -> ok
     end,
-    v_type_bytes(F5, [outer_checksum | Path]),
+    case M of
+      #{outer_checksum := F5} ->
+	  v_type_bytes(F5, [outer_checksum | Path]);
+      _ -> ok
+    end,
     lists:foreach(fun (version) -> ok;
 		      (inner_checksum) -> ok;
 		      (dependencies) -> ok;
@@ -1296,9 +1311,7 @@ v_msg_Release(#{version := F1, inner_checksum := F2,
     ok;
 v_msg_Release(M, Path, _TrUserData) when is_map(M) ->
     mk_type_error({missing_fields,
-		   [version, inner_checksum, outer_checksum] --
-		     maps:keys(M),
-		   'Release'},
+		   [version, inner_checksum] -- maps:keys(M), 'Release'},
 		  M, Path);
 v_msg_Release(X, Path, _TrUserData) ->
     mk_type_error({expected_msg, 'Release'}, X, Path).
@@ -1457,7 +1470,7 @@ get_msg_defs() ->
 	 type => {msg, 'RetirementStatus'},
 	 occurrence => optional, opts => []},
        #{name => outer_checksum, fnum => 5, rnum => 6,
-	 type => bytes, occurrence => required, opts => []}]},
+	 type => bytes, occurrence => optional, opts => []}]},
      {{msg, 'RetirementStatus'},
       [#{name => reason, fnum => 1, rnum => 2,
 	 type => {enum, 'RetirementReason'},
@@ -1527,7 +1540,7 @@ find_msg_def('Release') ->
        type => {msg, 'RetirementStatus'},
        occurrence => optional, opts => []},
      #{name => outer_checksum, fnum => 5, rnum => 6,
-       type => bytes, occurrence => required, opts => []}];
+       type => bytes, occurrence => optional, opts => []}];
 find_msg_def('RetirementStatus') ->
     [#{name => reason, fnum => 1, rnum => 2,
        type => {enum, 'RetirementReason'},
