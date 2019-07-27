@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 0.6.0 (2019-07-27)
+
+* **Backwards-incompatible**: Change successful return value of `hex_tarball:create/2` from
+  `{ok, {Tarball, Checksum}}` to `{ok, Map}`. Currently, `Map` has `tarball`, `inner_tarball`,
+  and `outer_tarball` keys
+* Rename existing tarball checksum to inner checksum and deprecate it
+* Add tarball outer checksum
+* Do not allow comments in `safe_erl_term`
+* Forward compatible tarball contents by not failing on unknown files
+
 ## 0.5.0 (2019-02-26)
 
 * Fetch package data from proper repository organization and don't verify origin if configured
