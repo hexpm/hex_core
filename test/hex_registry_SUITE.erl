@@ -54,7 +54,8 @@ package_test(_Config) ->
     Releases = [
         #{
             version => <<"1.0.0">>,
-            checksum => <<"some checksum">>,
+            inner_checksum => <<"some checksum">>,
+            outer_checksum => <<"some checksum">>,
             dependencies => [
                 #{
                     package => <<"foo">>,
