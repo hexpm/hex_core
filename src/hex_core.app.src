@@ -3,7 +3,7 @@
   {vsn, "0.5.0"},
   {registered, []},
   {applications, [kernel, stdlib]},
-  {licenses, ["Apache 2.0"]},
+  {licenses, ["Apache-2.0"]},
   {links, [
     {"GitHub", "https://github.com/hexpm/hex_core"},
     {"Hex specifications", "https://github.com/hexpm/specifications"}
