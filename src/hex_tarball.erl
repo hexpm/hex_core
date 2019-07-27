@@ -1,5 +1,5 @@
 -module(hex_tarball).
--export([create/2, create_docs/1, unpack/2, unpack_docs/2, format_checksum/1, format_error/1]).
+-export([create/2, create_docs/1, unpack/2, unpack_docs/2, format_checksum/1, format_error/1, format_error/2, format_errors/2]).
 -ifdef(TEST).
 -export([do_decode_metadata/1, gzip/1, normalize_requirements/1]).
 -endif.
@@ -13,6 +13,45 @@
     {<<"Makefile">>, <<"make">>},
     {<<"Makefile.win">>, <<"make">>}
 ]).
+
+-define(DEPRECATED_META_FIELDS, [
+    <<"maintainers">>,
+    <<"contributors">>
+]).
+
+-define(META_FIELDS, [
+    <<"name">>,
+    <<"version">>,
+    <<"elixir">>,
+    <<"app">>,
+    <<"description">>,
+    <<"files">>,
+    <<"licenses">>,
+    <<"links">>,
+    <<"requirements">>,
+    <<"build_tools">>,
+    <<"extra">>
+]).
+
+-define(REQUIRED_META_FIELDS, [
+    <<"name">>,
+    <<"version">>,
+    <<"app">>,
+    <<"description">>,
+    <<"requirements">>,
+    <<"files">>,
+    <<"licenses">>,
+    <<"build_tools">>
+]).
+
+
+-define(META_VALIDATIONS, [
+    has_semver,
+    has_deprecated,
+    has_unknown,
+    has_required
+]).
+
 -include_lib("kernel/include/file.hrl").
 
 -type checksum() :: binary().
@@ -20,7 +59,13 @@
 -type filename() :: string().
 -type files() :: [filename() | {filename(), filename()}] | contents().
 -type metadata() :: map().
--type tarball() :: binary().
+-type warnings() :: [{atom(), binary()}].
+-type errors() :: [{atom(), binary()}].
+-type tarball() :: #{ inner_checksum => binary(),
+                      outer_checksum => binary(),
+                      tarball        => binary(),
+                      warnings       => warnings()
+                    }.
 
 %%====================================================================
 %% API functions
@@ -43,8 +88,32 @@
 %%        inner_checksum => <<178,12,...>>}}
 %% '''
 %% @end
--spec create(metadata(), files()) -> {ok, {tarball(), checksum()}}.
+-spec create(metadata(), files()) -> {ok, tarball()} | {error, errors(), warnings()}.
 create(Metadata, Files) ->
+    Normalized = normalize_metadata(Metadata),
+    case is_valid_meta(Normalized) of
+        {[], Warnings} ->
+             Metadata1 = filter_metadata([unknown, deprecated], Metadata, Warnings),
+            {ok, Res} = create_tarball(Metadata1, Files),
+            Final = maps:put(warnings, Warnings, Res),
+            {ok, Final};
+        Res ->
+            {error, Res}
+    end.
+
+filter_metadata(Types, Meta, Unwanted) ->
+  lists:foldl(fun({K, T}, Acc) ->
+                  case lists:member(T, Types) of
+                    true ->
+                      maps:remove(K, Meta);
+                    false ->
+                      Acc
+                  end
+              end,
+              Meta,
+              Unwanted).
+
+create_tarball(Metadata, Files) ->
     MetadataBinary = encode_metadata(Metadata),
     ContentsTarball = create_memory_tarball(Files),
     ContentsTarballCompressed = gzip(ContentsTarball),
@@ -183,6 +252,19 @@ format_error({checksum_mismatch, ExpectedChecksum, ActualChecksum}) ->
         "Expected (base16-encoded): ~s~n" ++
         "Actual   (base16-encoded): ~s",
         [encode_base16(ExpectedChecksum), encode_base16(ActualChecksum)]).
+
+format_error(_Metadata, {is_required, Field}) -> <<Field/binary, <<" is a required metadata field">>/binary >>;
+format_error(_Metadata, {unknown_field, Field}) ->
+    <<Field/binary, <<" is an unknown metadata field and will be ignored">>/binary >>;
+format_error(_Metadata, {deprecated, Field}) ->
+    <<Field/binary, <<" is a deprecated metadata field and will be ignored">>/binary >>;
+format_error(_Metadata, {invalid, <<"version">>}) ->
+  <<"the package version in the metadata is not a valid semantic version">>.
+
+format_errors(Metadata, {error, Errors, Warnings}) ->
+  Collect = fun(Err, Acc) ->
+                Acc ++ [format_error(Metadata, Err)] end,
+  lists:foldl(Collect, [], Errors ++ Warnings).
 
 %%====================================================================
 %% Internal functions
@@ -523,3 +605,64 @@ unhex(D) when $a =< D andalso D =< $f ->
     10 + D - $a;
 unhex(D) when $A =< D andalso D =< $F ->
     10 + D - $A.
+
+%%====================================================================
+%% Meta-Validation
+%%====================================================================
+-spec is_valid_meta(metadata()) -> {ok, errors(), warnings()}.
+is_valid_meta(Metadata) ->
+    F = fun(K, {Warnings, Errors} = Acc) ->
+            case validate_meta(K, Metadata) of
+                ok ->
+                    Acc;
+                {warning, Warns} ->
+                    {Errors, Warns ++ Warnings};
+                {error, Errs} ->
+                    {Errs ++ Errors, Warnings}
+            end
+        end,
+    lists:foldl(F, {[], []}, ?META_VALIDATIONS).
+
+validate_meta(has_semver, #{<<"version">> := Ver}) ->
+     case hex_version:parse(Ver) of
+       {error, invalid_version} ->
+             {error, [{invalid, <<"version">>}]};
+         _ ->
+          ok
+     end;
+validate_meta(has_deprecated, Metadata) ->
+    Keys = maps:keys(Metadata),
+    Fields = ?DEPRECATED_META_FIELDS,
+    search_and_report_for(warning, deprecated, Fields, in, Keys);
+validate_meta(has_unknown, Metadata) ->
+    Keys = maps:keys(Metadata),
+    Fields = ?META_FIELDS ++ ?REQUIRED_META_FIELDS ++ ?DEPRECATED_META_FIELDS,
+    search_and_report_for(warning, unknown_field, Fields, not_in, Keys);
+validate_meta(has_required, Metadata) ->
+     Keys = maps:keys(Metadata),
+     Fields = ?REQUIRED_META_FIELDS,
+     search_and_report_for(error, is_required, Keys, not_in, Fields).
+
+search_and_report_for(Type, Msg, Criteria, Op, List) ->
+    case search_meta_fields(Msg, Criteria, Op, List) of
+        [] ->
+            ok;
+        Results ->
+            {Type, Results}
+    end.
+
+search_meta_fields(Msg, Criteria, Op, List) ->
+    Pred = fun(X) ->
+                case Op of
+                    not_in ->
+                        not lists:member(X, Criteria);
+                    in ->
+                        lists:member(X, Criteria)
+                end
+            end,
+    case lists:filter(Pred, List) of
+         L when length(L) >= 1 ->
+             lists:foldl(fun(X, Acc) ->  Acc ++ [{Msg, X}] end, [], L);
+         Empty ->
+            Empty
+     end.

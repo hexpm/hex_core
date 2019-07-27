@@ -87,7 +87,13 @@ fixture(get, <<?TEST_REPO_URL, "/tarballs/ecto-1.0.0.tar">>, _, _) ->
     },
     Metadata = #{
         <<"name">> => <<"ecto">>,
-        <<"version">> => <<"1.0.0">>
+          <<"app">>  => <<"ecto">>,
+        <<"version">> => <<"1.0.0">>,
+        <<"build_tools">> => <<"mix">>,
+        <<"files">> => [],
+        <<"licenses">> => [<<"MIT">>],
+        <<"description">> => <<"Ecto is not your ORM">>,
+        <<"requirements">> => []
     },
     {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, []),
     {ok, {200, Headers, Tarball}};
