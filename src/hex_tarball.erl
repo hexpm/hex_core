@@ -91,7 +91,7 @@
 -spec create(metadata(), files()) -> {ok, tarball()} | {error, errors(), warnings()}.
 create(Metadata, Files) ->
     Normalized = normalize_metadata(Metadata),
-    case is_valid_meta(Normalized) of
+    case valid_meta(Normalized) of
         {[], Warnings} ->
              Metadata1 = filter_metadata([unknown, deprecated], Metadata, Warnings),
             {ok, Res} = create_tarball(Metadata1, Files),
@@ -609,10 +609,10 @@ unhex(D) when $A =< D andalso D =< $F ->
 %%====================================================================
 %% Meta-Validation
 %%====================================================================
--spec is_valid_meta(metadata()) -> {ok, errors(), warnings()}.
-is_valid_meta(Metadata) ->
+-spec valid_meta(metadata()) -> {errors(), warnings()}.
+valid_meta(Metadata) ->
     F = fun(K, {Warnings, Errors} = Acc) ->
-            case validate_meta(K, Metadata) of
+            case valid_meta_field(K, Metadata) of
                 ok ->
                     Acc;
                 {warning, Warns} ->
@@ -623,22 +623,22 @@ is_valid_meta(Metadata) ->
         end,
     lists:foldl(F, {[], []}, ?META_VALIDATIONS).
 
-validate_meta(has_semver, #{<<"version">> := Ver}) ->
+valid_meta_field(has_semver, #{<<"version">> := Ver}) ->
      case hex_version:parse(Ver) of
        {error, invalid_version} ->
              {error, [{invalid, <<"version">>}]};
          _ ->
           ok
      end;
-validate_meta(has_deprecated, Metadata) ->
+valid_meta_field(has_deprecated, Metadata) ->
     Keys = maps:keys(Metadata),
     Fields = ?DEPRECATED_META_FIELDS,
     search_and_report_for(warning, deprecated, Fields, in, Keys);
-validate_meta(has_unknown, Metadata) ->
+valid_meta_field(has_unknown, Metadata) ->
     Keys = maps:keys(Metadata),
     Fields = ?META_FIELDS ++ ?REQUIRED_META_FIELDS ++ ?DEPRECATED_META_FIELDS,
     search_and_report_for(warning, unknown_field, Fields, not_in, Keys);
-validate_meta(has_required, Metadata) ->
+valid_meta_field(has_required, Metadata) ->
      Keys = maps:keys(Metadata),
      Fields = ?REQUIRED_META_FIELDS,
      search_and_report_for(error, is_required, Keys, not_in, Fields).
