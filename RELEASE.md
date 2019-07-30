@@ -10,13 +10,13 @@
 
 5. Create GitHub release: `open "https://github.com/hexpm/hex_core/releases/new?title=v$VERSION&tag=v$VERSION&body=content%0Afrom%0Achangelog"`
 
-6. `rm rm src/safe_erl_term.erl`
+6. `rm src/safe_erl_term.erl`
 
 7. Spot check docs: `rebar3 as docs edoc`
 
-8. Publish docs: `rebar3 hex docs`
+8. Publish package: `rebar3 hex publish`
 
-9. Publish package: `rebar3 hex publish`
+9. Publish docs: `rebar3 hex docs`
 
 ## Places where version is mentioned
 

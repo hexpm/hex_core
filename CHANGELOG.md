@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.6.1 (2019-07-30)
+
+* Fix bug when publishing with configuration that does not have `repo_organization` key set
+
 ## 0.6.0 (2019-07-27)
 
 * **Backwards-incompatible**: Change successful return value of `hex_tarball:create/2` from
@@ -9,6 +13,10 @@
 * Add tarball outer checksum
 * Do not allow comments in `safe_erl_term`
 * Forward compatible tarball contents by not failing on unknown files
+
+## 0.5.1 (2019-07-30)
+
+* Fix bug when publishing with configuration that does not have `repo_organization` key set
 
 ## 0.5.0 (2019-02-26)
 
