@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.5.1 (2019-07-30)
+
+* Fix bug when publishing with configuration that does not have `repo_organization` key set
+
 ## 0.5.0 (2019-02-26)
 
 * Fetch package data from proper repository organization and don't verify origin if configured
