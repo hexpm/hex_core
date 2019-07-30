@@ -159,7 +159,9 @@ tarball_url(Config, Name, Version) ->
 build_url(#{repo_url := URI, repo_organization := Org}, Path) when is_binary(Org) ->
     <<URI/binary, "/repos/", Org/binary, "/", Path/binary>>;
 build_url(#{repo_url := URI, repo_organization := undefined}, Path) ->
-    <<URI/binary, "/", Path/binary>>.
+    <<URI/binary, "/", Path/binary>>;
+build_url(Config, Path) ->
+    build_url(Config#{repo_organization => undefined}, Path).
 
 tarball_filename(Name, Version) ->
     <<Name/binary, "-", Version/binary, ".tar">>.
