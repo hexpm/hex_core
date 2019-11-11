@@ -6,7 +6,7 @@
 ]).
 
 %% @doc
-%% Lists all organzations you are member of.
+%% Lists all organizations you are member of.
 %%
 %% Examples:
 %%
