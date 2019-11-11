@@ -7,44 +7,116 @@
     unretire/3
 ]).
 
+-export_type([retirement_params/0, retirement_reason/0]).
+
+-type retirement_reason() :: other | invalid | security | deprecated | renamed.
+-type retirement_params() :: #{reason := retirement_reason(), message => binary()}.
+
 %% @doc
-%% Gets package release.
+%% Gets a package release.
 %%
 %% Examples:
 %%
 %% ```
-%% > hex_api:get_release(<<"package">>, <<"1.0.0">>, hex_core:default_config()).
+%% > hex_api_release:get(hex_core:default_config(), <<"package">>, <<"1.0.0">>).
 %% {ok, {200, ..., #{
-%%     <<"version">> => <<"1.0.0">>,
-%%     <<"meta">> => #{
-%%         <<"description">> => ...,
-%%         <<"licenses">> => ...,
-%%         <<"links">> => ...,
-%%         <<"maintainers">> => ...
-%%     },
-%%     ...}}}
+%%      <<"checksum">> => <<"540d210d81f56f17f64309a4896430e727972499b37bd59342dc08d61dff74d8">>,
+%%      <<"docs_html_url">> => <<"https://hexdocs.pm/package/1.0.0/">>,
+%%      <<"downloads">> => 740,<<"has_docs">> => true,
+%%      <<"html_url">> => <<"https://hex.pm/packages/package/1.0.0">>,
+%%      <<"inserted_at">> => <<"2014-12-09T18:32:03Z">>,
+%%      <<"meta">> =>
+%%          #{<<"app">> => <<"package">>,
+%%            <<"build_tools">> => [<<"mix">>]},
+%%      <<"package_url">> => <<"https://hex.pm/api/packages/package">>,
+%%      <<"publisher">> => nil,<<"requirements">> => #{},
+%%      <<"retirement">> => nil,
+%%      <<"updated_at">> => <<"2019-07-28T21:12:11Z">>,
+%%      <<"url">> => <<"https://hex.pm/api/packages/package/releases/1.0.0">>,
+%%      <<"version">> => <<"1.0.0">>
+%%      }}}
 %% '''
 %% @end
-get(Config, Name, Version) when is_binary(Name) and is_binary(Version) and is_map(Config) ->
+-spec get(hex_core:config(), binary(), binary()) -> hex_api:response().
+get(Config, Name, Version) when is_map(Config) and is_binary(Name) and is_binary(Version) ->
     Path = hex_api:build_repository_path(Config, ["packages", Name, "releases", Version]),
     hex_api:get(Config, Path).
 
-publish(Config, Tarball) when is_binary(Tarball) and is_map(Config) ->
+%% @doc
+%% Publishes a new package release.
+%%
+%% Examples:
+%%
+%% ```
+%% > hex_api_release:publish(hex_core:default_config(), Tarball).
+%% {ok, {200, ..., #{
+%%      <<"checksum">> => <<"540d210d81f56f17f64309a4896430e727972499b37bd59342dc08d61dff74d8">>,
+%%      <<"docs_html_url">> => <<"https://hexdocs.pm/package/1.0.0/">>,
+%%      <<"downloads">> => 740,<<"has_docs">> => true,
+%%      <<"html_url">> => <<"https://hex.pm/packages/package/1.0.0">>,
+%%      <<"inserted_at">> => <<"2014-12-09T18:32:03Z">>,
+%%      <<"meta">> =>
+%%          #{<<"app">> => <<"package">>,
+%%            <<"build_tools">> => [<<"mix">>]},
+%%      <<"package_url">> => <<"https://hex.pm/api/packages/package">>,
+%%      <<"publisher">> => nil,<<"requirements">> => #{},
+%%      <<"retirement">> => nil,
+%%      <<"updated_at">> => <<"2019-07-28T21:12:11Z">>,
+%%      <<"url">> => <<"https://hex.pm/api/packages/package/releases/1.0.0">>,
+%%      <<"version">> => <<"1.0.0">>
+%%      }}}
+%% '''
+%% @end
+-spec publish(hex_core:config(), binary()) -> hex_api:response().
+publish(Config, Tarball) when is_map(Config) and is_binary(Tarball) ->
     Path = hex_api:build_repository_path(Config, ["publish"]),
     TarballContentType = "application/octet-stream",
     Config2 = put_header(<<"content-length">>, integer_to_binary(byte_size(Tarball)), Config),
     Body = {TarballContentType, Tarball},
     hex_api:post(Config2, Path, Body).
 
-delete(Config, Name, Version) when is_binary(Name) and is_binary(Version) and is_map(Config) ->
+%% @doc
+%% Deletes a package release.
+%%
+%% Examples:
+%%
+%% ```
+%% > hex_api_release:delete(hex_core:default_config(), <<"package">>, <<"1.0.0">>).
+%% {ok, {204, ..., nil}}
+%% '''
+%% @end
+-spec delete(hex_core:config(), binary(), binary()) -> hex_api:response().
+delete(Config, Name, Version) when is_map(Config) and is_binary(Name) and is_binary(Version) ->
     Path = hex_api:build_repository_path(Config, ["packages", Name, "releases", Version]),
     hex_api:delete(Config, Path).
 
-retire(Config, Name, Version, Params) when is_binary(Name) and is_binary(Version) and is_map(Config) ->
+%% @doc
+%% Retires a package release.
+%%
+%% Examples:
+%%
+%% ```
+%% > hex_api_release:retire(hex_core:default_config(), <<"package">>, <<"1.0.0">>, Params).
+%% {ok, {204, ..., nil}}
+%% '''
+%% @end
+-spec retire(hex_core:config(), binary(), binary(), retirement_params()) -> hex_api:response().
+retire(Config, Name, Version, Params) when is_map(Config) and is_binary(Name) and is_binary(Version) ->
     Path = hex_api:build_repository_path(Config, ["packages", Name, "releases", Version, "retire"]),
     hex_api:post(Config, Path, Params).
 
-unretire(Config, Name, Version) when is_binary(Name) and is_binary(Version) and is_map(Config) ->
+%% @doc
+%% Unretires a package release.
+%%
+%% Examples:
+%%
+%% ```
+%% > hex_api_release:unretire(hex_core:default_config(), <<"package">>, <<"1.0.0">>).
+%% {ok, {204, ..., nil}}
+%% '''
+%% @end
+-spec unretire(hex_core:config(), binary(), binary()) -> hex_api:response().
+unretire(Config, Name, Version) when is_map(Config) and is_binary(Name) and is_binary(Version) ->
     Path = hex_api:build_repository_path(Config, ["packages", Name, "releases", Version, "retire"]),
     hex_api:delete(Config, Path).
 
