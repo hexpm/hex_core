@@ -2,7 +2,7 @@
 -export([get/2, search/3]).
 
 %% @doc
-%% Gets package.
+%% Gets a package.
 %%
 %% Examples:
 %%
@@ -24,7 +24,8 @@
 %%     ]}}}
 %% '''
 %% @end
-get(Config, Name) when is_binary(Name) and is_map(Config) ->
+-spec get(hex_core:config(), binary()) -> hex_api:response().
+get(Config, Name) when is_map(Config) and is_binary(Name)->
     Path = hex_api:build_repository_path(Config, ["packages", Name]),
     hex_api:get(Config, Path).
 
@@ -40,7 +41,8 @@ get(Config, Name) when is_binary(Name) and is_map(Config) ->
 %%     ...
 %% ]}}
 %% '''
-search(Config, Query, SearchParams) when is_binary(Query) and is_list(SearchParams) and is_map(Config) ->
+-spec search(hex_core:config(), binary(), list(binary())) -> hex_api:response().
+search(Config, Query, SearchParams) when is_map(Config) and is_binary(Query) and is_list(SearchParams) ->
     QueryString = hex_api:encode_query_string([{search, Query} | SearchParams]),
     Path = hex_api:join_path_segments(hex_api:build_repository_path(Config, ["packages"])),
     PathQuery = <<Path/binary, "?", QueryString/binary>>,
