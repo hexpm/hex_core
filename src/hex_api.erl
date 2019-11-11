@@ -14,6 +14,11 @@
 ]).
 -define(ERL_CONTENT_TYPE, <<"application/vnd.hex+erlang">>).
 
+-export_type([body/0, response/0]).
+
+-type response() :: {ok, {hex_http:status(), hex_http:headers(), body() | nil}} | {error, term()}.
+-type body() :: [body()] | #{binary() => body() | binary()}.
+
 get(Config, Path) ->
     request(Config, get, Path, undefined).
 
@@ -70,14 +75,14 @@ request(Config, Method, Path, Body) when is_binary(Path) and is_map(Config) ->
     ReqHeaders2 = put_new(<<"accept">>, ?ERL_CONTENT_TYPE, ReqHeaders),
 
     case hex_http:request(Config, Method, build_url(Path, Config), ReqHeaders2, Body) of
-        {ok, {Status, RespHeaders, RespBody}} = Response ->
+        {ok, {Status, RespHeaders, RespBody}} ->
             ContentType = maps:get(<<"content-type">>, RespHeaders, <<"">>),
             case binary:match(ContentType, ?ERL_CONTENT_TYPE) of
                 {_, _} ->
                     {ok, {Status, RespHeaders, binary_to_term(RespBody)}};
 
                 nomatch ->
-                    Response
+                    {ok, {Status, RespHeaders, nil}}
             end;
 
         Other ->
