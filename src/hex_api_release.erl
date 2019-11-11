@@ -10,8 +10,12 @@
 -export_type([retirement_params/0, retirement_reason/0]).
 
 -type retirement_reason() :: other | invalid | security | deprecated | renamed.
--type retirement_params() :: #{reason := retirement_reason(), message => binary()}.
 
+-ifdef(OTP_19).
+-type retirement_params() :: #{reason := retirement_reason(), message => binary()}.
+-else.
+-type retirement_params() :: #{reason => retirement_reason(), message => binary()}.
+-endif.
 %% @doc
 %% Gets a package release.
 %%

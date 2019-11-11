@@ -10,9 +10,15 @@
 -export_type([permission/0]).
 
 -type permission() :: api_permission() | repo_permission() | repos_permission().
+-ifdef(OTP_19).
 -type api_permission() :: #{domain := api, resource => read | write}.
 -type repo_permission() :: #{domain := repository, resource := binary()}.
 -type repos_permission() :: #{domain := repositories}.
+-else.
+-type api_permission() :: #{domain => api, resource => read | write}.
+-type repo_permission() :: #{domain => repository, resource => binary()}.
+-type repos_permission() :: #{domain => repositories}.
+-endif.
 
 %% @doc
 %% Lists the user's or organization's API and repository keys.
