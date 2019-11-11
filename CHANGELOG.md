@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.6.2 (2019-11-11)
+
+* Gracefully handle HTTP errors
+
 ## 0.6.1 (2019-07-30)
 
 * Fix bug when publishing with configuration that does not have `repo_organization` key set
