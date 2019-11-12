@@ -228,13 +228,16 @@ unpack_error_handling_test(_Config) ->
 
     ok.
 
-docs_test(_Config) ->
-    Files = [{"doc/index.html", <<"Docs">>}],
-    {ok, #{tarball := Tarball, checksum := _Checksum}} = hex_tarball:create_docs(Files),
+docs_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    UnpackDir = filename:join(BaseDir, "unpack_docs"),
 
-    %% TODO: add hex_tarball:unpack_docs/2
-    Tarball2 = zlib:gunzip(Tarball),
-    {ok, Files} = hex_erl_tar:extract({binary, Tarball2}, [memory]),
+    Files = [{"index.html", <<"Docs">>}],
+    {ok, Tarball} = hex_tarball:create_docs(Files),
+    {ok, Files} = hex_tarball:unpack_docs(Tarball, memory),
+
+    ok = hex_tarball:unpack_docs(Tarball, UnpackDir),
+    {ok, <<"Docs">>} = file:read_file(filename:join(UnpackDir, "index.html")),
 
     ok.
 
