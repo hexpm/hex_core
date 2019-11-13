@@ -1,5 +1,5 @@
 -module(hex_tarball).
--export([create/2, create_docs/1, unpack/2, format_checksum/1, format_error/1]).
+-export([create/2, create_docs/1, unpack/2, unpack_docs/2, format_checksum/1, format_error/1]).
 -ifdef(TEST).
 -export([do_decode_metadata/1, gzip/1, normalize_requirements/1]).
 -endif.
@@ -79,11 +79,10 @@ create(Metadata, Files) ->
 %% ```
 %% > Files = [{"doc/index.html", <<"Docs">>}],
 %% > hex_tarball:create_docs(Files).
-%% {ok, #{tarball => <<86,69,...>>,
-%%        checksum => <<40,32,...>>}
+%% {ok, <<86,69,...>>}
 %% '''
 %% @end
--spec create_docs(files()) -> {ok, {tarball(), checksum()}}.
+-spec create_docs(files()) -> {ok, tarball()}.
 create_docs(Files) ->
     UncompressedTarball = create_memory_tarball(Files),
     UncompressedSize = byte_size(UncompressedTarball),
@@ -95,7 +94,7 @@ create_docs(Files) ->
             {error, {tarball, too_big}};
 
         false ->
-            {ok, #{tarball => Tarball, checksum => checksum(Tarball)}}
+            {ok, Tarball}
     end.
 
 %% @doc
@@ -137,6 +136,26 @@ unpack(Tarball, Output) ->
         {error, Reason} ->
             {error, {tarball, Reason}}
     end.
+
+%% @doc
+%% Unpacks a documentation tarball.
+%%
+%% Examples:
+%%
+%% ```
+%% > hex_tarball:unpack_docs(Tarball, memory).
+%% {ok, [{"index.html", <<"<!doctype>">>}, ...]}
+%%
+%% > hex_tarball:unpack_docs(Tarball, "path/to/unpack").
+%% ok
+%% '''
+-spec unpack_docs(tarball(), memory) -> {ok, contents()} | {error, term()};
+                 (tarball(), filename()) -> ok | {error, term()}.
+unpack_docs(Tarball, _) when byte_size(Tarball) > ?TARBALL_MAX_SIZE ->
+    {error, {tarball, too_big}};
+
+unpack_docs(Tarball, Output) ->
+    unpack_tarball(Tarball, Output).
 
 %% @doc
 %% Returns base16-encoded representation of checksum.
