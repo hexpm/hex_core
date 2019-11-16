@@ -87,7 +87,7 @@ fixture(get, <<?TEST_REPO_URL, "/tarballs/ecto-1.0.0.tar">>, _, _) ->
     },
     Metadata = #{
         <<"name">> => <<"ecto">>,
-          <<"app">>  => <<"ecto">>,
+        <<"app">>  => <<"ecto">>,
         <<"version">> => <<"1.0.0">>,
         <<"build_tools">> => <<"mix">>,
         <<"files">> => [],

@@ -313,14 +313,10 @@ unpack_error_handling_test(_Config) ->
 
     Files5 = OuterFiles#{
       "contents.tar.gz" => <<"badtar">>,
-      "CHECKSUM" => <<"63E0D44ED4F61F5A1636A516A6A26890052CE0BB1B1A6EDC66C30282E2EC1A58">>
+      "CHECKSUM" => <<"8CFEB690D349787B969F3485DE74D3F18FDB877B69C4D29B0E3B09C9F0E4F503">>
     },
 
     {error, {tarball, {inner_checksum_mismatch, _, _}}} = unpack_files(Files5),
-
-    %% I am not sure how to trigger this with the metadata changes. It may be an obsolete check -- Bryan
-    %% {error,{inner_tarball,eof}} = unpack_files(Files5),
-
     ok.
 
 docs_test(Config) ->
