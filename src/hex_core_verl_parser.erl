@@ -1,17 +1,17 @@
-%% Vendored from hex_verl v1.0.2, do not edit manually
+%% Vendored from hex_core_verl v1.0.2, do not edit manually
 
--module(hex_verl_parser).
+-module(hex_core_verl_parser).
 
 -export([parse_requirement/1, parse_version/1, parse_version/2]).
 
 -type operator() ::  '!=' | '&&' | '<' | '<=' | '==' | '>' | '>=' | '||' | '~>' | bitstring().
 
--spec parse_version(hex_verl:version()) ->
-    {ok, {hex_verl:major(), hex_verl:minor(), hex_verl:patch(), [hex_verl:pre()], [hex_verl:build()]}} | {error, invalid_version}.
+-spec parse_version(hex_core_verl:version()) ->
+    {ok, {hex_core_verl:major(), hex_core_verl:minor(), hex_core_verl:patch(), [hex_core_verl:pre()], [hex_core_verl:build()]}} | {error, invalid_version}.
 parse_version(Str) -> parse_version(Str, false).
 
--spec parse_version(hex_verl:version(), boolean()) ->
-    {ok,{hex_verl:major(),hex_verl:minor(), hex_verl:patch(), [hex_verl:pre()],[hex_verl:build()]}} | {error, invalid_version}.
+-spec parse_version(hex_core_verl:version(), boolean()) ->
+    {ok,{hex_core_verl:major(),hex_core_verl:minor(), hex_core_verl:patch(), [hex_core_verl:pre()],[hex_core_verl:build()]}} | {error, invalid_version}.
 parse_version(Str, Approximate) when is_binary(Str) ->
     try parse_and_convert(Str, Approximate) of
         {ok, {_, _, undefined, _, _}} ->
@@ -29,7 +29,7 @@ parse_version(Str, Approximate) when is_binary(Str) ->
             {error, invalid_version}
     end.
 
--spec parse_requirement(hex_verl:requirement()) -> {ok, ets:match_spec()} | {error, invalid_requirement}.
+-spec parse_requirement(hex_core_verl:requirement()) -> {ok, ets:match_spec()} | {error, invalid_requirement}.
 parse_requirement(Source) ->
     Lexed = lexer(Source, []),
     to_matchspec(Lexed).
@@ -72,10 +72,10 @@ lexer(<<Char/utf8, Body/binary>>, [Head | Acc]) ->
 lexer(<<>>, Acc) ->
     lists:reverse(Acc).
 
--spec parse_condition(hex_verl:version()) -> {integer(),integer(),'undefined' | integer(),[binary() | integer()]}.
+-spec parse_condition(hex_core_verl:version()) -> {integer(),integer(),'undefined' | integer(),[binary() | integer()]}.
 parse_condition(Version) -> parse_condition(Version, false).
 
--spec parse_condition(hex_verl:version(), boolean()) -> {integer(),integer(),'undefined' | integer(),[binary() | integer()]}.
+-spec parse_condition(hex_core_verl:version(), boolean()) -> {integer(),integer(),'undefined' | integer(),[binary() | integer()]}.
 parse_condition(Version, Approximate) ->
     try case parse_and_convert(Version, Approximate) of
             {ok, {Major, Minor, Patch, Pre, _Bld}} ->
@@ -283,7 +283,7 @@ maybe_patch(undefined, true) ->
 maybe_patch(Patch, _) ->
     to_digits(Patch).
 
--spec parse_and_convert(hex_verl:version(), boolean()) ->
+-spec parse_and_convert(hex_core_verl:version(), boolean()) ->
     {error,invalid_version} | {ok,{integer(),integer(),'undefined' |
                                    integer(),[binary() |
                                               integer()],[binary()]}}.

@@ -17,4 +17,4 @@
 
 -spec parse(binary()) -> {ok, version()} | {error, invalid_version}.
 parse(Str) ->
-  hex_verl:parse(Str).
+  hex_core_verl:parse(Str).

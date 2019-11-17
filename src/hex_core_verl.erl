@@ -1,6 +1,6 @@
-%% Vendored from hex_verl v1.0.2, do not edit manually
+%% Vendored from hex_core_verl v1.0.2, do not edit manually
 
--module(hex_verl).
+-module(hex_core_verl).
 
 -export([
          compare/2
@@ -58,7 +58,7 @@ parse(Str) ->
 -spec parse_requirement(requirement()) ->
     {ok, requirement_t()} | {error, invalid_requirement}.
 parse_requirement(Str) ->
-    case hex_verl_parser:parse_requirement(Str) of
+    case hex_core_verl_parser:parse_requirement(Str) of
         {ok, Spec} ->
             {ok, #{string => Str, matchspec => Spec, compiled => false}};
         {error, invalid_requirement} ->
@@ -123,7 +123,7 @@ is_match(Version, #{matchspec := Spec, compiled := true} = R, Opts)  when
 to_matchable(#{major := Major, minor := Minor, patch := Patch, pre := Pre}, AllowPre) ->
     {Major, Minor, Patch, Pre, AllowPre};
 to_matchable(String, AllowPre) when is_binary(String) ->
-    case hex_verl_parser:parse_version(String) of
+    case hex_core_verl_parser:parse_version(String) of
         {ok, {Major, Minor, Patch, Pre, _Build}} ->
             {Major, Minor, Patch, Pre, AllowPre};
         {error, invalid_version} ->
@@ -133,7 +133,7 @@ to_matchable(String, AllowPre) when is_binary(String) ->
 %% private
 %%
 build_version(Version) ->
-    case hex_verl_parser:parse_version(Version) of
+    case hex_core_verl_parser:parse_version(Version) of
         {ok, {Major, Minor, Patch, Pre, Build}} ->
             {ok, #{major => Major,
                    minor => Minor,
@@ -145,7 +145,7 @@ build_version(Version) ->
     end.
 
 build_requirement(Str) ->
-    case hex_verl_parser:parse_requirement(Str) of
+    case hex_core_verl_parser:parse_requirement(Str) of
         {ok, Spec} ->
             {ok, #{string => Str, matchspec => Spec, compiled => false}};
         {error, invalid_requirement} ->
