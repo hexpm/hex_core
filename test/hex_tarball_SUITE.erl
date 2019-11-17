@@ -172,8 +172,7 @@ build_tools_test(_Config) ->
     {ok, #{tarball := Tarball3}} = hex_tarball:create(Metadata, Contents),
     {ok, #{metadata := Metadata2}} = hex_tarball:unpack(Tarball3, memory),
 
-    %% This check isn't valid anymore since buildtools is required metadata -- Bryan
-    %% true = maps:is_key(<<"build_tools">>, Metadata2),
+    true = maps:is_key(<<"build_tools">>, Metadata2),
     [] = maps:get(<<"build_tools">>, Metadata2),
 
     ok.
