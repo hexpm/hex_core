@@ -7,9 +7,7 @@
 %% Examples:
 %%
 %% ```
-%% 1> Params = #{domain, <<"repository">>, {resource, <<"gustafson_motors">>}}.
-%% #{domain => <<"repository">>,
-%%   resource => <<"gustafson_motors">>}
+%% 1> Params = #{domain => <<"repository">>, resource => <<"gustafson_motors">>}.
 %% 2> hex_api_auth:test_key(hex_core:default_config(), Params).
 %% {ok,{204, ..., nil}}
 %% '''
