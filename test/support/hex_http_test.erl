@@ -97,6 +97,9 @@ fixture(get, <<?TEST_REPO_URL, _/binary>>, _, _) ->
 
 %% HTTP API
 
+fixture(get, <<?TEST_API_URL, "/auth?domain=repository&resource=gustafson_motors">>, _, _) ->
+    {ok, {204, api_headers(), term_to_binary(nil)}};
+
 fixture(get, <<?TEST_API_URL, "/users/josevalim">>, _, _) ->
     Payload = #{
         <<"username">> => <<"josevalim">>,

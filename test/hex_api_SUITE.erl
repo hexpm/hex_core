@@ -17,7 +17,7 @@ suite() ->
     [{require, {ssl_certs, [test_pub, test_priv]}}].
 
 all() ->
-    [package_test, release_test, user_test, owner_test, keys_test].
+    [package_test, release_test, user_test, owner_test, keys_test, auth_test].
 
 package_test(_Config) ->
     {ok, {200, _, Package}} = hex_api_package:get(?CONFIG, <<"ecto">>),
@@ -51,6 +51,11 @@ user_test(_Config) ->
 owner_test(_Config) ->
     {ok, {200, _, [Owner | _]}} = hex_api_package_owner:list(?CONFIG, <<"decimal">>),
     <<"ericmj">> = maps:get(<<"username">>, Owner),
+    ok.
+
+auth_test(_Config) ->
+    Params = #{domain => <<"repository">>, resource => <<"gustafson_motors">>},
+    {ok, {204, _, nil}} = hex_api_auth:test(?CONFIG, Params),
     ok.
 
 keys_test(_Config) ->
