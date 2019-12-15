@@ -61,6 +61,13 @@
 -type checksum() :: binary().
 -type contents() :: #{filename() => binary()}.
 -type filename() :: string().
+-type file() :: #{
+                  name => filename(),
+                  contents => contents(),
+                  size => integer(),
+                  path => string() | in_memory,
+                  info => file:fileinfo()
+                }.
 -type files() :: [filename() | {filename(), filename()}] | contents().
 -type metadata() :: map().
 -type warnings() :: [{atom(), binary()}].
@@ -94,15 +101,14 @@
 %% @end
 -spec create(metadata(), files()) -> {ok, tarball()} | {error, errors(), warnings()}.
 create(Metadata, Files) ->
-    Normalized = normalize_metadata(Metadata),
-    case valid_meta(Normalized) of
-        {[], Warnings} ->
+    case validate(Metadata, Files) of
+        #{files := Files1, errors := [], warnings := Warnings} ->
              Metadata1 = filter_metadata([unknown, deprecated], Metadata, Warnings),
-            {ok, Res} = create_tarball(Metadata1, Files),
+            {ok, Res} = create_tarball(Metadata1, Files1),
             Final = maps:put(warnings, Warnings, Res),
             {ok, Final};
-        Res ->
-            {error, Res}
+        #{errors := Errors, warnings := Warnings} ->
+            {error, #{errors => Errors, warnings => Warnings}}
     end.
 
 filter_metadata(Types, Meta, Unwanted) ->
@@ -125,11 +131,11 @@ create_tarball(Metadata, Files) ->
     InnerChecksumBase16 = encode_base16(InnerChecksum),
 
     OuterFiles = [
-       {"VERSION", ?VERSION},
-       {"CHECKSUM", InnerChecksumBase16},
-       {"metadata.config", MetadataBinary},
-       {"contents.tar.gz", ContentsTarballCompressed}
-    ],
+                  #{name => "VERSION", contents => ?VERSION},
+                  #{name => "CHECKSUM", contents => InnerChecksumBase16},
+                  #{name => "metadata.config", contents => MetadataBinary},
+                  #{name => "contents.tar.gz", contents => ContentsTarballCompressed}
+                 ],
 
     Tarball = create_memory_tarball(OuterFiles),
     OuterChecksum = checksum(Tarball),
@@ -157,7 +163,12 @@ create_tarball(Metadata, Files) ->
 %% @end
 -spec create_docs(files()) -> {ok, tarball()}.
 create_docs(Files) ->
-    UncompressedTarball = create_memory_tarball(Files),
+    FileList = lists:foldl(fun({Name, Content}, Acc) ->
+                                   [#{name => Name, contents => Content}] ++ Acc
+                           end,
+                           [],
+                           Files),
+    UncompressedTarball = create_memory_tarball(lists:reverse(FileList)),
     UncompressedSize = byte_size(UncompressedTarball),
     Tarball = gzip(UncompressedTarball),
     Size = byte_size(Tarball),
@@ -479,14 +490,13 @@ tmp_path() ->
 add_files(Tar, Files) when is_list(Files) ->
     lists:map(fun(File) -> add_file(Tar, File) end, Files).
 
-add_file(Tar, {Filename, Contents}) when is_list(Filename) and is_binary(Contents) ->
+add_file(Tar, #{name := Filename, contents := Contents}) when is_list(Filename) and is_binary(Contents) ->
     ok = hex_erl_tar:add(Tar, Contents, Filename, tar_opts());
 add_file(Tar, Filename) when is_list(Filename) ->
-    add_file(Tar, {Filename, Filename});
-add_file(Tar, {Filename, AbsFilename}) when is_list(Filename), is_list(AbsFilename) ->
-    {ok, FileInfo} = file:read_link_info(AbsFilename, []),
+    add_file(Tar, #{name => Filename, path => Filename});
+add_file(Tar, #{name := Filename, path := AbsFilename, type := Type, mode := Mode}) ->
 
-    case FileInfo#file_info.type of
+    case Type of
         symlink ->
             ok = hex_erl_tar:add(Tar, {Filename, AbsFilename}, tar_opts());
         directory ->
@@ -498,7 +508,6 @@ add_file(Tar, {Filename, AbsFilename}) when is_list(Filename), is_list(AbsFilena
                     ok
             end;
         _ ->
-            Mode = FileInfo#file_info.mode,
             {ok, Contents} = file:read_file(AbsFilename),
             ok = hex_erl_tar:add(Tar, Contents, Filename, Mode, tar_opts())
     end.
@@ -610,22 +619,155 @@ unhex(D) when $a =< D andalso D =< $f ->
 unhex(D) when $A =< D andalso D =< $F ->
     10 + D - $A.
 
+%% @doc
+%% Validates a given set of files and metadata.
+%%
+%% Returns a map with all valid file names and File records in the files k/v.
+%% All errors and warnings in their respective k/v.
+%% Examples:
+%%
+%% ```
+%% > hex_tarball:validate([<<"non-existent">>], Meta).
+%% #{files => [],
+%%       errors => [{enoent, <<"non-existent">>}],
+%%       warnings => [],
+%%       }
+%%
+%% '''
+%%
+
+validate(Metadata, Files) ->
+    Normalized = normalize_metadata(Metadata),
+    #{files := ValidFiles, errors := FileErrors, content_size := Size} = valid_files(Files),
+    #{errors := MetaErrors, warnings := MetaWarnings} = valid_meta(Normalized),
+    Errors =  MetaErrors ++ FileErrors,
+    Ret = #{files => ValidFiles, errors => Errors, warnings => MetaWarnings},
+    case Size of
+        0 ->
+            Ret#{errors => [{empty_package, Size}] ++ Errors};
+        _ ->
+            Ret
+    end.
+
+valid_files(Files) ->
+    Pred = fun validate_file/2,
+    #{files := ValidFiles} = Res = lists:foldl(Pred, #{files => [], content_size => 0, errors => []}, Files),
+    Size = lists:foldl(fun(#{size := Size}, Acc) -> Size + Acc end, 0, ValidFiles),
+    Res#{ files => lists:reverse(ValidFiles), content_size => Size }.
+
+-spec validate_file({string(), binary() | string()}, map()) -> file().
+validate_file({Name, Contents}, #{files := FilesAcc} = Acc) when is_binary(Contents) ->
+    Size = byte_size(Contents),
+    File = #{name => Name,
+             size => Size,
+             contents => Contents,
+             target => undefined,
+             mode => undefined,
+             type => undefined,
+             info => undefined,
+             path => undefined
+            },
+    Acc#{files => [File] ++ FilesAcc};
+
+validate_file({Filename, FilePath}, #{files := FilesAcc, errors := ErrorsAcc} = Acc) ->
+    case valid_file({Filename, FilePath}) of
+        {ok, File} ->
+            Acc#{files => [File] ++ FilesAcc};
+        Err ->
+            Acc#{errors => [Err] ++ ErrorsAcc}
+    end.
+
+valid_file({FileName, FilePath}) ->
+    case file:read_link_info(FilePath) of
+        {ok, FileInfo} ->
+            case FileInfo#file_info.type of
+                symlink ->
+                    safe_symlink({FileName, FilePath}, FileInfo);
+                _ ->
+                    {ok, #{name => FileName,
+                           size => FileInfo#file_info.size,
+                           type => FileInfo#file_info.type,
+                           mode => FileInfo#file_info.mode,
+                           contents => undefined,
+                           path => FilePath,
+                           info => FileInfo,
+                           target => undefined
+                          }
+                    }
+            end;
+        {error, Reason} ->
+            {Reason, FileName}
+    end.
+
+safe_symlink({FileName, FilePath}, FileInfo) ->
+    {ok, Target} = file:read_link_all(FilePath),
+
+    case is_safe_relative_file(Target) of
+        false ->
+            {unsafe_symlink, {FileName, Target}};
+        true ->
+            {ok, #{name => FileName,
+                   path => FilePath,
+                   size => 0,
+                   type => symlink,
+                   contents => undefined,
+                   mode => FileInfo#file_info.mode,
+                   info => FileInfo,
+                   target => Target
+                  }
+            }
+    end.
+
+%% relative_* lovingly plucked from Elixir.Path
+relative_to_cwd(Path) ->
+    case file:get_cwd() of
+        {ok, Base} ->
+            relative_to(Path, Base);
+        _ ->
+            {error, Path}
+    end.
+
+relative_to(Path, From) ->
+    relative_to(filename:split(Path), filename:split(From), Path).
+
+relative_to([H | T1], [H | T2], Original) ->
+    relative_to(T1, T2, Original);
+
+relative_to([_ | _] = L1, [], _Original) ->
+    filename:join(L1);
+
+relative_to(_, _, Original) ->
+    Original.
+
+is_safe_relative_file(Path) ->
+ AbsName = filename:absname(Path),
+ {ok, Cwd} = file:get_cwd(),
+ case Cwd == AbsName of
+     true -> true;
+     false ->
+         MaybeRelativePath = relative_to_cwd(AbsName),
+        case filename:safe_relative_path(MaybeRelativePath) of
+            unsafe -> false;
+        _ -> true
+    end
+ end.
+
 %%====================================================================
 %% Meta-Validation
 %%====================================================================
 -spec valid_meta(metadata()) -> {errors(), warnings()}.
 valid_meta(Metadata) ->
-    F = fun(K, {Warnings, Errors} = Acc) ->
+    F = fun(K, #{warnings := Warnings, errors := Errors} = Acc) ->
             case valid_meta_field(K, Metadata) of
                 ok ->
                     Acc;
                 {warning, Warns} ->
-                    {Errors, Warns ++ Warnings};
+                    Acc#{warnings =>  Warns ++ Warnings};
                 {error, Errs} ->
-                    {Errs ++ Errors, Warnings}
+                    Acc#{errors => Errs ++ Errors}
             end
         end,
-    lists:foldl(F, {[], []}, ?META_VALIDATIONS).
+    lists:foldl(F, #{errors => [], warnings => []}, ?META_VALIDATIONS).
 
 valid_meta_field(has_semver, #{<<"version">> := Ver}) ->
      case hex_version:parse(Ver) of

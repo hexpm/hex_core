@@ -95,7 +95,7 @@ fixture(get, <<?TEST_REPO_URL, "/tarballs/ecto-1.0.0.tar">>, _, _) ->
         <<"description">> => <<"Ecto is not your ORM">>,
         <<"requirements">> => []
     },
-    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, []),
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, [{"src/foo.erl", <<"-module(foo).">>}]),
     {ok, {200, Headers, Tarball}};
 
 fixture(get, <<?TEST_REPO_URL, _/binary>>, _, _) ->

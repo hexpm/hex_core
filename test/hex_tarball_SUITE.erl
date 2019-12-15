@@ -8,10 +8,21 @@
 
 all() ->
     [disk_test, timestamps_and_permissions_test, symlinks_test,
-     memory_test, meta_validation_test, build_tools_test, requirements_test,
+     bad_symlinks_test, meta_validation_test, build_tools_test, requirements_test,
      decode_metadata_test, unpack_error_handling_test,
      docs_test
     ].
+
+init_per_testcase(_Tc, Config) ->
+    {ok, Wd} = file:get_cwd(),
+    BaseDir = ?config(priv_dir, Config),
+    ok = file:set_cwd(BaseDir),
+    [{original_wd, Wd} | Config].
+
+end_per_testcase(_Tc, Config) ->
+    Wd = ?config(original_wd, Config),
+    ok = file:set_cwd(Wd),
+    Config.
 
 memory_test(_Config) ->
     Metadata = #{
@@ -88,10 +99,10 @@ timestamps_and_permissions_test(Config) ->
         <<"requirements">> => #{}
     },
 
-    ok = file:write_file(Foo, <<"">>),
+    ok = file:write_file(Foo, <<"#!/bin/sh">>),
     ok = file:change_mode(Foo, 8#100755),
     Files = [
-             {"foo.erl", <<"">>},
+             {"foo.erl", <<"-module(foo).">>},
              {"foo.sh", Foo}
             ],
 
@@ -103,8 +114,8 @@ timestamps_and_permissions_test(Config) ->
     {ok, [FooErlEntry, FooShEntry]} = hex_erl_tar:table({binary, ContentsBinary}, [compressed, verbose]),
     Epoch = epoch(),
 
-    {"foo.erl", regular, _, Epoch, 8#100644, 0, 0} = FooErlEntry,
-    {"foo.sh", regular, _, Epoch, 8#100755, 0, 0} = FooShEntry,
+    ?assertMatch({"foo.erl", regular, _, Epoch, 8#100644, 0, 0}, FooErlEntry),
+    ?assertMatch({"foo.sh", regular, _, Epoch, 8#100755, 0, 0}, FooShEntry),
 
     %% unpacked
     UnpackDir = filename:join(BaseDir, "timestamps_and_permissions"),
@@ -149,6 +160,38 @@ symlinks_test(Config) ->
     {ok, _} = file:read_link_info(filename:join([UnpackDir, "dir", "bar.sh"])),
     ok.
 
+dir_up(Base) ->
+    [_h | Path] = lists:reverse(filename:split(Base)),
+    filename:join(lists:reverse(Path)).
+
+bad_symlinks_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    Metadata = #{
+        <<"name">> => <<"foo">>,
+        <<"app">>  => <<"foo">>,
+        <<"version">> => <<"1.0.0">>,
+        <<"build_tools">> => [<<"rebar3">>],
+        <<"files">> => [<<"rebar.config">>],
+        <<"licenses">> => [<<"Apache">>],
+        <<"description">> => <<"Simple, robust and performant Erlang web server">>,
+        <<"requirements">> => #{}
+    },
+
+    %% Create foo.sh outside of the base dir
+    Dir = filename:join(BaseDir, "dir"),
+    FooSh = filename:join(dir_up(BaseDir), "foo.sh"),
+    BarSh = filename:join(Dir, "bar.sh"),
+    ok = file:make_dir(Dir),
+    ok = file:write_file(FooSh, <<"foo">>),
+    ok = file:make_symlink(FooSh, BarSh),
+
+    Files = [
+             {"dir/foo.sh", FooSh},
+             {"dir/bar.sh", BarSh}
+            ],
+
+    {error,#{errors := [{unsafe_symlink,{"dir/bar.sh",FooSh}}],warnings := []}}= hex_tarball:create(Metadata, Files).
+
 build_tools_test(_Config) ->
 
     Metadata = #{
@@ -161,7 +204,7 @@ build_tools_test(_Config) ->
         <<"requirements">> => #{}
     },
 
-    Contents = [],
+    Contents = [{"foo", <<"foo">>}],
 
     {ok, #{tarball := Tarball1}} = hex_tarball:create(maps:put(<<"files">>, [<<"Makefile">>], Metadata), Contents),
     {ok, #{metadata := #{<<"build_tools">> := [<<"make">>]}}} = hex_tarball:unpack(Tarball1, memory),
@@ -232,7 +275,7 @@ decode_metadata_test(_Config) ->
 
     ok.
 
-meta_validation_test(_Config) ->
+meta_validation_test(Config) ->
     Metadata = #{
         <<"name">> => <<"ecto">>,
         <<"app">>  => <<"ecto">>,
@@ -243,6 +286,16 @@ meta_validation_test(_Config) ->
         <<"description">> => <<"Ecto is not your ORM">>,
         <<"requirements">> => []
     },
+
+
+    BaseDir = ?config(priv_dir, Config),
+
+    Dir = filename:join(BaseDir, "src"),
+    FooErl = filename:join(Dir, "foo.erl"),
+    ok = file:make_dir(Dir),
+    ok = file:write_file(FooErl,  FooErl),
+
+
     Contents = [{"src/foo.erl", <<"-module(foo).">>}],
     {ok, #{warnings := []}} = hex_tarball:create(Metadata, Contents),
     Metadata1 = maps:put(<<"contributors">>, [], Metadata),
@@ -253,7 +306,8 @@ meta_validation_test(_Config) ->
     Metadata3 = maps:put(<<"maintainers">>, [], Metadata),
     {ok, #{warnings := [{deprecated, <<"maintainers">>}]}} = hex_tarball:create(Metadata3, Contents),
     Metadata4 = maps:put(<<"version">>, <<"1.0">>, Metadata),
-    {error,{[{invalid,<<"version">>}],[]}} = hex_tarball:create(Metadata4, Contents),
+    {error,#{errors := [{invalid,<<"version">>}], warnings := []}} = hex_tarball:create(Metadata4, Contents),
+
     Metadata5 = maps:put(<<"unknown">>, <<"field">>, Metadata4),
     ExpErrs = {error, [{invalid, <<"version">>}],
                     [{unknown_field, <<"unknown">>}]},
@@ -262,8 +316,7 @@ meta_validation_test(_Config) ->
     A = hex_tarball:format_error(Metadata5, {invalid, <<"version">>}),
     B = hex_tarball:format_error(Metadata5, {unknown_field, <<"unknown">>}),
     [A,B] = hex_tarball:format_errors(Metadata5, ExpErrs),
-    {ok, #{warnings :=  [{unknown_field,<<"unknown">>},
-                      {invalid,<<"version">>}]}} = hex_tarball:create(Metadata5, Contents),
+    {error, #{errors := [{invalid,<<"version">>}], warnings :=  [{unknown_field,<<"unknown">>}]}} = hex_tarball:create(Metadata5, Contents),
     ok.
 
 unpack_error_handling_test(_Config) ->
@@ -277,7 +330,8 @@ unpack_error_handling_test(_Config) ->
         <<"description">> => <<"Simple, robust and performant Erlang web server">>,
         <<"requirements">> => #{}
     },
-    {ok, #{tarball := Tarball, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:create(Metadata, [{"rebar.config", <<"">>}]),
+    {ok, #{tarball := Tarball, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} =
+    hex_tarball:create(Metadata, [{"rebar.config", <<"config">>}]),
     {ok, #{inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:unpack(Tarball, memory),
     {ok, OuterFileList} = hex_erl_tar:extract({binary, Tarball}, [memory]),
     OuterFiles = maps:from_list(OuterFileList),
@@ -304,7 +358,7 @@ unpack_error_handling_test(_Config) ->
 
     Files1 = OuterFiles#{
       "metadata.config" => <<"ok $">>,
-      "CHECKSUM" => <<"1BB37F9A91F9E4A3667A4527930187ACF6B9714C0DE7EADD55DC31BE5CFDD98C">>
+      "CHECKSUM" => <<"AC4E46F39914A2EF87BB87306487D2911EAFD8289150ADDAA53DF00FBD404F55">>
     },
     {error, {metadata, {illegal, "$"}}} = unpack_files(Files1),
 
