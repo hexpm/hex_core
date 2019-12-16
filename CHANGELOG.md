@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 0.6.3 (2019-12-16)
+
+* Add organization API
+* Add level and transfer params to add owner API
+* Add `hex_tarball:unpack_docs/2`
+* Add `hex_api_auth:test_key/3`
+
 ## 0.6.2 (2019-11-11)
 
 * Gracefully handle HTTP errors
