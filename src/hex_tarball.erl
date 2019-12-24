@@ -131,11 +131,11 @@ create_tarball(Metadata, Files) ->
     InnerChecksumBase16 = encode_base16(InnerChecksum),
 
     OuterFiles = [
-                  #{name => "VERSION", contents => ?VERSION},
-                  #{name => "CHECKSUM", contents => InnerChecksumBase16},
-                  #{name => "metadata.config", contents => MetadataBinary},
-                  #{name => "contents.tar.gz", contents => ContentsTarballCompressed}
-                 ],
+        #{name => "VERSION", contents => ?VERSION},
+        #{name => "CHECKSUM", contents => InnerChecksumBase16},
+        #{name => "metadata.config", contents => MetadataBinary},
+        #{name => "contents.tar.gz", contents => ContentsTarballCompressed}
+    ],
 
     Tarball = create_memory_tarball(OuterFiles),
     OuterChecksum = checksum(Tarball),
