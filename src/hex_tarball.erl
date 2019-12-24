@@ -718,6 +718,19 @@ safe_symlink({FileName, FilePath}, FileInfo) ->
             }
     end.
 
+is_safe_relative_file(Path) ->
+ AbsName = filename:absname(Path),
+ {ok, Cwd} = file:get_cwd(),
+ case Cwd == AbsName of
+     true -> true;
+     false ->
+         MaybeRelativePath = relative_to_cwd(AbsName),
+        case filename:safe_relative_path(MaybeRelativePath) of
+            unsafe -> false;
+        _ -> true
+    end
+ end.
+
 %% relative_* lovingly plucked from Elixir.Path
 relative_to_cwd(Path) ->
     case file:get_cwd() of
@@ -739,18 +752,6 @@ relative_to([_ | _] = L1, [], _Original) ->
 relative_to(_, _, Original) ->
     Original.
 
-is_safe_relative_file(Path) ->
- AbsName = filename:absname(Path),
- {ok, Cwd} = file:get_cwd(),
- case Cwd == AbsName of
-     true -> true;
-     false ->
-         MaybeRelativePath = relative_to_cwd(AbsName),
-        case filename:safe_relative_path(MaybeRelativePath) of
-            unsafe -> false;
-        _ -> true
-    end
- end.
 
 %%====================================================================
 %% Meta-Validation
