@@ -77,7 +77,7 @@ get(Config, PackageName, UsernameOrEmail) when is_map(Config) and is_binary(Pack
 add(Config, PackageName, UsernameOrEmail, Level, Transfer)
 when is_binary(PackageName) and is_binary(UsernameOrEmail) and is_map(Config) and is_binary(Level) and is_boolean(Transfer) ->
     Path = hex_api:build_repository_path(Config, ["packages", PackageName, "owners", UsernameOrEmail]),
-    hex_api:put(Config, Path, #{"level" => Level, "transfer" => Transfer}).
+    hex_api:put(Config, Path, #{<<"level">> => Level, <<"transfer">> => Transfer}).
 
 
 %% @doc
