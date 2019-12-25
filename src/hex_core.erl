@@ -59,6 +59,7 @@ J1i2xWFndWa6nfFnRxZmCStCOZWYYPlaxr+FZceFbpMwzTNs4g3d4tLNUcbKAIH4
     http_adapter => module(),
     http_etag => binary() | undefined,
     http_adapter_config => map(),
+    http_headers => map(),
     http_user_agent_fragment => binary(),
     repo_key => binary() | undefined,
     repo_name => binary(),
@@ -86,5 +87,6 @@ default_config() ->
         repo_url => <<"https://repo.hex.pm">>,
         repo_organization => undefined,
         repo_verify => true,
-        repo_verify_origin => true
+        repo_verify_origin => true,
+        http_headers => #{}
     }.
