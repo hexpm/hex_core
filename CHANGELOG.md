@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.6.4 (2019-12-27)
+
+* Fix setting level and trasfer options in organization api
+
 ## 0.6.3 (2019-12-16)
 
 * Add organization API
