@@ -42,7 +42,7 @@ compose_query(Pairs) ->
     uri_string:compose_query(Pairs).
 -else.
 compose_query(Pairs) ->
-    String = join("&", lists:map(fun ({K, V}) -> K ++ "=" ++ V end, List)),
+    String = join("&", lists:map(fun ({K, V}) -> K ++ "=" ++ V end, Pairs)),
     http_uri:encode(String).
 -endif.
 
