@@ -18,7 +18,7 @@
 -type checksum() :: binary().
 -type contents() :: #{filename() => binary()}.
 -type filename() :: string().
--type files() :: [filename() | {filename(), filename()}] | contents().
+-type files() :: [{filename(), filename() | binary()}].
 -type metadata() :: map().
 -type tarball() :: binary().
 
@@ -43,7 +43,7 @@
 %%        inner_checksum => <<178,12,...>>}}
 %% '''
 %% @end
--spec create(metadata(), files()) -> {ok, {tarball(), checksum()}}.
+-spec create(metadata(), files()) -> {ok, {tarball(), checksum()}} | {error, term()}.
 create(Metadata, Files) ->
     MetadataBinary = encode_metadata(Metadata),
     ContentsTarball = create_memory_tarball(Files),
