@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 0.6.5 (2020-01-14)
+
+* Transition away from `http_uri` when using newer OTP releases
+* Ensure `Role` is given as an atom in `hex_api_organization_member:add/3`
+* Add `http_headers` to the `hex_core:config()` type
+* Add default `http_headers` to `hex_core:default_config/0`
+* Fix `hex_registry:decode_and_verify_signed/2` spec
+* Fix `hex_tarball:files/0` type
+
 ## 0.6.4 (2019-12-27)
 
 * Fix setting level and trasfer options in organization api
