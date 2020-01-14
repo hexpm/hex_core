@@ -33,18 +33,18 @@ delete(Config, Path) ->
 
 %% @private
 encode_query_string(List) ->
-    QueryString =
-        join("&",
-            lists:map(fun
-                ({K, V}) when is_atom(V) ->
-                    atom_to_list(K) ++ "=" ++ atom_to_list(V);
-                ({K, V}) when is_binary(V) ->
-                    atom_to_list(K) ++ "=" ++ binary_to_list(V);
-                ({K, V}) when is_integer(V) ->
-                    atom_to_list(K) ++ "=" ++ integer_to_list(V)
-            end, List)),
-    Encoded = http_uri:encode(QueryString),
-    list_to_binary(Encoded).
+    Pairs = lists:map(fun ({K, V}) -> {to_list(K), to_list(V)} end, List),
+    list_to_binary(compose_query(Pairs)).
+
+%% OTP 21+
+-ifdef (OTP_RELEASE).
+compose_query(Pairs) ->
+    uri_string:compose_query(Pairs).
+-else.
+compose_query(Pairs) ->
+    String = join("&", lists:map(fun ({K, V}) -> K ++ "=" ++ V end, Pairs)),
+    http_uri:encode(String).
+-endif.
 
 %% @private
 build_repository_path(#{api_repository := Repo}, Path) when is_binary(Repo) ->
@@ -60,7 +60,24 @@ build_organization_path(#{api_organization := undefined}, Path) ->
 
 %% @private
 join_path_segments(Segments) ->
-    erlang:iolist_to_binary(join(<<"/">>, lists:map(fun encode/1, Segments))).
+    iolist_to_binary(recompose(Segments)).
+
+%% OTP 21+
+-ifdef (OTP_RELEASE).
+recompose(Segments) ->
+    Concatenated = join(<<"/">>, Segments),
+    %% uri_string:recompose/1 accepts path segments as a list,
+    %% both strings and binaries
+    uri_string:recompose(#{path => Concatenated}).
+-else.
+recompose(Segments) ->
+    join(<<"/">>, lists:map(fun encode_segment/1, Segments)).
+
+encode_segment(Binary) when is_binary(Binary) ->
+    encode_segment(binary_to_list(Binary));
+encode_segment(String) when is_list(String) ->
+    http_uri:encode(String).
+-endif.
 
 %%====================================================================
 %% Internal functions
@@ -89,11 +106,6 @@ request(Config, Method, Path, Body) when is_binary(Path) and is_map(Config) ->
             Other
     end.
 
-encode(Binary) when is_binary(Binary) ->
-    encode(binary_to_list(Binary));
-encode(String) when is_list(String) ->
-    http_uri:encode(String).
-
 build_url(Path, #{api_url := URI}) ->
     <<URI/binary, "/", Path/binary>>.
 
@@ -121,3 +133,8 @@ join(Sep, [H|T]) -> [H|join_prepend(Sep, T)].
 
 join_prepend(_Sep, []) -> [];
 join_prepend(Sep, [H|T]) -> [Sep,H|join_prepend(Sep,T)].
+
+to_list(A) when is_atom(A) -> atom_to_list(A);
+to_list(B) when is_binary(B) -> unicode:characters_to_list(B);
+to_list(I) when is_integer(I) -> integer_to_list(I);
+to_list(Str) -> unicode:characters_to_list(Str).
