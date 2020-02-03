@@ -101,7 +101,7 @@ symlinks_test(Config) ->
     BarSh = filename:join(Dir, "bar.sh"),
     ok = file:make_dir(Dir),
     ok = file:write_file(FooSh, <<"foo">>),
-    ok = file:make_symlink(FooSh, BarSh),
+    ok = file:make_symlink("foo.sh", BarSh),
 
     Files = [
              {"dir/foo.sh", FooSh},
