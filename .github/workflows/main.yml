@@ -22,16 +22,24 @@ jobs:
             elixir: 1.5.3
           - erlang: 17.5
             elixir: 1.1.1
+    env:
+      REBAR3_VERSION: 3.6.1
     steps:
       - uses: actions/checkout@v1
 
       - name: Install OTP
-        uses: actions/setup-elixir@v1
+        uses: ericmj/setup-elixir@3f15364
         with:
           otp-version: ${{matrix.pair.erlang}}
           elixir-version: ${{matrix.pair.elixir}}
 
+      - name: Install rebar3
+        run: |
+          wget https://github.com/erlang/rebar3/releases/download/${REBAR3_VERSION}/rebar3 -O rebar3
+          chmod +x rebar3
+          ./rebar3 -v
+
       - name: Run tests
         run: |
-          rebar3 ct
-          rebar3 as test proper
+          ./rebar3 ct
+          ./rebar3 as test proper
