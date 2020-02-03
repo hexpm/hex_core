@@ -1,6 +1,6 @@
 # hex_core
 
-[![Build Status](https://travis-ci.org/hexpm/hex_core.svg?branch=master)](https://travis-ci.org/hexpm/hex_core)
+[![Build Status](https://github.com/hexpm/hex_core/workflows/CI/badge.svg)](https://github.com/hexpm/hex_core/actions)
 
 Reference implementation of Hex specifications: https://github.com/hexpm/specifications.
 
