@@ -24,4 +24,5 @@
 src/hex_core.app.src
 doc/tpl.html
 src/hex_core.hrl
+README.md
 ```
