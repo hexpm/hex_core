@@ -223,6 +223,7 @@ finish_unpack({error, _} = Error) ->
 finish_unpack(#{metadata := Metadata, files := Files, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum, output := Output}) ->
     _Version = maps:get("VERSION", Files),
     ContentsBinary = maps:get("contents.tar.gz", Files),
+    filelib:ensure_dir(filename:join(Output, "*")),
     case unpack_tarball(ContentsBinary, Output) of
         ok ->
             copy_metadata_config(Output, maps:get("metadata.config", Files)),
@@ -360,6 +361,7 @@ guess_build_tools(Metadata) ->
 unpack_tarball(ContentsBinary, memory) ->
     hex_erl_tar:extract({binary, ContentsBinary}, [memory, compressed]);
 unpack_tarball(ContentsBinary, Output) ->
+    filelib:ensure_dir(filename:join(Output, "*")),
     case hex_erl_tar:extract({binary, ContentsBinary}, [{cwd, Output}, compressed]) of
         ok ->
             [try_updating_mtime(filename:join(Output, Path)) || Path <- filelib:wildcard("**", Output)],
