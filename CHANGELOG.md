@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.6.7 (2020-02-03)
+
+* Fix compatibility with OTP 18 and 17
+
 ## 0.6.6 (2020-02-03)
 
 * Do not crash on empty tarballs
