@@ -1,0 +1,37 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pair:
+          - erlang: 22.2
+            elixir: 1.10.0
+          - erlang: 21.3
+            elixir: 1.10.0
+          - erlang: 20.3.1
+            elixir: 1.9.4
+          - erlang: 19.3
+            elixir: 1.7.2
+          - erlang: 18.3
+            elixir: 1.5.3
+          - erlang: 17.5
+            elixir: 1.1.1
+    steps:
+      - uses: actions/checkout@v1
+
+      - name: Install OTP
+        uses: actions/setup-elixir@v1
+        with:
+          otp-version: ${{matrix.pair.erlang}}
+          elixir-version: ${{matrix.pair.elixir}}
+
+      - name: Run tests
+        run: |
+          rebar3 ct
+          rebar3 as test proper
