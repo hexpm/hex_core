@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.6.6 (2020-02-03)
+
+* Do not crash on empty tarballs
+* Fix directory traversal vulnerability for symlinks in tarballs
+
 ## 0.6.5 (2020-01-14)
 
 * Transition away from `http_uri` when using newer OTP releases
