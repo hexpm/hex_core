@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.6.8 (2020-02-04)
+
+* Fix tarball file extraction through symlinks
+
 ## 0.6.7 (2020-02-03)
 
 * Fix compatibility with OTP 18 and 17
