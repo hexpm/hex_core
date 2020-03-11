@@ -43,7 +43,8 @@
 %%        inner_checksum => <<178,12,...>>}}
 %% '''
 %% @end
--spec create(metadata(), files()) -> {ok, {tarball(), checksum()}} | {error, term()}.
+-spec create(metadata(), files()) -> {ok, #{tarball => tarball(), outer_checksum => checksum(),
+                                            inner_checksum => tarball()}} | {error, term()}.
 create(Metadata, Files) ->
     MetadataBinary = encode_metadata(Metadata),
     ContentsTarball = create_memory_tarball(Files),
@@ -116,10 +117,12 @@ create_docs(Files) ->
 %%       metadata => #{<<"name">> => <<"foo">>, ...}}}
 %% '''
 -spec unpack(tarball(), memory) ->
-                {ok, #{checksum => checksum(), metadata => metadata(), contents => contents()}} |
+                {ok, #{outer_checksum => checksum(), inner_checksum => checksum(),
+                       metadata => metadata(), contents => contents()}} |
                 {error, term()};
             (tarball(), filename()) ->
-                {ok, #{checksum => checksum(), metadata => metadata()}} |
+                {ok, #{outer_checksum => checksum(), inner_checksum => checksum(),
+                       metadata => metadata()}} |
                 {error, term()}.
 unpack(Tarball, _) when byte_size(Tarball) > ?TARBALL_MAX_SIZE ->
     {error, {tarball, too_big}};
@@ -221,7 +224,7 @@ do_unpack(Files, OuterChecksum, Output) ->
 finish_unpack({error, _} = Error) ->
     Error;
 finish_unpack(#{metadata := Metadata, files := Files, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum, output := Output}) ->
-    _Version = maps:get("VERSION", Files),
+    _ = maps:get("VERSION", Files),
     ContentsBinary = maps:get("contents.tar.gz", Files),
     filelib:ensure_dir(filename:join(Output, "*")),
     case unpack_tarball(ContentsBinary, Output) of
