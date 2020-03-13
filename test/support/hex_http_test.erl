@@ -153,6 +153,21 @@ fixture(get, <<?TEST_API_URL, "/publish">>, _, _) ->
     },
     {ok, {200, api_headers(), term_to_binary(Payload)}};
 
+%% /publish?replace=true
+
+fixture(post, <<?TEST_API_URL, "/publish?replace=true">>, _, _) ->
+    Payload = #{
+        <<"version">> => <<"1.0.0">>,
+        <<"requirements">> => #{
+            <<"decimal">> => #{
+                <<"requirement">> => <<"~> 1.0">>,
+                <<"optional">> => false,
+                <<"app">> => <<"decimal">>
+            }
+        }
+    },
+    {ok, {201, api_headers(), term_to_binary(Payload)}};
+
 %% /packages
 
 fixture(get, <<?TEST_API_URL, "/packages?search=ecto", _/binary>>, _, _) ->

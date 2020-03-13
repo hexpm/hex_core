@@ -17,7 +17,7 @@ suite() ->
     [{require, {ssl_certs, [test_pub, test_priv]}}].
 
 all() ->
-    [package_test, release_test, user_test, owner_test, keys_test, auth_test].
+    [package_test, release_test, replace_test, user_test, owner_test, keys_test, auth_test].
 
 package_test(_Config) ->
     {ok, {200, _, Package}} = hex_api_package:get(?CONFIG, <<"ecto">>),
@@ -38,6 +38,13 @@ release_test(_Config) ->
 
 publish_test(_Config) ->
     {ok, {200, _, Release}} = hex_api_release:get(?CONFIG, <<"dummy_tarball">>),
+    #{<<"version">> := <<"1.0.0">>, <<"requirements">> := Requirements} = Release,
+    #{<<"decimal">> := #{
+        <<"app">> := <<"decimal">>, <<"optional">> := false, <<"requirement">> := <<"~> 1.0">>}} = Requirements,
+    ok.
+
+replace_test(_Config) ->
+    {ok, {201, _, Release}} = hex_api_release:replace(?CONFIG, <<"dummy_tarball">>),
     #{<<"version">> := <<"1.0.0">>, <<"requirements">> := Requirements} = Release,
     #{<<"decimal">> := #{
         <<"app">> := <<"decimal">>, <<"optional">> := false, <<"requirement">> := <<"~> 1.0">>}} = Requirements,

@@ -4,7 +4,8 @@
     get/3,
     publish/2,
     retire/4,
-    unretire/3
+    unretire/3,
+    replace/2
 ]).
 
 -export_type([retirement_params/0, retirement_reason/0]).
@@ -78,6 +79,41 @@ publish(Config, Tarball) when is_map(Config) and is_binary(Tarball) ->
     Config2 = put_header(<<"content-length">>, integer_to_binary(byte_size(Tarball)), Config),
     Body = {TarballContentType, Tarball},
     hex_api:post(Config2, Path, Body).
+
+%% @doc
+%% Replaces an existing package release.
+%%
+%% Examples:
+%%
+%% ```
+%% > hex_api_release:replace(hex_core:default_config(), Tarball).
+%% {ok, {201, ..., #{
+%%      <<"checksum">> => <<"540d210d81f56f17f64309a4896430e727972499b37bd59342dc08d61dff74d8">>,
+%%      <<"docs_html_url">> => <<"https://hexdocs.pm/package/1.0.0/">>,
+%%      <<"downloads">> => 740,<<"has_docs">> => true,
+%%      <<"html_url">> => <<"https://hex.pm/packages/package/1.0.0">>,
+%%      <<"inserted_at">> => <<"2014-12-09T18:32:03Z">>,
+%%      <<"meta">> =>
+%%          #{<<"app">> => <<"package">>,
+%%            <<"build_tools">> => [<<"mix">>]},
+%%      <<"package_url">> => <<"https://hex.pm/api/packages/package">>,
+%%      <<"publisher">> => nil,<<"requirements">> => #{},
+%%      <<"retirement">> => nil,
+%%      <<"updated_at">> => <<"2019-07-28T21:12:11Z">>,
+%%      <<"url">> => <<"https://hex.pm/api/packages/package/releases/1.0.0">>,
+%%      <<"version">> => <<"1.0.0">>
+%%      }}}
+%% '''
+%% @end
+-spec replace(hex_core:config(), binary()) -> hex_api:response().
+replace(Config, Tarball) when is_map(Config) and is_binary(Tarball) ->
+    QueryString = hex_api:encode_query_string([{replace, true}]),
+    Path = hex_api:join_path_segments(hex_api:build_repository_path(Config, ["publish"])),
+    ReplacedPath = <<Path/binary, "?", QueryString/binary>>,
+    TarballContentType = "application/octet-stream",
+    Config2 = put_header(<<"content-length">>, integer_to_binary(byte_size(Tarball)), Config),
+    Body = {TarballContentType, Tarball},
+    hex_api:post(Config2, ReplacedPath, Body).
 
 %% @doc
 %% Deletes a package release.
