@@ -87,7 +87,7 @@ when is_binary(PackageName) and is_binary(UsernameOrEmail) and is_map(Config) an
 %%
 %% ```
 %% > hex_api_package_owner:delete(hex_core:default_config(), <<"package">>, <<"user">>).
-%% {ok, {204, ..., nil}}
+%% {ok, {204, ..., undefined}}
 %% '''
 %% @end
 -spec delete(hex_core:config(), binary(), binary()) -> hex_api:response().

@@ -55,7 +55,7 @@ owner_test(_Config) ->
 
 auth_test(_Config) ->
     Params = #{domain => <<"repository">>, resource => <<"gustafson_motors">>},
-    {ok, {204, _, nil}} = hex_api_auth:test(?CONFIG, Params),
+    {ok, {204, _, undefined}} = hex_api_auth:test(?CONFIG, Params),
     ok.
 
 keys_test(_Config) ->

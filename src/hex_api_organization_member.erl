@@ -98,7 +98,7 @@ update(Config, UsernameOrEmail, Role) when is_map(Config) and is_binary(Username
 %%
 %% ```
 %% > hex_api_organization_member:delete(hex_core:default_config()#{api_organization => <<"acme">>}, <<"user">>).
-%% {ok, {204, ..., nil}}
+%% {ok, {204, ..., undefined}}
 %% '''
 %% @end
 -spec delete(hex_core:config(), binary()) -> hex_api:response().

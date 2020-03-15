@@ -16,7 +16,7 @@
 
 -export_type([body/0, response/0]).
 
--type response() :: {ok, {hex_http:status(), hex_http:headers(), body() | nil}} | {error, term()}.
+-type response() :: {ok, {hex_http:status(), hex_http:headers(), body() | undefined}} | {error, term()}.
 -type body() :: [body()] | #{binary() => body() | binary()}.
 
 get(Config, Path) ->
@@ -99,7 +99,7 @@ request(Config, Method, Path, Body) when is_binary(Path) and is_map(Config) ->
                     {ok, {Status, RespHeaders, binary_to_term(RespBody)}};
 
                 nomatch ->
-                    {ok, {Status, RespHeaders, nil}}
+                    {ok, {Status, RespHeaders, undefined}}
             end;
 
         Other ->

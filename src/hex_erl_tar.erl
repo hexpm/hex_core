@@ -710,8 +710,8 @@ build_header(#tar_header{}=Header, Opts) ->
 
 set_path(Block0, Pax) ->
      %% only use ustar header when name is too long
-    case maps:get(?PAX_PATH, Pax, nil) of
-        nil ->
+    case maps:get(?PAX_PATH, Pax, undefined) of
+        undefined ->
             {Block0, Pax};
         PaxPath ->
             case split_ustar_path(PaxPath) of
@@ -819,20 +819,20 @@ split_ustar_path(Path) ->
                             false;
                         Name ->
                             Parts2 = lists:sublist(Parts, length(Parts) - 1),
-                            join_split_ustar_path(Parts2, {ok, Name, nil})
+                            join_split_ustar_path(Parts2, {ok, Name, undefined})
                     end
             end
     end.
 
 join_split_ustar_path([], Acc) ->
     Acc;
-join_split_ustar_path([Part|_], {ok, _, nil})
+join_split_ustar_path([Part|_], {ok, _, undefined})
   when byte_size(Part) > ?USTAR_PREFIX_LEN ->
     false;
 join_split_ustar_path([Part|_], {ok, _Name, Acc})
   when (byte_size(Part)+byte_size(Acc)) > ?USTAR_PREFIX_LEN ->
     false;
-join_split_ustar_path([Part|Rest], {ok, Name, nil}) ->
+join_split_ustar_path([Part|Rest], {ok, Name, undefined}) ->
     join_split_ustar_path(Rest, {ok, Name, Part});
 join_split_ustar_path([Part|Rest], {ok, Name, Acc}) ->
     join_split_ustar_path(Rest, {ok, Name, <<Acc/binary,$/,Part/binary>>}).
@@ -987,7 +987,7 @@ parse_sparse_entries(_, -1, Acc) ->
     Acc;
 parse_sparse_entries(Bin, N, Acc) ->
     case to_sparse_entry(binary_part(Bin, N*24, 24)) of
-        nil ->
+        undefined ->
             parse_sparse_entries(Bin, N-1, Acc);
         Entry = #sparse_entry{} ->
             parse_sparse_entries(Bin, N-1, [Entry|Acc])
@@ -999,7 +999,7 @@ to_sparse_entry(Bin) when is_binary(Bin), byte_size(Bin) =:= 24 ->
     NumBytesBin = binary_part(Bin, 12, 12),
     case {OffsetBin, NumBytesBin} of
         {?EMPTY_ENTRY, ?EMPTY_ENTRY} ->
-            nil;
+            undefined;
         _ ->
             #sparse_entry{
                offset=parse_numeric(OffsetBin),

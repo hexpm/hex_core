@@ -33,8 +33,8 @@
 %%          #{<<"app">> => <<"package">>,
 %%            <<"build_tools">> => [<<"mix">>]},
 %%      <<"package_url">> => <<"https://hex.pm/api/packages/package">>,
-%%      <<"publisher">> => nil,<<"requirements">> => #{},
-%%      <<"retirement">> => nil,
+%%      <<"publisher">> => undefined,<<"requirements">> => #{},
+%%      <<"retirement">> => undefined,
 %%      <<"updated_at">> => <<"2019-07-28T21:12:11Z">>,
 %%      <<"url">> => <<"https://hex.pm/api/packages/package/releases/1.0.0">>,
 %%      <<"version">> => <<"1.0.0">>
@@ -63,8 +63,8 @@ get(Config, Name, Version) when is_map(Config) and is_binary(Name) and is_binary
 %%          #{<<"app">> => <<"package">>,
 %%            <<"build_tools">> => [<<"mix">>]},
 %%      <<"package_url">> => <<"https://hex.pm/api/packages/package">>,
-%%      <<"publisher">> => nil,<<"requirements">> => #{},
-%%      <<"retirement">> => nil,
+%%      <<"publisher">> => undefined,<<"requirements">> => #{},
+%%      <<"retirement">> => undefined,
 %%      <<"updated_at">> => <<"2019-07-28T21:12:11Z">>,
 %%      <<"url">> => <<"https://hex.pm/api/packages/package/releases/1.0.0">>,
 %%      <<"version">> => <<"1.0.0">>
@@ -86,7 +86,7 @@ publish(Config, Tarball) when is_map(Config) and is_binary(Tarball) ->
 %%
 %% ```
 %% > hex_api_release:delete(hex_core:default_config(), <<"package">>, <<"1.0.0">>).
-%% {ok, {204, ..., nil}}
+%% {ok, {204, ..., undefined}}
 %% '''
 %% @end
 -spec delete(hex_core:config(), binary(), binary()) -> hex_api:response().
@@ -101,7 +101,7 @@ delete(Config, Name, Version) when is_map(Config) and is_binary(Name) and is_bin
 %%
 %% ```
 %% > hex_api_release:retire(hex_core:default_config(), <<"package">>, <<"1.0.0">>, Params).
-%% {ok, {204, ..., nil}}
+%% {ok, {204, ..., undefined}}
 %% '''
 %% @end
 -spec retire(hex_core:config(), binary(), binary(), retirement_params()) -> hex_api:response().
@@ -116,7 +116,7 @@ retire(Config, Name, Version, Params) when is_map(Config) and is_binary(Name) an
 %%
 %% ```
 %% > hex_api_release:unretire(hex_core:default_config(), <<"package">>, <<"1.0.0">>).
-%% {ok, {204, ..., nil}}
+%% {ok, {204, ..., undefined}}
 %% '''
 %% @end
 -spec unretire(hex_core:config(), binary(), binary()) -> hex_api:response().

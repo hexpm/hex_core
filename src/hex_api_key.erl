@@ -36,7 +36,7 @@
 %%           <<"user_agent">> => <<"hex_core/0.5.0 (httpc) (OTP/21) (erts/10.2)">>},
 %%     <<"name">> => <<"hex_core">>,
 %%     <<"permissions">> => [#{<<"domain">> => <<"api">>,<<"resource">> => <<"read">>}],
-%%     <<"revoked_at">> => nil,
+%%     <<"revoked_at">> => undefined,
 %%     <<"updated_at">> => <<"2019-02-27T14:38:54Z">>,
 %%     <<"url">> => <<"https://hex.pm/api/keys/test">>},
 %%     }]}}
@@ -63,7 +63,7 @@ list(Config) when is_map(Config) ->
 %%           <<"user_agent">> => <<"hex_core/0.5.0 (httpc) (OTP/21) (erts/10.2)">>},
 %%     <<"name">> => <<"hex_core">>,
 %%     <<"permissions">> => [#{<<"domain">> => <<"api">>,<<"resource">> => <<"read">>}],
-%%     <<"revoked_at">> => nil,
+%%     <<"revoked_at">> => undefined,
 %%     <<"updated_at">> => <<"2019-02-27T14:38:54Z">>,
 %%     <<"url">> => <<"https://hex.pm/api/keys/test">>},
 %%     }}}
@@ -90,7 +90,7 @@ get(Config, Name) when is_map(Config) and is_binary(Name) ->
 %%           <<"user_agent">> => <<"hex_core/0.5.0 (httpc) (OTP/21) (erts/10.2)">>},
 %%     <<"name">> => <<"hex_core">>,
 %%     <<"permissions">> => [#{<<"domain">> => <<"api">>,<<"resource">> => <<"read">>}],
-%%     <<"revoked_at">> => nil,
+%%     <<"revoked_at">> => undefined,
 %%     <<"updated_at">> => <<"2019-02-27T14:38:54Z">>,
 %%     <<"url">> => <<"https://hex.pm/api/keys/test">>},
 %%     }}}
@@ -118,7 +118,7 @@ add(Config, Name, Permissions) when is_map(Config) and is_binary(Name) and is_li
 %%           <<"user_agent">> => <<"hex_core/0.5.0 (httpc) (OTP/21) (erts/10.2)">>},
 %%     <<"name">> => <<"hex_core">>,
 %%     <<"permissions">> => [#{<<"domain">> => <<"api">>,<<"resource">> => <<"read">>}],
-%%     <<"revoked_at">> => nil,
+%%     <<"revoked_at">> => undefined,
 %%     <<"updated_at">> => <<"2019-02-27T14:38:54Z">>,
 %%     <<"url">> => <<"https://hex.pm/api/keys/test">>},
 %%     }}}
@@ -145,7 +145,7 @@ delete(Config, Name) when is_map(Config) and is_binary(Name) ->
 %%           <<"user_agent">> => <<"hex_core/0.5.0 (httpc) (OTP/21) (erts/10.2)">>},
 %%     <<"name">> => <<"hex_core">>,
 %%     <<"permissions">> => [#{<<"domain">> => <<"api">>,<<"resource">> => <<"read">>}],
-%%     <<"revoked_at">> => nil,
+%%     <<"revoked_at">> => undefined,
 %%     <<"updated_at">> => <<"2019-02-27T14:38:54Z">>,
 %%     <<"url">> => <<"https://hex.pm/api/keys/test">>},
 %%     }]}}

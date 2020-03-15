@@ -65,7 +65,7 @@ when is_map(Config) and is_binary(Username) and is_binary(Password) and is_binar
 %%
 %% ```
 %% > hex_api_user:reset_password(hex_core:default_config(), <<"user">>).
-%% {ok, {204, ..., nil}}
+%% {ok, {204, ..., undefined}}
 %% '''
 %% @end
 -spec reset_password(hex_core:config(), binary()) -> hex_api:response().
