@@ -44,7 +44,7 @@ publish_test(_Config) ->
     ok.
 
 replace_test(_Config) ->
-    {ok, {201, _, Release}} = hex_api_release:replace(?CONFIG, <<"dummy_tarball">>),
+    {ok, {201, _, Release}} = hex_api_release:publish(?CONFIG, <<"dummy_tarball">>, [{replace, true}]),
     #{<<"version">> := <<"1.0.0">>, <<"requirements">> := Requirements} = Release,
     #{<<"decimal">> := #{
         <<"app">> := <<"decimal">>, <<"optional">> := false, <<"requirement">> := <<"~> 1.0">>}} = Requirements,
