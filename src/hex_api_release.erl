@@ -108,7 +108,7 @@ publish(Config, Tarball) -> publish(Config, Tarball, []).
 %% @end
 -spec publish(hexcore:config(), binary(), publish_params()) -> hex_api:response().
 publish(Config, Tarball, Params) when is_map(Config) andalso is_binary(Tarball) andalso is_list(Params)->
-    QueryString = hex_api:encode_query_string(Params),
+    QueryString = hex_api:encode_query_string([{replace, proplists:get_value(replace, params, false)}]),
     Path = hex_api:join_path_segments(hex_api:build_repository_path(Config, ["publish"])),
     PathWithQuery = <<Path/binary, "?", QueryString/binary>>,
     TarballContentType = "application/octet-stream",
