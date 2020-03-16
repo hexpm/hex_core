@@ -37,7 +37,7 @@ release_test(_Config) ->
     ok.
 
 publish_test(_Config) ->
-    {ok, {200, _, Release}} = hex_api_release:get(?CONFIG, <<"dummy_tarball">>),
+    {ok, {200, _, Release}} = hex_api_release:publish(?CONFIG, <<"dummy_tarball">>),
     #{<<"version">> := <<"1.0.0">>, <<"requirements">> := Requirements} = Release,
     #{<<"decimal">> := #{
         <<"app">> := <<"decimal">>, <<"optional">> := false, <<"requirement">> := <<"~> 1.0">>}} = Requirements,
