@@ -1,5 +1,5 @@
 -module(hex_tarball).
--export([create/2, create_docs/1, unpack/2, unpack_docs/2, format_checksum/1, format_error/1]).
+-export([create/2, create_docs/1, unpack/2, unpack/3, unpack_docs/2, format_checksum/1, format_error/1]).
 -ifdef(TEST).
 -export([do_decode_metadata/1, gzip/1, normalize_requirements/1]).
 -endif.
@@ -112,6 +112,12 @@ create_docs(Files) ->
 %%       contents => [{"src/foo.erl",<<"-module(foo).">>}],
 %%       metadata => #{<<"name">> => <<"foo">>, ...}}}
 %%
+%% > hex_tarball:unpack(Tarball, ["src/foo", "src/bar"], memory).
+%% {ok,#{outer_checksum => <<...>>,
+%%       contents => [{"src/foo",<<...>>},
+%%                    {"src/bar",<<...>>}],
+%%       metadata => #{<<"name">> => <<"foo">>, ...}}}
+%%
 %% > hex_tarball:unpack(Tarball, "path/to/unpack").
 %% {ok,#{outer_checksum => <<...>>,
 %%       metadata => #{<<"name">> => <<"foo">>, ...}}}
@@ -128,13 +134,20 @@ unpack(Tarball, _) when byte_size(Tarball) > ?TARBALL_MAX_SIZE ->
     {error, {tarball, too_big}};
 
 unpack(Tarball, Output) ->
+    unpack(Tarball, [], Output).
+
+unpack(Tarball, ListOfFilesToExtract, Output) ->
     case hex_erl_tar:extract({binary, Tarball}, [memory]) of
         {ok, []} ->
             {error, {tarball, empty}};
 
         {ok, FileList} ->
             OuterChecksum = crypto:hash(sha256, Tarball),
-            do_unpack(maps:from_list(FileList), OuterChecksum, Output);
+            Opts = case ListOfFilesToExtract of
+                [] -> [];
+                _ -> [{files, ListOfFilesToExtract}]
+            end,
+            do_unpack(maps:from_list(FileList), OuterChecksum, Output, Opts);
 
         {error, Reason} ->
             {error, {tarball, Reason}}
@@ -206,7 +219,7 @@ encode_metadata(Meta) ->
         end, maps:to_list(Meta)),
     iolist_to_binary(Data).
 
-do_unpack(Files, OuterChecksum, Output) ->
+do_unpack(Files, OuterChecksum, Output, Opts) ->
     State = #{
         inner_checksum => undefined,
         outer_checksum => OuterChecksum,
@@ -219,15 +232,16 @@ do_unpack(Files, OuterChecksum, Output) ->
     State2 = check_version(State1),
     State3 = check_inner_checksum(State2),
     State4 = decode_metadata(State3),
-    finish_unpack(State4).
+    finish_unpack(State4, Opts).
 
-finish_unpack({error, _} = Error) ->
+finish_unpack({error, _} = Error, _) ->
     Error;
-finish_unpack(#{metadata := Metadata, files := Files, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum, output := Output}) ->
+
+finish_unpack(#{metadata := Metadata, files := Files, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum, output := Output}, Opts) ->
     _ = maps:get("VERSION", Files),
     ContentsBinary = maps:get("contents.tar.gz", Files),
     filelib:ensure_dir(filename:join(Output, "*")),
-    case unpack_tarball(ContentsBinary, Output) of
+    case unpack_tarball(ContentsBinary, Output, Opts) of
         ok ->
             copy_metadata_config(Output, maps:get("metadata.config", Files)),
             {ok, #{inner_checksum => InnerChecksum, outer_checksum => OuterChecksum, metadata => Metadata}};
@@ -360,12 +374,15 @@ guess_build_tools(Metadata) ->
 %%====================================================================
 %% Tar Helpers
 %%====================================================================
-
-unpack_tarball(ContentsBinary, memory) ->
-    hex_erl_tar:extract({binary, ContentsBinary}, [memory, compressed]);
 unpack_tarball(ContentsBinary, Output) ->
+    unpack_tarball(ContentsBinary, Output, []).
+
+unpack_tarball(ContentsBinary, memory, Opts) ->
+    hex_erl_tar:extract({binary, ContentsBinary}, [memory, compressed | Opts]);
+
+unpack_tarball(ContentsBinary, Output, Opts) ->
     filelib:ensure_dir(filename:join(Output, "*")),
-    case hex_erl_tar:extract({binary, ContentsBinary}, [{cwd, Output}, compressed]) of
+    case hex_erl_tar:extract({binary, ContentsBinary}, [{cwd, Output}, compressed | Opts]) of
         ok ->
             [try_updating_mtime(filename:join(Output, Path)) || Path <- filelib:wildcard("**", Output)],
             ok;

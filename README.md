@@ -94,6 +94,14 @@ Unpack package tarball:
 {ok, #{outer_checksum := Checksum, contents := Contents, metadata := Metadata}} = hex_tarball:unpack(Tarball, memory).
 ```
 
+Or provide the list of files you want to extract from the tarball
+
+```erlang
+File = "dir/foo",
+{ok, #{outer_checksum := Checksum, contents := [{File, Content}], metadata := Metadata}} = hex_tarball:unpack(Tarball, [File], memory).
+```
+
+
 Remember to verify the outer tarball checksum against the registry checksum
 returned from `hex_repo:get_package(Config, Package)`.
 

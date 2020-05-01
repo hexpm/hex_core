@@ -10,7 +10,7 @@ all() ->
     [disk_test, timestamps_and_permissions_test, symlinks_test,
      memory_test, build_tools_test, requirements_test,
      decode_metadata_test, unpack_error_handling_test,
-     docs_test
+     docs_test, unpack_all_files_test, unpack_list_of_files_test
     ].
 
 memory_test(_Config) ->
@@ -238,6 +238,24 @@ docs_test(Config) ->
 
     ok = hex_tarball:unpack_docs(Tarball, UnpackDir),
     {ok, <<"Docs">>} = file:read_file(filename:join(UnpackDir, "index.html")),
+
+    ok.
+
+unpack_all_files_test(_Config) ->
+    Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+    Files = [{"foo", <<"">>},{"bar", <<"">>}],
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, Files),
+
+    {ok, #{contents := Files}} = hex_tarball:unpack(Tarball, memory),
+
+    ok.
+
+unpack_list_of_files_test(_Config) ->
+    Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+    ExpectedFile = {"foo", <<"">>},
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, [ExpectedFile, {"bar", <<"">>}]),
+
+    {ok, #{contents := [ExpectedFile]}} = hex_tarball:unpack(Tarball, ["foo"], memory),
 
     ok.
 
