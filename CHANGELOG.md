@@ -1,4 +1,7 @@
 # CHANGELOG
+## 0.6.9 (2020-05-24)
+
+* Add `hex_api_release:publish/3`
 
 ## 0.6.8 (2020-02-04)
 
