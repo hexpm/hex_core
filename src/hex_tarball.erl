@@ -1,11 +1,10 @@
 -module(hex_tarball).
--export([create/2, create_docs/1, unpack/2, unpack_docs/2, format_checksum/1, format_error/1]).
+-export([create/2, create/3, create_docs/1, create_docs/2, unpack/2, unpack/3,
+    unpack_docs/2, unpack_docs/3, format_checksum/1, format_error/1]).
 -ifdef(TEST).
 -export([do_decode_metadata/1, gzip/1, normalize_requirements/1]).
 -endif.
 -define(VERSION, <<"3">>).
--define(TARBALL_MAX_SIZE, 8 * 1024 * 1024).
--define(TARBALL_MAX_UNCOMPRESSED_SIZE, 64 * 1024 * 1024).
 -define(BUILD_TOOL_FILES, [
     {<<"mix.exs">>, <<"mix">>},
     {<<"rebar.config">>, <<"rebar3">>},
@@ -43,14 +42,16 @@
 %%        inner_checksum => <<178,12,...>>}}
 %% '''
 %% @end
--spec create(metadata(), files()) -> {ok, #{tarball => tarball(), outer_checksum => checksum(),
-                                            inner_checksum => tarball()}} | {error, term()}.
-create(Metadata, Files) ->
+-spec create(metadata(), files(), hex_core:config()) -> {ok, #{tarball => tarball(), outer_checksum => checksum(),
+                                                               inner_checksum => tarball()}} | {error, term()}.
+create(Metadata, Files, Config) ->
     MetadataBinary = encode_metadata(Metadata),
     ContentsTarball = create_memory_tarball(Files),
     ContentsTarballCompressed = gzip(ContentsTarball),
     InnerChecksum = inner_checksum(?VERSION, MetadataBinary, ContentsTarballCompressed),
     InnerChecksumBase16 = encode_base16(InnerChecksum),
+    TarballMaxSize = maps:get(tarball_max_size, Config),
+    TarballMaxUncompressedSize = maps:get(tarball_max_uncompressed_size, Config),
 
     OuterFiles = [
        {"VERSION", ?VERSION},
@@ -64,13 +65,18 @@ create(Metadata, Files) ->
 
     UncompressedSize = byte_size(ContentsTarball),
 
-    case(byte_size(Tarball) > ?TARBALL_MAX_SIZE) or (UncompressedSize > ?TARBALL_MAX_UNCOMPRESSED_SIZE) of
+    case(byte_size(Tarball) > TarballMaxSize) or (UncompressedSize > TarballMaxUncompressedSize) of
         true ->
             {error, {tarball, too_big}};
 
         false ->
             {ok, #{tarball => Tarball, outer_checksum => OuterChecksum, inner_checksum => InnerChecksum}}
     end.
+
+-spec create(metadata(), files()) -> {ok, #{tarball => tarball(), outer_checksum => checksum(),
+                                            inner_checksum => tarball()}} | {error, term()}.
+create(Metadata, Files) ->
+    create(Metadata, Files, hex_core:default_config()).
 
 %% @doc
 %% Creates a docs tarball.
@@ -83,20 +89,24 @@ create(Metadata, Files) ->
 %% {ok, <<86,69,...>>}
 %% '''
 %% @end
--spec create_docs(files()) -> {ok, tarball()}.
-create_docs(Files) ->
+-spec create_docs(files(), hex_core:config()) -> {ok, tarball()} | {error, term()}.
+create_docs(Files, #{tarball_max_size := TarballMaxSize, tarball_max_uncompressed_size := TarballMaxUncompressedSize}) ->
     UncompressedTarball = create_memory_tarball(Files),
     UncompressedSize = byte_size(UncompressedTarball),
     Tarball = gzip(UncompressedTarball),
     Size = byte_size(Tarball),
 
-    case(Size > ?TARBALL_MAX_SIZE) or (UncompressedSize > ?TARBALL_MAX_UNCOMPRESSED_SIZE) of
+    case(Size > TarballMaxSize) or (UncompressedSize > TarballMaxUncompressedSize) of
         true ->
             {error, {tarball, too_big}};
 
         false ->
             {ok, Tarball}
     end.
+
+-spec create_docs(files()) -> {ok, tarball()}.
+create_docs(Files) ->
+    create_docs(Files, hex_core:default_config()).
 
 %% @doc
 %% Unpacks a package tarball.
@@ -116,18 +126,18 @@ create_docs(Files) ->
 %% {ok,#{outer_checksum => <<...>>,
 %%       metadata => #{<<"name">> => <<"foo">>, ...}}}
 %% '''
--spec unpack(tarball(), memory) ->
+-spec unpack(tarball(), memory, hex_core:config()) ->
                 {ok, #{outer_checksum => checksum(), inner_checksum => checksum(),
                        metadata => metadata(), contents => contents()}} |
                 {error, term()};
-            (tarball(), filename()) ->
+            (tarball(), filename(), hex_core:config()) ->
                 {ok, #{outer_checksum => checksum(), inner_checksum => checksum(),
                        metadata => metadata()}} |
                 {error, term()}.
-unpack(Tarball, _) when byte_size(Tarball) > ?TARBALL_MAX_SIZE ->
+unpack(Tarball, _, #{tarball_max_size := TarballMaxSize}) when byte_size(Tarball) > TarballMaxSize ->
     {error, {tarball, too_big}};
 
-unpack(Tarball, Output) ->
+unpack(Tarball, Output, _Config) ->
     case hex_erl_tar:extract({binary, Tarball}, [memory]) of
         {ok, []} ->
             {error, {tarball, empty}};
@@ -139,6 +149,18 @@ unpack(Tarball, Output) ->
         {error, Reason} ->
             {error, {tarball, Reason}}
     end.
+
+
+-spec unpack(tarball(), memory) ->
+                {ok, #{outer_checksum => checksum(), inner_checksum => checksum(),
+                       metadata => metadata(), contents => contents()}} |
+                {error, term()};
+            (tarball(), filename()) ->
+                {ok, #{outer_checksum => checksum(), inner_checksum => checksum(),
+                       metadata => metadata()}} |
+                {error, term()}.
+unpack(Tarball, Output) ->
+    unpack(Tarball, Output, hex_core:default_config()).
 
 %% @doc
 %% Unpacks a documentation tarball.
@@ -152,13 +174,18 @@ unpack(Tarball, Output) ->
 %% > hex_tarball:unpack_docs(Tarball, "path/to/unpack").
 %% ok
 %% '''
--spec unpack_docs(tarball(), memory) -> {ok, contents()} | {error, term()};
-                 (tarball(), filename()) -> ok | {error, term()}.
-unpack_docs(Tarball, _) when byte_size(Tarball) > ?TARBALL_MAX_SIZE ->
+-spec unpack_docs(tarball(), memory, hex_core:config()) -> {ok, contents()} | {error, term()};
+                 (tarball(), filename(), hex_core:config()) -> ok | {error, term()}.
+unpack_docs(Tarball, _, #{tarball_max_size := TarballMaxSize}) when is_integer(TarballMaxSize) and byte_size(Tarball) > TarballMaxSize ->
     {error, {tarball, too_big}};
 
-unpack_docs(Tarball, Output) ->
+unpack_docs(Tarball, Output, _Config) ->
     unpack_tarball(Tarball, Output).
+
+-spec unpack_docs(tarball(), memory) -> {ok, contents()} | {error, term()};
+                 (tarball(), filename()) -> ok | {error, term()}.
+unpack_docs(Tarball, Output) ->
+    unpack_docs(Tarball, Output, hex_core:default_config()).
 
 %% @doc
 %% Returns base16-encoded representation of checksum.
