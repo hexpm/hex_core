@@ -176,7 +176,7 @@ unpack(Tarball, Output) ->
 %% '''
 -spec unpack_docs(tarball(), memory, hex_core:config()) -> {ok, contents()} | {error, term()};
                  (tarball(), filename(), hex_core:config()) -> ok | {error, term()}.
-unpack_docs(Tarball, _, #{tarball_max_size := TarballMaxSize}) when is_integer(TarballMaxSize) and byte_size(Tarball) > TarballMaxSize ->
+unpack_docs(Tarball, _, #{tarball_max_size := TarballMaxSize}) when byte_size(Tarball) > TarballMaxSize ->
     {error, {tarball, too_big}};
 
 unpack_docs(Tarball, Output, _Config) ->
