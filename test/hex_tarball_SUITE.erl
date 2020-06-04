@@ -10,8 +10,34 @@ all() ->
     [disk_test, timestamps_and_permissions_test, symlinks_test,
      memory_test, build_tools_test, requirements_test,
      decode_metadata_test, unpack_error_handling_test,
-     docs_test
+     docs_test, too_big_to_create_test, too_big_to_unpack_test,
+     docs_too_big_to_create_test, docs_too_big_to_unpack_test
     ].
+
+too_big_to_create_test(_Config) ->
+    Metadata = #{
+      <<"name">> => <<"foo">>,
+      <<"version">> => <<"1.0.0">>,
+      <<"maintainers">> => [<<"José">>],
+      <<"build_tool">> => <<"rebar3">>
+     },
+    Contents = [{"src/foo.erl", <<"-module(foo).">>}],
+    Config = maps:put(tarball_max_size, 5100, hex_core:default_config()),
+    {error, {tarball, too_big}} = hex_tarball:create(Metadata, Contents, Config),
+    ok.
+
+too_big_to_unpack_test(_Config) ->
+    Metadata = #{
+      <<"name">> => <<"foo">>,
+      <<"version">> => <<"1.0.0">>,
+      <<"maintainers">> => [<<"José">>],
+      <<"build_tool">> => <<"rebar3">>
+     },
+    Contents = [{"src/foo.erl", <<"-module(foo).">>}],
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, Contents),
+    Config = maps:put(tarball_max_size, 5100, hex_core:default_config()),
+    {error, {tarball, too_big}} = hex_tarball:unpack(Tarball, memory, Config),
+    ok.
 
 memory_test(_Config) ->
     Metadata = #{
@@ -228,6 +254,21 @@ unpack_error_handling_test(_Config) ->
 
     ok.
 
+docs_too_big_to_create_test(_Config) ->
+    Files = [{"index.html", <<"Docs">>}],
+    Config = maps:put(tarball_max_size, 100, hex_core:default_config()),
+    {error, {tarball, too_big}} = hex_tarball:create_docs(Files, Config),
+
+    ok.
+
+docs_too_big_to_unpack_test(_Config) ->
+    Files = [{"index.html", <<"Docs">>}],
+    {ok, Tarball} = hex_tarball:create_docs(Files),
+    Config = maps:put(tarball_max_size, 100, hex_core:default_config()),
+    {error, {tarball, too_big}} = hex_tarball:unpack_docs(Tarball, memory, Config),
+
+    ok.
+
 docs_test(Config) ->
     BaseDir = ?config(priv_dir, Config),
     UnpackDir = filename:join(BaseDir, "unpack_docs"),
@@ -235,7 +276,6 @@ docs_test(Config) ->
     Files = [{"index.html", <<"Docs">>}],
     {ok, Tarball} = hex_tarball:create_docs(Files),
     {ok, Files} = hex_tarball:unpack_docs(Tarball, memory),
-
     ok = hex_tarball:unpack_docs(Tarball, UnpackDir),
     {ok, <<"Docs">>} = file:read_file(filename:join(UnpackDir, "index.html")),
 
