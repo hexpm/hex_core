@@ -253,7 +253,12 @@ finish_unpack({error, _} = Error) ->
 finish_unpack(#{metadata := Metadata, files := Files, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum, output := Output}) ->
     _ = maps:get("VERSION", Files),
     ContentsBinary = maps:get("contents.tar.gz", Files),
-    filelib:ensure_dir(filename:join(Output, "*")),
+
+    case Output of
+      memory -> ok;
+      _ -> filelib:ensure_dir(filename:join(Output, "*"))
+    end,
+
     case unpack_tarball(ContentsBinary, Output) of
         ok ->
             copy_metadata_config(Output, maps:get("metadata.config", Files)),
