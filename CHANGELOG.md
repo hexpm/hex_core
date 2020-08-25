@@ -1,4 +1,10 @@
 # CHANGELOG
+
+## 0.6.10 (2020-08-25)
+
+* Add configuration for max tarball size
+* Do not create extraneous "memory" directory when unpacking
+
 ## 0.6.9 (2020-05-24)
 
 * Add `hex_api_release:publish/3`
