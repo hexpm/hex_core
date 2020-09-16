@@ -1,0 +1,7 @@
+-ifdef(OTP_RELEASE).
+-define(HEX_CORE_CLASS_REASON_STACKTRACE(Class, Reason, Stacktrace), Class:Reason:Stacktrace).
+-define(HEX_CORE_GET_STACKTRACE(Stacktrace), Stacktrace).
+-else.
+-define(HEX_CORE_CLASS_REASON_STACKTRACE(Class, Reason, _), Class:Reason).
+-define(HEX_CORE_GET_STACKTRACE(_), erlang:get_stacktrace()).
+-endif.

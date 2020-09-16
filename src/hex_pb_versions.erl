@@ -253,8 +253,8 @@ decode_msg_1_catch(Bin, MsgName, TrUserData) ->
 -else.
 decode_msg_1_catch(Bin, MsgName, TrUserData) ->
     try decode_msg_2_doit(MsgName, Bin, TrUserData)
-    catch Class:Reason ->
-        StackTrace = erlang:get_stacktrace(),
+    catch ?HEX_CORE_CLASS_REASON_STACKTRACE(Class, Reason, Stacktrace) ->
+        StackTrace = ?HEX_CORE_GET_STACKTRACE(Stacktrace),
         error({gpb_error,{decoding_failure, {Bin, MsgName, {Class, Reason, StackTrace}}}})
     end.
 -endif.
