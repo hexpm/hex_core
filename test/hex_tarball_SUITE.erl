@@ -247,10 +247,16 @@ unpack_error_handling_test(_Config) ->
     %% contents
 
     Files5 = OuterFiles#{
-      "contents.tar.gz" => <<"badtar">>,
-      "CHECKSUM" => <<"63E0D44ED4F61F5A1636A516A6A26890052CE0BB1B1A6EDC66C30282E2EC1A58">>
+      "contents.tar.gz" => hex_tarball:gzip(<<"badtar">>),
+      "CHECKSUM" => <<"1D87B5FFDA2480FC41F282A722FDAE60661349D47E7E084E93190BC242BB4D9C">>
     },
     {error,{inner_tarball,eof}} = unpack_files(Files5),
+
+    Files6 = OuterFiles#{
+      "contents.tar.gz" => <<"badgzip">>,
+      "CHECKSUM" => <<"C01D8E226CE736680D2D402E5A32A53D6C0DCEA47A773F77A30EE361416FF5BA">>
+    },
+    {error,{inner_tarball,eof}} = unpack_files(Files6),
 
     ok.
 
