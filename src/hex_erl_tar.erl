@@ -336,8 +336,14 @@ do_open(Name, Mode) when is_list(Mode) ->
 
 open1({binary,Bin0}, read, _Raw, Opts) when is_binary(Bin0) ->
     Bin = case lists:member(compressed, Opts) of
-        true -> zlib:gunzip(Bin0);
-        false -> Bin0
+        true ->
+            try
+              zlib:gunzip(Bin0)
+            catch
+              _:_ -> Bin0
+            end;
+        false ->
+            Bin0
     end,
     case file:open(Bin, [ram,binary,read]) of
         {ok,File} ->

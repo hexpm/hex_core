@@ -256,7 +256,7 @@ unpack_error_handling_test(_Config) ->
       "contents.tar.gz" => <<"badgzip">>,
       "CHECKSUM" => <<"C01D8E226CE736680D2D402E5A32A53D6C0DCEA47A773F77A30EE361416FF5BA">>
     },
-    {error,{inner_tarball,zlib_error}} = unpack_files(Files6),
+    {error,{inner_tarball,eof}} = unpack_files(Files6),
 
     ok.
 
