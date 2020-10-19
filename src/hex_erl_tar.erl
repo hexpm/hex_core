@@ -333,10 +333,13 @@ do_open(Name, Mode) when is_list(Mode) ->
             {error, {Name, Reason}}
     end.
 
-open1({binary,Bin}, read, _Raw, Opts) when is_binary(Bin) ->
+open1({binary,Bin0}=Handle, read, _Raw, Opts) when is_binary(Bin0) ->
+    Bin = case lists:member(compressed, Opts) of
+        true -> zlib:gunzip(Bin0);
+        false -> Bin0
+    end,
     case file:open(Bin, [ram,binary,read]) of
         {ok,File} ->
-            _ = [ram_file:uncompress(File) || Opts =:= [compressed]],
             {ok, #reader{handle=File,access=read,func=fun file_op/2}};
         Error ->
             Error
