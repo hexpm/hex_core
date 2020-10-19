@@ -247,8 +247,8 @@ unpack_error_handling_test(_Config) ->
     %% contents
 
     Files5 = OuterFiles#{
-      "contents.tar.gz" => zlib:gzip(<<"badtar">>),
-      "CHECKSUM" => <<"F177D8E9CA215B18727D28ACC81AEA27C7E6B07A04E56963A4BF7205AE649BAE">>
+      "contents.tar.gz" => hex_tarball:gzip(<<"badtar">>),
+      "CHECKSUM" => <<"1D87B5FFDA2480FC41F282A722FDAE60661349D47E7E084E93190BC242BB4D9C">>
     },
     {error,{inner_tarball,eof}} = unpack_files(Files5),
 
