@@ -202,6 +202,7 @@ format_error({tarball, {missing_files, Files}}) -> io_lib:format("missing files:
 format_error({tarball, {bad_version, Vsn}}) -> io_lib:format("unsupported version: ~p", [Vsn]);
 format_error({tarball, invalid_checksum}) -> "invalid tarball checksum";
 format_error({tarball, Reason}) -> "tarball error, " ++ hex_erl_tar:format_error(Reason);
+format_error({inner_tarball, zlib_error}) -> "inner tarball error, zlib error";
 format_error({inner_tarball, Reason}) -> "inner tarball error, " ++ hex_erl_tar:format_error(Reason);
 format_error({metadata, invalid_terms}) -> "error reading package metadata: invalid terms";
 format_error({metadata, not_key_value}) -> "error reading package metadata: not in key-value format";
@@ -394,7 +395,12 @@ guess_build_tools(Metadata) ->
 %%====================================================================
 
 unpack_tarball(ContentsBinary, memory) ->
-    hex_erl_tar:extract({binary, ContentsBinary}, [memory, compressed]);
+    try hex_erl_tar:extract({binary, ContentsBinary}, [memory, compressed]) of
+      Ok -> Ok
+    catch
+      error:data_error ->
+        {error, zlib_error}
+    end;
 unpack_tarball(ContentsBinary, Output) ->
     filelib:ensure_dir(filename:join(Output, "*")),
     case hex_erl_tar:extract({binary, ContentsBinary}, [{cwd, Output}, compressed]) of
