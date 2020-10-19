@@ -9,6 +9,7 @@
 %% - Add safe_relative_path_links/2 to check directory traversal vulnerability when extracting files,
 %%   it differs from OTP's current fix (2020-02-04) in that it checks regular files instead of
 %%   symlink targets. This allows creating symlinks with relative path targets such as `../tmp/log`
+%% - Remove ram_file usage (backported from OTP master)
 
 %%
 %% %CopyrightBegin%
