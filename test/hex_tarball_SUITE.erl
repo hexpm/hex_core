@@ -23,7 +23,9 @@ too_big_to_create_test(_Config) ->
      },
     Contents = [{"src/foo.erl", <<"-module(foo).">>}],
     Config = maps:put(tarball_max_size, 5100, hex_core:default_config()),
-    {error, {tarball, too_big}} = hex_tarball:create(Metadata, Contents, Config),
+    {error, {tarball, {too_big_compressed, 5100}}} = hex_tarball:create(Metadata, Contents, Config),
+    Config1 = maps:put(tarball_max_uncompressed_size, 100, hex_core:default_config()),
+    {error, {tarball,{too_big_uncompressed, 100}}} = hex_tarball:create(Metadata, Contents, Config1),
     ok.
 
 too_big_to_unpack_test(_Config) ->

@@ -65,11 +65,14 @@ create(Metadata, Files, Config) ->
 
     UncompressedSize = byte_size(ContentsTarball),
 
-    case(byte_size(Tarball) > TarballMaxSize) or (UncompressedSize > TarballMaxUncompressedSize) of
-        true ->
-            {error, {tarball, too_big}};
+    case {(byte_size(Tarball) > TarballMaxSize), (UncompressedSize > TarballMaxUncompressedSize)} of
+        {_, true} -> 
+            {error, {tarball, {too_big_uncompressed, TarballMaxUncompressedSize}}};
 
-        false ->
+        {true, _} ->
+            {error, {tarball, {too_big_compressed, TarballMaxSize}}};
+
+        {false, false} ->
             {ok, #{tarball => Tarball, outer_checksum => OuterChecksum, inner_checksum => InnerChecksum}}
     end.
 
@@ -197,7 +200,11 @@ format_checksum(Checksum) ->
 %% Converts an error reason term to a human-readable error message string.
 -spec format_error(term()) -> string().
 format_error({tarball, empty}) -> "empty tarball";
-format_error({tarball, too_big}) -> "tarball is too big";
+format_error({tarball, {too_big_uncompressed, Size}}) -> 
+    io_lib:format("package exceeds max uncompressed size ~w ~s", [format_byte_size(Size), "MB"]);
+format_error({tarball, {too_big_compressed, Size}}) -> 
+     io_lib:format("package exceeds max compressed size ~w ~s", [format_byte_size(Size), "MB"]);
+
 format_error({tarball, {missing_files, Files}}) -> io_lib:format("missing files: ~p", [Files]);
 format_error({tarball, {bad_version, Vsn}}) -> io_lib:format("unsupported version: ~p", [Vsn]);
 format_error({tarball, invalid_checksum}) -> "invalid tarball checksum";
@@ -213,6 +220,9 @@ format_error({checksum_mismatch, ExpectedChecksum, ActualChecksum}) ->
         "Expected (base16-encoded): ~s~n" ++
         "Actual   (base16-encoded): ~s",
         [encode_base16(ExpectedChecksum), encode_base16(ActualChecksum)]).
+
+format_byte_size(Size) -> 
+    Size / 1000000.
 
 %%====================================================================
 %% Internal functions
