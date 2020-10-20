@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.7.0 (2020-10-20)
+
+* Fix compatibility with OTP 24
+* Change `hex_tarball:create/2` error value from `{error, too_big}` to `{tarball, {too_big_compressed | too_big_uncompressed, Size}}`.
+
 ## 0.6.10 (2020-08-25)
 
 * Add configuration for max tarball size

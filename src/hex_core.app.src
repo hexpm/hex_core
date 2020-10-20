@@ -1,6 +1,6 @@
 {application, hex_core, [
   {description, "Reference implementation of Hex specifications"},
-  {vsn, "0.6.10"},
+  {vsn, "0.7.0"},
   {registered, []},
   {applications, [kernel, stdlib]},
   {licenses, ["Apache-2.0"]},
