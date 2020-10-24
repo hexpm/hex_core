@@ -114,7 +114,7 @@ HTTP client configuration can be overridden as follows:
 
 ```erlang
 Config = maps:merge(hex_core:default_config(), #{
-  http_adapter => my_hackney_adapter,
+  http_adapter => {my_hackney_adapter, my_hackney_adapter_config},
   http_user_agent_fragment => <<"(my_app/0.1.0) (hackney/1.12.1) ">>
 }),
 hex_repo:get_names(Config).
@@ -128,7 +128,7 @@ request(Method, URI, ReqHeaders) ->
     %% ...
 ```
 
-See the [`hex_core` module](hex_core.html) for more information about the configuration.
+See the [`hex_core` module](src/hex_core.erl) for more information about the configuration.
 
 ## Wrapper Module
 
