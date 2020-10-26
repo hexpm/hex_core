@@ -5,8 +5,10 @@
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("common_test/include/ct.hrl").
 
+-define(DEFAULT_HTTP_ADAPTER_CONFIG, #{profile => default}).
+
 -define(CONFIG, (hex_core:default_config())#{
-    http_adapter => hex_http_test,
+    http_adapter => {hex_http_test, ?DEFAULT_HTTP_ADAPTER_CONFIG},
     http_user_agent_fragment => <<"(test)">>,
     api_url => <<"https://api.test">>,
     api_key => <<"dummy">>
