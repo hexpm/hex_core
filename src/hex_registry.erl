@@ -14,8 +14,8 @@
 ]).
 -include_lib("public_key/include/public_key.hrl").
 
--type private_key() :: public_key:rsa_private_key() | binary().
--type public_key() :: public_key:rsa_public_key() | binary().
+-type private_key() :: #'RSAPrivateKey'{} | binary().
+-type public_key() :: #'RSAPublicKey'{} | binary().
 
 %%====================================================================
 %% API functions
