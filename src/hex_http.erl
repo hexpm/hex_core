@@ -7,7 +7,9 @@
 
 -type method() :: get | post | put | patch | delete.
 -type status() :: non_neg_integer().
+-export_type([status/0]).
 -type headers() :: #{binary() => binary()}.
+-export_type([headers/0]).
 -type body() :: {ContentType :: binary(), Body :: binary()} | undefined.
 -type adapter_config() :: map().
 
