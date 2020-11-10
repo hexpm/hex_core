@@ -23,6 +23,7 @@
 -export([get_package_name/0]).
 -export([gpb_version_as_string/0, gpb_version_as_list/0]).
 
+-include("hex_core.hrl").
 
 %% enumerated types
 -type 'RetirementReason'() :: 'RETIRED_OTHER' | 'RETIRED_INVALID' | 'RETIRED_SECURITY' | 'RETIRED_DEPRECATED' | 'RETIRED_RENAMED'.
@@ -275,21 +276,28 @@ decode_msg(Bin, MsgName, Opts) when is_binary(Bin) ->
 
 -ifdef('OTP_RELEASE').
 decode_msg_1_catch(Bin, MsgName, TrUserData) ->
-    try decode_msg_2_doit(MsgName, Bin, TrUserData)
-    catch Class:Reason:StackTrace -> error({gpb_error,{decoding_failure, {Bin, MsgName, {Class, Reason, StackTrace}}}})
+    try
+        decode_msg_2_doit(MsgName, Bin, TrUserData)
+    catch
+        ?WITH_STACKTRACE(Class,Reason,StackTrace)
+          error({gpb_error,{decoding_failure, {Bin, MsgName, {Class, Reason, StackTrace}}}})
     end.
 -else.
 -ifdef('GPB_PATTERN_STACK').
 decode_msg_1_catch(Bin, MsgName, TrUserData) ->
-    try decode_msg_2_doit(MsgName, Bin, TrUserData)
-    catch Class:Reason:StackTrace -> error({gpb_error,{decoding_failure, {Bin, MsgName, {Class, Reason, StackTrace}}}})
+    try
+        decode_msg_2_doit(MsgName, Bin, TrUserData)
+    catch
+        ?WITH_STACKTRACE(Class,Reason,StackTrace)
+          error({gpb_error,{decoding_failure, {Bin, MsgName, {Class, Reason, StackTrace}}}})
     end.
 -else.
 decode_msg_1_catch(Bin, MsgName, TrUserData) ->
-    try decode_msg_2_doit(MsgName, Bin, TrUserData)
-    catch Class:Reason ->
-        StackTrace = erlang:get_stacktrace(),
-        error({gpb_error,{decoding_failure, {Bin, MsgName, {Class, Reason, StackTrace}}}})
+    try
+        decode_msg_2_doit(MsgName, Bin, TrUserData)
+    catch
+        ?WITH_STACKTRACE(Class,Reason,StackTrace)
+          error({gpb_error,{decoding_failure, {Bin, MsgName, {Class, Reason, StackTrace}}}})
     end.
 -endif.
 
