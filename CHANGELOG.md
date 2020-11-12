@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.7.1 (2020-10-12)
+
+* Fix dialyzer warnings on OTP 23
+
 ## 0.7.0 (2020-10-20)
 
 * Fix compatibility with OTP 24
