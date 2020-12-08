@@ -27,10 +27,10 @@ jobs:
     env:
       REBAR3_VERSION: 3.6.1
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
 
       - name: Install OTP
-        uses: ericmj/setup-elixir@3f15364
+        uses: ericmj/setup-elixir@v1
         with:
           otp-version: ${{matrix.pair.erlang}}
           elixir-version: ${{matrix.pair.elixir}}
