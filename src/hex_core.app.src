@@ -8,5 +8,6 @@
   {links, [
     {"GitHub", "https://github.com/hexpm/hex_core"},
     {"Hex specifications", "https://github.com/hexpm/specifications"}
-  ]}
+  ]},
+  {doc, "doc"}
 ]}.

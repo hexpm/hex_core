@@ -1,3 +1,5 @@
+%% @doc
+%% HTTP contract.
 -module(hex_http).
 -export([request/5]).
 -ifdef(TEST).
@@ -34,6 +36,7 @@ request(Config, Method, URI, Headers, Body) when is_binary(URI) and is_map(Heade
     Headers2 = put_new(<<"user-agent">>, user_agent(UserAgentFragment), Headers),
     Adapter:request(Method, URI, Headers2, Body, AdapterConfig).
 
+%% @private
 user_agent(UserAgentFragment) ->
     OTPRelease = erlang:system_info(otp_release),
     ERTSVersion = erlang:system_info(version),
@@ -44,6 +47,7 @@ user_agent(UserAgentFragment) ->
 %% Internal functions
 %%====================================================================
 
+%% @private
 put_new(Key, Value, Map) ->
     case maps:find(Key, Map) of
         {ok, _} -> Map;

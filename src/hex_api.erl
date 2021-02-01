@@ -1,5 +1,4 @@
-%% @hidden
-
+%% @private
 -module(hex_api).
 
 -export([
@@ -31,7 +30,6 @@ put(Config, Path, Body) ->
 delete(Config, Path) ->
     request(Config, delete, Path, undefined).
 
-%% @private
 encode_query_string(List) ->
     Pairs = lists:map(fun ({K, V}) -> {to_list(K), to_list(V)} end, List),
     list_to_binary(compose_query(Pairs)).
@@ -46,19 +44,16 @@ compose_query(Pairs) ->
     http_uri:encode(String).
 -endif.
 
-%% @private
 build_repository_path(#{api_repository := Repo}, Path) when is_binary(Repo) ->
     ["repos", Repo | Path];
 build_repository_path(#{api_repository := undefined}, Path) ->
     Path.
 
-%% @private
 build_organization_path(#{api_organization := Org}, Path) when is_binary(Org) ->
     ["orgs", Org | Path];
 build_organization_path(#{api_organization := undefined}, Path) ->
     Path.
 
-%% @private
 join_path_segments(Segments) ->
     iolist_to_binary(recompose(Segments)).
 

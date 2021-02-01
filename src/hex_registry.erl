@@ -1,3 +1,5 @@
+%% @doc
+%% Functions for encoding and decoding Hex registries.
 -module(hex_registry).
 -export([
     encode_names/1,
@@ -120,6 +122,7 @@ verify(Binary, Signature, PublicKey) ->
 %% Internal functions
 %%====================================================================
 
+%% @private
 key(#'RSAPublicKey'{} = Key) ->
     {ok, Key};
 key(#'RSAPrivateKey'{} = Key) ->

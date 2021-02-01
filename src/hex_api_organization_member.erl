@@ -1,3 +1,5 @@
+%% @doc
+%% HTTP API - Organization Members.
 -module(hex_api_organization_member).
 -export([
     add/3,

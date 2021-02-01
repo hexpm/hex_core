@@ -1,3 +1,5 @@
+%% @doc
+%% HTTP API - Package Owners.
 -module(hex_api_package_owner).
 -export([
     add/5,

@@ -12,7 +12,7 @@
 
 6. `rm src/safe_erl_term.erl`
 
-7. Spot check docs: `rebar3 as docs edoc`
+7. Spot check docs: `./docs.sh`
 
 8. Publish package: `rebar3 hex publish`
 
@@ -22,7 +22,7 @@
 
 ```
 src/hex_core.app.src
-doc/tpl.html
+docs.sh
 src/hex_core.hrl
 README.md
 ```
