@@ -1,3 +1,5 @@
+%% @doc
+%% HTTP API - Authentication.
 -module(hex_api_auth).
 -export([test/2]).
 

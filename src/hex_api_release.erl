@@ -1,3 +1,5 @@
+%% @doc
+%% HTTP API - Releases.
 -module(hex_api_release).
 -export([
     delete/3,
@@ -165,6 +167,7 @@ unretire(Config, Name, Version) when is_map(Config) and is_binary(Name) and is_b
 %% Internal functions
 %%====================================================================
 
+%% @private
 put_header(Name, Value, Config) ->
     Headers = maps:get(http_headers, Config, #{}),
     Headers2 = maps:put(Name, Value, Headers),

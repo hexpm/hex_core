@@ -1,3 +1,5 @@
+%% @doc
+%% HTTP API - Packages.
 -module(hex_api_package).
 -export([get/2, search/3]).
 
