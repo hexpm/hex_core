@@ -8,7 +8,10 @@ set -e
 #     asdf local erlang ref:edoc-chunk-support
 
 rebar3 edoc
-ex_doc "hex_core" "0.7.1" "_build/default/lib/hex_core/ebin" -u "https://github.com/hexpm/hex_core" $@
+version=0.7.1
+ex_doc "hex_core" $version "_build/default/lib/hex_core/ebin" \
+  --source-ref v${version} \
+  --config docs.exs $@
 
 # Work around rebar3 docs publishing bug, define fake Mix project:
 #
