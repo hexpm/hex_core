@@ -3,7 +3,7 @@ set -e
 
 # Setup:
 #
-#     mix escript.install github elixir-lang/ex_doc branch wm-erl
+#     mix escript.install github elixir-lang/ex_doc
 #     OTP_GITHUB_URL="https://github.com/erszcz/otp" asdf install erlang ref:edoc-chunk-support
 #     asdf local erlang ref:edoc-chunk-support
 
