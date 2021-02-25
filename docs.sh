@@ -4,8 +4,8 @@ set -e
 # Setup:
 #
 #     mix escript.install github elixir-lang/ex_doc
-#     asdf install erlang ref:master
-#     asdf local erlang ref:master
+#     asdf install erlang 24.0-rc1
+#     asdf local erlang 24.0-rc1
 
 rebar3 compile
 rebar3 edoc
