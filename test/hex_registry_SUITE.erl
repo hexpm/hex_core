@@ -13,6 +13,8 @@ all() ->
     [names_test, versions_test, package_test, signed_test].
 
 names_test(_Config) ->
+    TestPublicKey = ct:get_config({ssl_certs, test_pub}),
+    TestPrivateKey = ct:get_config({ssl_certs, test_priv}),
     Packages = [
         #{name => <<"foo">>},
         #{name => <<"bar">>}
@@ -21,13 +23,15 @@ names_test(_Config) ->
         repository => <<"hexpm">>,
         packages => Packages
     },
-    Payload = hex_registry:encode_names(Names),
-    ?assertMatch({ok, Packages}, hex_registry:decode_names(Payload, <<"hexpm">>)),
-    ?assertMatch({ok, Packages}, hex_registry:decode_names(Payload, no_verify)),
-    ?assertMatch({error, unverified}, hex_registry:decode_names(Payload, <<"other_repo">>)),
+    Payload = hex_registry:build_names(Names, TestPrivateKey),
+    ?assertMatch({ok, Packages}, hex_registry:unpack_names(Payload, <<"hexpm">>, TestPublicKey)),
+    ?assertMatch({ok, Packages}, hex_registry:unpack_names(Payload, no_verify, TestPublicKey)),
+    ?assertMatch({error, unverified}, hex_registry:unpack_names(Payload, <<"other_repo">>, TestPublicKey)),
     ok.
 
 versions_test(_Config) ->
+    TestPublicKey = ct:get_config({ssl_certs, test_pub}),
+    TestPrivateKey = ct:get_config({ssl_certs, test_priv}),
     Packages = [
         #{
             name => <<"foo">>,
@@ -44,13 +48,15 @@ versions_test(_Config) ->
         repository => <<"hexpm">>,
         packages => Packages
     },
-    Payload = hex_registry:encode_versions(Versions),
-    ?assertMatch({ok, Packages}, hex_registry:decode_versions(Payload, <<"hexpm">>)),
-    ?assertMatch({ok, Packages}, hex_registry:decode_versions(Payload, no_verify)),
-    ?assertMatch({error, unverified}, hex_registry:decode_versions(Payload, <<"other_repo">>)),
+    Payload = hex_registry:build_versions(Versions, TestPrivateKey),
+    ?assertMatch({ok, Packages}, hex_registry:unpack_versions(Payload, <<"hexpm">>, TestPublicKey)),
+    ?assertMatch({ok, Packages}, hex_registry:unpack_versions(Payload, no_verify, TestPublicKey)),
+    ?assertMatch({error, unverified}, hex_registry:unpack_versions(Payload, <<"other_repo">>, TestPublicKey)),
     ok.
 
 package_test(_Config) ->
+    TestPublicKey = ct:get_config({ssl_certs, test_pub}),
+    TestPrivateKey = ct:get_config({ssl_certs, test_priv}),
     Releases = [
         #{
             version => <<"1.0.0">>,
@@ -83,11 +89,11 @@ package_test(_Config) ->
         repository => <<"hexpm">>,
         releases => Releases
     },
-    Payload = hex_registry:encode_package(Package),
-    ?assertMatch({ok, Releases}, hex_registry:decode_package(Payload, <<"hexpm">>, <<"foobar">>)),
-    ?assertMatch({ok, Releases}, hex_registry:decode_package(Payload, no_verify, no_verify)),
-    ?assertMatch({error, unverified}, hex_registry:decode_package(Payload, <<"other_repo">>, <<"foobar">>)),
-    ?assertMatch({error, unverified}, hex_registry:decode_package(Payload, <<"hexpm">>, <<"other_package">>)),
+    Payload = hex_registry:build_package(Package, TestPrivateKey),
+    ?assertMatch({ok, Releases}, hex_registry:unpack_package(Payload, <<"hexpm">>, <<"foobar">>, TestPublicKey)),
+    ?assertMatch({ok, Releases}, hex_registry:unpack_package(Payload, no_verify, no_verify, TestPublicKey)),
+    ?assertMatch({error, unverified}, hex_registry:unpack_package(Payload, <<"other_repo">>, <<"foobar">>, TestPublicKey)),
+    ?assertMatch({error, unverified}, hex_registry:unpack_package(Payload, <<"hexpm">>, <<"other_package">>, TestPublicKey)),
     ok.
 
 signed_test(_Config) ->
