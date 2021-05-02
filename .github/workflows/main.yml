@@ -1,49 +1,35 @@
 name: CI
 
-on: [push, pull_request]
+on:
+  pull_request:
+  push:
+    branches:
+      - master
 
 jobs:
   test:
     name: Test
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-18.04
     strategy:
       fail-fast: false
       matrix:
         pair:
           - erlang: master
-            elixir: 1.11.3
-          - erlang: 23.2
-            elixir: 1.11.3
+          - erlang: 24.0-rc3
+          - erlang: 23.3
           - erlang: 22.3
-            elixir: 1.9.4
           - erlang: 21.3
-            elixir: 1.8.1
           - erlang: 20.3
-            elixir: 1.5.3
           - erlang: 19.3
-            elixir: 1.3.4
           - erlang: 18.3
-            elixir: 1.1.1
           - erlang: 17.5
-            elixir: 1.0.5
-    env:
-      REBAR3_VERSION: 3.6.1
     steps:
       - uses: actions/checkout@v2
 
-      - name: Install OTP
-        uses: erlef/setup-elixir@v1
+      - uses: erlef/setup-beam@v1
         with:
           otp-version: ${{matrix.pair.erlang}}
-          elixir-version: ${{matrix.pair.elixir}}
+          rebar3-version: 3.6.1
 
-      - name: Install rebar3
-        run: |
-          wget https://github.com/erlang/rebar3/releases/download/${REBAR3_VERSION}/rebar3 -O rebar3
-          chmod +x rebar3
-          ./rebar3 -v
-
-      - name: Run tests
-        run: |
-          ./rebar3 ct
-          ./rebar3 as test proper
+      - run: rebar3 ct
+      - run: rebar3 as test proper
