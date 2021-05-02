@@ -22,7 +22,7 @@
 
 ```
 src/hex_core.app.src
-docs.sh
 src/hex_core.hrl
+docs.sh
 README.md
 ```

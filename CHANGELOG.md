@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.8.0 (2021-05-02)
+
+* Deprecate registry encode/decode API in favour of new high-level build/unpack API
+* Add `updated_at` to repository names resource
+
 ## 0.7.1 (2020-10-12)
 
 * Fix dialyzer warnings on OTP 23
