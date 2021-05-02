@@ -16,8 +16,8 @@ names_test(_Config) ->
     TestPublicKey = ct:get_config({ssl_certs, test_pub}),
     TestPrivateKey = ct:get_config({ssl_certs, test_priv}),
     Packages = [
-        #{name => <<"foo">>},
-        #{name => <<"bar">>}
+        #{name => <<"foo">>, updated_at => #{seconds => 0, nanos => 0}},
+        #{name => <<"bar">>, updated_at => #{seconds => 1619818073, nanos => 999}}
     ],
     Names = #{
         repository => <<"hexpm">>,
