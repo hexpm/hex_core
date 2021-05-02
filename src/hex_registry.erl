@@ -105,13 +105,11 @@ unpack_package(Payload, Repository, Name, PublicKey) ->
     Other -> Other
   end.
 
-%% @doc
-%% Encode Package message.
+%% @private
 encode_package(Package) ->
     hex_pb_package:encode_msg(Package, 'Package').
 
-%% @doc
-%% Decode message created with encode_package/1.
+%% @private
 decode_package(Payload, no_verify, no_verify) ->
     #{releases := Releases} = hex_pb_package:decode_msg(Payload, 'Package'),
     {ok, Releases};
@@ -124,19 +122,16 @@ decode_package(Payload, Repository, Package) ->
             {error, unverified}
     end.
 
-%% @doc
-%% Encode Signed message.
+%% @private
 sign_protobuf(Payload, PrivateKey) ->
     Signature = sign(Payload, PrivateKey),
     hex_pb_signed:encode_msg(#{payload => Payload, signature => Signature}, 'Signed').
 
-%% @doc
-%% Decode message created with sign_protobuf/2 without verification.
+%% @private
 decode_signed(Signed) ->
     hex_pb_signed:decode_msg(Signed, 'Signed').
 
-%% @doc
-%% Decode message created with sign_protobuf/2 and verify it against public key.
+%% @private
 -spec decode_and_verify_signed(binary(), public_key()) -> {ok, binary()} | {error, term()}.
 decode_and_verify_signed(Signed, PublicKey) ->
     #{payload := Payload, signature := Signature} = decode_signed(Signed),
@@ -146,15 +141,13 @@ decode_and_verify_signed(Signed, PublicKey) ->
         {error, Reason} -> {error, Reason}
     end.
 
-%% @doc
-%% Signs binary with given private key.
+%% @private
 -spec sign(binary(), private_key()) -> binary().
 sign(Binary, PrivateKey) ->
     {ok, RSAPrivateKey} = key(PrivateKey),
     public_key:sign(Binary, sha512, RSAPrivateKey).
 
-%% @doc
-%% Verifies binary against signature and a public key.
+%% @private
 -spec verify(binary(), binary(), public_key()) -> boolean() | {error, term()}.
 verify(Binary, Signature, PublicKey) ->
     case key(PublicKey) of
