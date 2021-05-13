@@ -15,7 +15,7 @@ jobs:
       matrix:
         pair:
           - erlang: master
-          - erlang: 24.0-rc3
+          - erlang: '24.0'
           - erlang: 23.3
           - erlang: 22.3
           - erlang: 21.3
