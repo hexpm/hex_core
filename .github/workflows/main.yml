@@ -16,22 +16,31 @@ jobs:
         pair:
           - erlang: master
             dialyzer: true
+            rebar3: 3.16.0
           - erlang: '24.0'
             dialyzer: true
+            rebar3: 3.16.0
           - erlang: 23.3
+            rebar3: 3.6.1
           - erlang: 22.3
+            rebar3: 3.6.1
           - erlang: 21.3
+            rebar3: 3.6.1
           - erlang: 20.3
+            rebar3: 3.6.1
           - erlang: 19.3
+            rebar3: 3.6.1
           - erlang: 18.3
+            rebar3: 3.6.1
           - erlang: 17.5
+            rebar3: 3.6.1
     steps:
       - uses: actions/checkout@v2
 
       - uses: erlef/setup-beam@v1
         with:
           otp-version: ${{matrix.pair.erlang}}
-          rebar3-version: 3.6.1
+          rebar3-version: ${{matrix.pair.rebar3}}
 
       - run: rebar3 as dev dialyzer
         if: ${{ matrix.pair.dialyzer == true }}
