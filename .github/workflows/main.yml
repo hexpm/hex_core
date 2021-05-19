@@ -31,5 +31,6 @@ jobs:
           otp-version: ${{matrix.pair.erlang}}
           rebar3-version: 3.6.1
 
+      - run: rebar3 as dev dialyzer
       - run: rebar3 ct
       - run: rebar3 as test proper
