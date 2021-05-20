@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.8.0 (2021-05-20)
+
+* Update gpb to 4.17.6 to avoid dialyzer warnings
+
 ## 0.8.0 (2021-05-02)
 
 * Deprecate registry encode/decode API in favour of new high-level build/unpack API
