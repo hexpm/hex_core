@@ -2,7 +2,7 @@
 
 [![Build Status](https://github.com/hexpm/hex_core/workflows/CI/badge.svg)](https://github.com/hexpm/hex_core/actions)
 
-Reference implementation of Hex specifications: https://github.com/hexpm/specifications.
+Reference implementation of Hex specifications: <https://github.com/hexpm/specifications>.
 
 ## Usage
 
