@@ -26,11 +26,10 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      # - uses: erlef/setup-beam@v1
-      - uses: wojtekmach/setup-beam@wm-old-rebar
+      - uses: paulo-ferraz-oliveira/setup-beam@feature/100-releases-back
         with:
           otp-version: ${{matrix.pair.erlang}}
-          rebar3-version: 3.6.0
+          rebar3-version: 3.6.1
 
       - run: rebar3 ct
       - run: rebar3 as test proper
