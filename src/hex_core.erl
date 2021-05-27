@@ -20,13 +20,15 @@
 %%
 %% * `api_url' - URL to the HTTP API (default: `https://hex.pm/api').
 %%
-%% * `http_adapter' - A tuple of a callback module used for HTTP requests, see [`hex_http'](hex_http.html)
-%%   (default: `hex_http_httpc') and the configuration to pass to the HTTP adapter.
+%% * `http_adapter' - A tuple of a callback module and its configuration used
+%%   for HTTP requests (default: `{hex_http_httpc, #{profile => default}}'). See
+%%   <a href="hex_http.html">`hex_http'</a> and <a href="hex_http_httpc.html">`hex_http_httpc'</a>
+%%   for more information.
 %%
 %% * `http_etag' - Sets the `if-none-match' HTTP header with the given value to do a
 %%   conditional HTTP request.
 %%
-%% * `http_user_agent_fragment' - Will be appended to the `user-agent` HTTP header (default: `(httpc)').
+%% * `http_user_agent_fragment' - Will be appended to the `user-agent' HTTP header (default: `<<"(httpc)">>').
 %%
 %% * `repo_key' - Authentication key used when accessing the repository.
 %%

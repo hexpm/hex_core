@@ -12,6 +12,11 @@ Let's use default config for now. See "Configuration" section below for customiz
 Config = hex_core:default_config().
 ```
 
+**WARNING** The built-in httpc-based HTTP client adapter has insecure default settings
+and thus it is not recommended for usage, in particular for API write operations.
+Use HTTP clients with secure defaults like [hackney](https://hex.pm/packages/hackney) and [Mint](https://hex.pm/packages/mint).
+See "Configuration" and "Wrapper Module" sections for more information on customising your usage of `hex_core`.
+
 ### Repository
 
 Get all package names:
