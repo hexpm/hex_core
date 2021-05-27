@@ -26,7 +26,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - uses: erlef/setup-beam@v1
+      # - uses: erlef/setup-beam@v1
+      - uses: wojtekmach/setup-beam@wm-old-rebar
         with:
           otp-version: ${{matrix.pair.erlang}}
           rebar3-version: 3.6.0
