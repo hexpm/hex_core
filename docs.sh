@@ -3,7 +3,7 @@ set -e
 
 # Setup:
 #
-#     mix escript.install hex ex_doc
+#     mix escript.install github elixir-lang/ex_doc
 #     asdf install erlang 24.0-rc3
 #     asdf local erlang 24.0-rc3
 
