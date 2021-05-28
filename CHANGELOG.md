@@ -1,6 +1,10 @@
 # CHANGELOG
 
-## 0.8.0 (2021-05-20)
+## 0.8.2 (2021-05-28)
+
+* Warn on unsafe httpc default SSL settings
+
+## 0.8.1 (2021-05-20)
 
 * Update gpb to 4.17.6 to avoid dialyzer warnings
 
