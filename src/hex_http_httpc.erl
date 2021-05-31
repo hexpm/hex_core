@@ -19,16 +19,23 @@
 %% API functions
 %%====================================================================
 
-request(Method, URI, ReqHeaders, Body, AdapterConfig) ->
+request(Method, URI, ReqHeaders, Body, AdapterConfig) when is_binary(URI) ->
     Profile = maps:get(profile, AdapterConfig, default),
     HTTPOptions = maps:get(http_options, AdapterConfig, []),
 
-    case proplists:get_value(ssl, HTTPOptions) of
-      undefined ->
+    HTTPS =
+      case URI of
+        <<"https", _/binary>> -> true;
+        _ -> false
+      end,
+    SSLOpts = proplists:get_value(ssl, HTTPOptions),
+
+    if
+      HTTPS == true andalso SSLOpts == undefined ->
         io:format("[hex_http_httpc] using default ssl options which are insecure.~n"
                   "Configure your adapter with: "
                   "{hex_http_httpc, #{http_options => [{ssl, SslOpts}]}}~n");
-      _ ->
+      true ->
         ok
     end,
 
