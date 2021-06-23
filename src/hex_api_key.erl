@@ -81,9 +81,9 @@ get(Config, Name) when is_map(Config) and is_binary(Name) ->
 %%
 %% All values within a `permission()' must be binary otherwise an error is raised.
 %%
-%% Valid domain values   : <<"api">> | <<"repository">> | <<"repositories">>
+%% Valid domain values: `<<"api">> | <<"repository">> | <<"repositories">>'.
 %%
-%% Valid resource values : <<"read">> | <<"write">>
+%% Valid resource values: `<<"read">> | <<"write">>'.
 %%
 %% Examples:
 %%
