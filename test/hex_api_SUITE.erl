@@ -73,9 +73,25 @@ keys_test(_Config) ->
 
     {ok, {200, _, Key}} = hex_api_key:get(?CONFIG, Name),
 
-    Permissions = [#{<<"domain">> => <<"api">>, <<"resource">> => <<"read">>}],
+    Permissions = [#{domain => <<"api">>, resource => <<"read">>}],
     {ok, {201, _, Key2}} = hex_api_key:add(?CONFIG, Name, Permissions),
     #{<<"name">> := Name2} = Key2,
 
     {ok, {200, _, #{<<"name">> := Name2}}} = hex_api_key:delete(?CONFIG, Name2),
+
+    ExpErr1 = io_lib:format("Non binary value ~p given for key ~s", [api, domain]),
+    BadPermissions1 = [#{domain => api, resource => <<"read">>}],
+    ?assertError({error, ExpErr1}, hex_api_key:add(?CONFIG, Name, BadPermissions1)),
+
+    ExpErr2 = io_lib:format("Invalid value ~p given for key domain", [<<"eh">>]),
+    BadPermissions2 = [#{domain => <<"eh">>, resource => <<"read">>}],
+    ?assertError({error, ExpErr2}, hex_api_key:add(?CONFIG, Name, BadPermissions2)),
+
+    ExpErr3 = io_lib:format("Non binary value ~p given for key ~s", [read, resource]),
+    BadPermissions3 = [#{domain => <<"api">>, resource => read}],
+    ?assertError({error, ExpErr3}, hex_api_key:add(?CONFIG, Name, BadPermissions3)),
+
+    ExpErr4 = io_lib:format("Invalid value ~p given for key resource", [<<"destroy">>]),
+    BadPermissions4 = [#{domain => <<"api">>, resource => <<"destroy">>}],
+    ?assertError({error, ExpErr4}, hex_api_key:add(?CONFIG, Name, BadPermissions4)),
     ok.

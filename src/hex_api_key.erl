@@ -13,13 +13,13 @@
 
 -type permission() :: api_permission() | repo_permission() | repos_permission().
 -ifdef(OTP_19).
--type api_permission() :: #{domain := api, resource => read | write}.
--type repo_permission() :: #{domain := repository, resource := binary()}.
--type repos_permission() :: #{domain := repositories}.
+-type api_permission() :: #{domain := binary(), resource := binary()}.
+-type repo_permission() :: #{domain := binary(), resource := binary()}.
+-type repos_permission() :: #{domain := binary()}.
 -else.
--type api_permission() :: #{domain => api, resource => read | write}.
--type repo_permission() :: #{domain => repository, resource => binary()}.
--type repos_permission() :: #{domain => repositories}.
+-type api_permission() :: #{domain => binary(), resource => binary()}.
+-type repo_permission() :: #{domain => binary(), resource => binary()}.
+-type repos_permission() :: #{domain => binary()}.
 -endif.
 
 %% @doc
@@ -79,6 +79,12 @@ get(Config, Name) when is_map(Config) and is_binary(Name) ->
 %% @doc
 %% Adds a new API or repository key.
 %%
+%% All values within a `permission()` must be binary otherwise an error is raised.
+%%
+%% Valid domain values   : <<"api">> | <<"repository">> | <<"repositories">>
+%%
+%% Valid resource values : <<"read">> | <<"write">>
+%%
 %% Examples:
 %%
 %% ```
@@ -98,11 +104,30 @@ get(Config, Name) when is_map(Config) and is_binary(Name) ->
 %%     }}}
 %% '''
 %% @end
+
+-define(VALID_DOMAIN_VALUES, [<<"api">>, <<"repository">>, <<"repositories">>]).
+-define(VALID_RESOURCE_VALUES, [<<"read">>, <<"write">>]).
+
 -spec add(hex_core:config(), binary(), [permission()]) -> hex_api:response().
 add(Config, Name, Permissions) when is_map(Config) and is_binary(Name) and is_list(Permissions) ->
+    validate_permissions(Permissions),
     Path = hex_api:build_organization_path(Config, ["keys"]),
     Params = #{<<"name">> => Name, <<"permissions">> => Permissions},
     hex_api:post(Config, Path, Params).
+
+validate_permissions(Permissions) ->
+    FlatPerms = lists:flatmap(fun(P) -> maps:to_list(P) end, Permissions),
+    lists:foreach(fun({K,V}) -> valid_permissions_key_value_or_raise(K, V) end, FlatPerms).
+
+valid_permissions_key_value_or_raise(domain, V) when is_binary(V) ->
+    lists:any(fun(DV) -> DV =:= V end, ?VALID_DOMAIN_VALUES) orelse
+        erlang:error({error, io_lib:format("Invalid value ~p given for key domain", [V])});
+valid_permissions_key_value_or_raise(resource, V) when is_binary(V) ->
+    lists:any(fun(RV) -> RV =:= V end, ?VALID_RESOURCE_VALUES) orelse
+        erlang:error({error, io_lib:format("Invalid value ~p given for key resource", [V])});
+valid_permissions_key_value_or_raise(K, V) ->
+    Err = io_lib:format("Non binary value ~p given for key ~s", [V, K]),
+    erlang:error({error, Err}).
 
 %% @doc
 %% Deletes an API or repository key.
