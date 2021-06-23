@@ -79,7 +79,7 @@ get(Config, Name) when is_map(Config) and is_binary(Name) ->
 %% @doc
 %% Adds a new API or repository key.
 %%
-%% All values within a `permission()` must be binary otherwise an error is raised.
+%% All values within a `permission()' must be binary otherwise an error is raised.
 %%
 %% Valid domain values   : <<"api">> | <<"repository">> | <<"repositories">>
 %%
