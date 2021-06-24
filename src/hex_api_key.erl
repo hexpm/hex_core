@@ -13,13 +13,13 @@
 
 -type permission() :: api_permission() | repo_permission() | repos_permission().
 -ifdef(OTP_19).
--type api_permission() :: #{domain := binary(), resource := binary()}.
--type repo_permission() :: #{domain := binary(), resource := binary()}.
--type repos_permission() :: #{domain := binary()}.
+-type api_permission() :: #{binary() := binary()}.
+-type repo_permission() :: #{binary() := binary()}.
+-type repos_permission() :: #{binary() := binary()}.
 -else.
--type api_permission() :: #{domain => binary(), resource => binary()}.
--type repo_permission() :: #{domain => binary(), resource => binary()}.
--type repos_permission() :: #{domain => binary()}.
+-type api_permission() :: #{binary() => binary()}.
+-type repo_permission() :: #{binary() => binary()}.
+-type repos_permission() :: #{binary() => binary()}.
 -endif.
 
 %% @doc
@@ -79,7 +79,7 @@ get(Config, Name) when is_map(Config) and is_binary(Name) ->
 %% @doc
 %% Adds a new API or repository key.
 %%
-%% All values within a `permission()' must be binary otherwise an error is raised.
+%% All keys and values within a `permission()' must be binary otherwise an error is raised.
 %%
 %% Valid domain values: `<<"api">> | <<"repository">> | <<"repositories">>'.
 %%
@@ -105,28 +105,34 @@ get(Config, Name) when is_map(Config) and is_binary(Name) ->
 %% '''
 %% @end
 
--define(VALID_DOMAIN_VALUES, [<<"api">>, <<"repository">>, <<"repositories">>]).
--define(VALID_RESOURCE_VALUES, [<<"read">>, <<"write">>]).
-
 -spec add(hex_core:config(), binary(), [permission()]) -> hex_api:response().
 add(Config, Name, Permissions) when is_map(Config) and is_binary(Name) and is_list(Permissions) ->
-    validate_permissions(Permissions),
+    assert_valid_permissions(Permissions),
     Path = hex_api:build_organization_path(Config, ["keys"]),
     Params = #{<<"name">> => Name, <<"permissions">> => Permissions},
     hex_api:post(Config, Path, Params).
 
-validate_permissions(Permissions) ->
+assert_valid_permissions(Permissions) ->
     FlatPerms = lists:flatmap(fun(P) -> maps:to_list(P) end, Permissions),
-    lists:foreach(fun({K,V}) -> valid_permissions_key_value_or_raise(K, V) end, FlatPerms).
+    lists:foreach(fun({K,V}) -> assert_permission_key_value(K, V) end, FlatPerms).
 
+assert_permission_key_value(K, V) when not is_binary(K) andalso not is_binary(V) ->
+     Format = <<"expected permission key and value to be binaries, got ~p => ~p">>,
+     Err =  io_lib:format(Format, [K, V]),
+     erlang:error({error, erlang:iolist_to_binary(Err)});
 
+assert_permission_key_value(K, V) when not is_binary(K) andalso is_binary(V) ->
+     Format = <<"expected permission key to be a binary, got ~p">>,
+     Err = io_lib:format(Format, [K]), 
+     erlang:error({error, erlang:iolist_to_binary(Err)});
 
-valid_permissions_key_value_or_raise(_K, V) when is_binary(V) ->
-    ok;
+assert_permission_key_value(K, V) when is_binary(K) andalso not is_binary(V) ->
+    Format = "expected permission value for key ~s to be a binary, got ~p",
+    Err = io_lib:format(Format, [K, V]),
+    erlang:error({error, erlang:iolist_to_binary(Err)});
 
-valid_permissions_key_value_or_raise(K, V) ->
-    Err = io_lib:format("expected value for key ~s to be a binary, got ~p", [K, V]),
-    erlang:error({error, erlang:iolist_to_binary(Err)}).
+assert_permission_key_value(_K, _V) ->
+    ok.
 
 %% @doc
 %% Deletes an API or repository key.

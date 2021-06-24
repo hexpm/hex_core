@@ -73,17 +73,22 @@ keys_test(_Config) ->
 
     {ok, {200, _, Key}} = hex_api_key:get(?CONFIG, Name),
 
-    Permissions = [#{domain => <<"api">>, resource => <<"read">>}],
+    Permissions = [#{<<"domain">> => <<"api">>, <<"resource">> => <<"read">>}],
     {ok, {201, _, Key2}} = hex_api_key:add(?CONFIG, Name, Permissions),
     #{<<"name">> := Name2} = Key2,
 
     {ok, {200, _, #{<<"name">> := Name2}}} = hex_api_key:delete(?CONFIG, Name2),
 
-    ExpErr1 =   <<"expected value for key domain to be a binary, got api">>,
+    ExpErr1 = <<"expected permission key and value to be binaries, got domain => api">>,
     BadPermissions1 = [#{domain => api, resource => <<"read">>}],
     ?assertError({error, ExpErr1}, hex_api_key:add(?CONFIG, Name, BadPermissions1)),
 
-    ExpErr3 = <<"expected value for key resource to be a binary, got read">>,
-    BadPermissions3 = [#{domain => <<"api">>, resource => read}],
+    ExpErr2 = <<"expected permission key to be a binary, got domain">>,
+    BadPermissions2 = [#{domain => <<"api">>, resource => read}],
+    ?assertError({error, ExpErr2}, hex_api_key:add(?CONFIG, Name, BadPermissions2)),
+    
+
+    ExpErr3 = <<"expected permission value for key resource to be a binary, got read">>,
+    BadPermissions3 = [#{<<"domain">> => <<"api">>, <<"resource">> => read}],
     ?assertError({error, ExpErr3}, hex_api_key:add(?CONFIG, Name, BadPermissions3)),
     ok.
