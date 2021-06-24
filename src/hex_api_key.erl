@@ -119,15 +119,14 @@ validate_permissions(Permissions) ->
     FlatPerms = lists:flatmap(fun(P) -> maps:to_list(P) end, Permissions),
     lists:foreach(fun({K,V}) -> valid_permissions_key_value_or_raise(K, V) end, FlatPerms).
 
-valid_permissions_key_value_or_raise(domain, V) when is_binary(V) ->
-    lists:any(fun(DV) -> DV =:= V end, ?VALID_DOMAIN_VALUES) orelse
-        erlang:error({error, io_lib:format("Invalid value ~p given for key domain", [V])});
-valid_permissions_key_value_or_raise(resource, V) when is_binary(V) ->
-    lists:any(fun(RV) -> RV =:= V end, ?VALID_RESOURCE_VALUES) orelse
-        erlang:error({error, io_lib:format("Invalid value ~p given for key resource", [V])});
+
+
+valid_permissions_key_value_or_raise(_K, V) when is_binary(V) ->
+    ok;
+
 valid_permissions_key_value_or_raise(K, V) ->
-    Err = io_lib:format("Non binary value ~p given for key ~s", [V, K]),
-    erlang:error({error, Err}).
+    Err = io_lib:format("expected value for key ~s to be a binary, got ~p", [K, V]),
+    erlang:error({error, erlang:iolist_to_binary(Err)}).
 
 %% @doc
 %% Deletes an API or repository key.
