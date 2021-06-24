@@ -11,15 +11,10 @@
 
 -export_type([permission/0]).
 
--type permission() :: api_permission() | repo_permission() | repos_permission().
 -ifdef(OTP_19).
--type api_permission() :: #{binary() := binary()}.
--type repo_permission() :: #{binary() := binary()}.
--type repos_permission() :: #{binary() := binary()}.
+-type permission() :: #{binary() := binary()}.
 -else.
--type api_permission() :: #{binary() => binary()}.
--type repo_permission() :: #{binary() => binary()}.
--type repos_permission() :: #{binary() => binary()}.
+-type permission() :: #{binary() => binary()}.
 -endif.
 
 %% @doc
