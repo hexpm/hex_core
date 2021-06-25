@@ -12,4 +12,4 @@ rebar3 edoc
 version=0.8.2
 ex_doc "hex_core" $version "_build/default/lib/hex_core/ebin" \
   --source-ref v${version} \
-  --config docs.exs $@
+  --config docs.config $@
