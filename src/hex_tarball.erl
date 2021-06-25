@@ -156,6 +156,10 @@ unpack(Tarball, Output, _Config) ->
     end.
 
 
+%% @doc
+%% Unpacks a package tarball.
+%%
+%% @see unpack/3
 -spec unpack(tarball(), memory) ->
                 {ok, #{outer_checksum => checksum(), inner_checksum => checksum(),
                        metadata => metadata(), contents => contents()}} |
