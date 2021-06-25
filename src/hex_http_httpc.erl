@@ -1,15 +1,14 @@
 %% @doc
-%% httpc-based implementation of `hex_http' contract.
+%% httpc-based implementation of {@link hex_http} contract.
 %%
 %% Configuration keys:
 %%
-%% * `profile' - the name of the profile, defaults to `default'. See <a
-%% href="http://erlang.org/doc/man/httpc.html#set_options-2">`httpc:set_options/2'</a>
-%% for more information on setting options on profiles.
+%% * `profile' - the name of the profile, defaults to `default'. See
+%%    {@link httpc:set_options/2} for more information on setting
+%%    options on profiles.
 %%
-%% * `http_options' - a list of HTTP options, defaults to `[]'. See <a
-%% href="http://erlang.org/doc/man/httpc.html#request-5">`httpc:request/5'</a>
-%% for a list of available HTTP options.
+%% * `http_options' - a list of HTTP options, defaults to `[]'. See
+%%   {@link httpc:request/5} for a list of available HTTP options.
 
 -module(hex_http_httpc).
 -behaviour(hex_http).
