@@ -99,7 +99,6 @@ get(Config, Name) when is_map(Config) and is_binary(Name) ->
 %%     }}}
 %% '''
 %% @end
-
 -spec add(hex_core:config(), binary(), [permission()]) -> hex_api:response().
 add(Config, Name, Permissions) when is_map(Config) and is_binary(Name) and is_list(Permissions) ->
     assert_valid_permissions(Permissions),
