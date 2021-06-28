@@ -74,11 +74,11 @@ get(Config, Name) when is_map(Config) and is_binary(Name) ->
 %% @doc
 %% Adds a new API or repository key.
 %%
-%% All keys and values within a `permission()' must be binary otherwise an error is raised.
+%% A permission is a map of `#{<<"domain">> => Domain, <<"resource"> => Resource}'.
 %%
-%% Valid domain values: `<<"api">> | <<"repository">> | <<"repositories">>'.
+%% Valid `Domain' values: `<<"api">> | <<"repository">> | <<"repositories">>'.
 %%
-%% Valid resource values: `<<"read">> | <<"write">>'.
+%% Valid `Resource' values: `<<"read">> | <<"write">>'.
 %%
 %% Examples:
 %%
