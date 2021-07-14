@@ -107,25 +107,15 @@ add(Config, Name, Permissions) when is_map(Config) and is_binary(Name) and is_li
     hex_api:post(Config, Path, Params).
 
 assert_valid_permissions(Permissions) ->
-    FlatPerms = lists:flatmap(fun(P) -> maps:to_list(P) end, Permissions),
-    lists:foreach(fun({K,V}) -> assert_permission_key_value(K, V) end, FlatPerms).
+    Pred = fun(Map) -> [assert_permission_key_value(K, V, Map) || {K,V} <- maps:to_list(Map)] end,
+    lists:foreach(Pred, Permissions).
 
-assert_permission_key_value(K, V) when not is_binary(K) andalso not is_binary(V) ->
-     Format = <<"expected permission key and value to be binaries, got ~p => ~p">>,
-     Err =  io_lib:format(Format, [K, V]),
-     erlang:error({error, erlang:iolist_to_binary(Err)});
+assert_permission_key_value(K, V, Permission) when not is_binary(K) orelse not is_binary(V) ->
+     Msg = "expected permissions to be a map with binary keys and values, got: ",
+     Err = iolist_to_binary([Msg, io_lib:format("~p", [Permission])]),
+     erlang:error({error, Err});
 
-assert_permission_key_value(K, V) when not is_binary(K) andalso is_binary(V) ->
-     Format = <<"expected permission key to be a binary, got ~p">>,
-     Err = io_lib:format(Format, [K]), 
-     erlang:error({error, erlang:iolist_to_binary(Err)});
-
-assert_permission_key_value(K, V) when is_binary(K) andalso not is_binary(V) ->
-    Format = "expected permission value for key ~s to be a binary, got ~p",
-    Err = io_lib:format(Format, [K, V]),
-    erlang:error({error, erlang:iolist_to_binary(Err)});
-
-assert_permission_key_value(_K, _V) ->
+assert_permission_key_value(_K, _V, _P) ->
     ok.
 
 %% @doc
