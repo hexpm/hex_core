@@ -11,15 +11,10 @@
 
 -export_type([permission/0]).
 
--type permission() :: api_permission() | repo_permission() | repos_permission().
 -ifdef(OTP_19).
--type api_permission() :: #{domain := api, resource => read | write}.
--type repo_permission() :: #{domain := repository, resource := binary()}.
--type repos_permission() :: #{domain := repositories}.
+-type permission() :: #{binary() := binary()}.
 -else.
--type api_permission() :: #{domain => api, resource => read | write}.
--type repo_permission() :: #{domain => repository, resource => binary()}.
--type repos_permission() :: #{domain => repositories}.
+-type permission() :: #{binary() => binary()}.
 -endif.
 
 %% @doc
@@ -79,6 +74,12 @@ get(Config, Name) when is_map(Config) and is_binary(Name) ->
 %% @doc
 %% Adds a new API or repository key.
 %%
+%% A permission is a map of `#{<<"domain">> => Domain, <<"resource"> => Resource}'.
+%%
+%% Valid `Domain' values: `<<"api">> | <<"repository">> | <<"repositories">>'.
+%%
+%% Valid `Resource' values: `<<"read">> | <<"write">>'.
+%%
 %% Examples:
 %%
 %% ```
@@ -100,9 +101,22 @@ get(Config, Name) when is_map(Config) and is_binary(Name) ->
 %% @end
 -spec add(hex_core:config(), binary(), [permission()]) -> hex_api:response().
 add(Config, Name, Permissions) when is_map(Config) and is_binary(Name) and is_list(Permissions) ->
+    assert_valid_permissions(Permissions),
     Path = hex_api:build_organization_path(Config, ["keys"]),
     Params = #{<<"name">> => Name, <<"permissions">> => Permissions},
     hex_api:post(Config, Path, Params).
+
+assert_valid_permissions(Permissions) ->
+    Pred = fun(Map) -> [assert_permission_key_value(K, V, Map) || {K,V} <- maps:to_list(Map)] end,
+    lists:foreach(Pred, Permissions).
+
+assert_permission_key_value(K, V, Permissions) when not is_binary(K) orelse not is_binary(V) ->
+     Msg = "expected permissions to be a map with binary keys and values, got: ",
+     Err = iolist_to_binary([Msg, io_lib:format("~p", [Permission])]),
+     erlang:error({error, Err});
+
+assert_permission_key_value(_K, _V, _P) ->
+    ok.
 
 %% @doc
 %% Deletes an API or repository key.
