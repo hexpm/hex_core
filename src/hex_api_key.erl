@@ -110,7 +110,7 @@ assert_valid_permissions(Permissions) ->
     Pred = fun(Map) -> [assert_permission_key_value(K, V, Map) || {K,V} <- maps:to_list(Map)] end,
     lists:foreach(Pred, Permissions).
 
-assert_permission_key_value(K, V, Permission) when not is_binary(K) orelse not is_binary(V) ->
+assert_permission_key_value(K, V, Permissions) when not is_binary(K) orelse not is_binary(V) ->
      Msg = "expected permissions to be a map with binary keys and values, got: ",
      Err = iolist_to_binary([Msg, io_lib:format("~p", [Permission])]),
      erlang:error({error, Err});
