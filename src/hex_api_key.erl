@@ -105,18 +105,6 @@ add(Config, Name, Permissions) when is_map(Config) and is_binary(Name) and is_li
     Params = #{<<"name">> => Name, <<"permissions">> => Permissions},
     hex_api:post(Config, Path, Params).
 
-assert_valid_permissions(Permissions) ->
-    Pred = fun(Map) -> [assert_permission_key_value(K, V, Map) || {K,V} <- maps:to_list(Map)] end,
-    lists:foreach(Pred, Permissions).
-
-assert_permission_key_value(K, V, Permissions) when not is_binary(K) orelse not is_binary(V) ->
-     Msg = "expected permissions to be a map with binary keys and values, got: ",
-     Err = iolist_to_binary([Msg, io_lib:format("~p", [Permission])]),
-     erlang:error({error, Err});
-
-assert_permission_key_value(_K, _V, _P) ->
-    ok.
-
 %% @doc
 %% Deletes an API or repository key.
 %%
