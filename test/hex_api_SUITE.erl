@@ -78,22 +78,4 @@ keys_test(_Config) ->
     #{<<"name">> := Name2} = Key2,
 
     {ok, {200, _, #{<<"name">> := Name2}}} = hex_api_key:delete(?CONFIG, Name2),
-
-    MainMsg =  <<"expected permissions to be a map with binary keys and values, got: ">>,
-    ExpErr1 = <<MainMsg/binary, "#{domain => api,resource => <<\"read\">>}">>,
-    BadPermissions1 = [#{domain => api, resource => <<"read">>}],
-    ?assertError({error, ExpErr1}, hex_api_key:add(?CONFIG, Name, BadPermissions1)),
-    
-    ExpErr2 = <<MainMsg/binary, "#{<<\"domain\">> => api,<<\"resource\">> => <<\"read\">>}">>,
-    BadPermissions2 = #{<<"domain">> => api, <<"resource">> => <<"read">>},
-    ?assertError({error, ExpErr2}, hex_api_key:add(?CONFIG, Name, [BadPermissions2])),
-
-    ExpErr3 =  <<MainMsg/binary, "#{resource => <<\"read\">>,<<\"domain\">> => <<\"api\">>}">>,
-    BadPermissions3 = #{<<"domain">> => <<"api">>, resource => <<"read">>},
-    ?assertError({error, ExpErr3}, hex_api_key:add(?CONFIG, Name, [BadPermissions3])),
-
-    ExpErr4 = <<MainMsg/binary, "#{<<\"domain\">> => <<\"api\">>,<<\"resource\">> => read}">>,
-    BadPermissions4 = #{<<"domain">> => <<"api">>, <<"resource">> => read},
-    ?assertError({error, ExpErr4}, hex_api_key:add(?CONFIG, Name, [BadPermissions4])),
-
     ok.
