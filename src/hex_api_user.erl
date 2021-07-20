@@ -1,5 +1,5 @@
 %% @doc
-%% HTTP API - Users.
+%% Hex HTTP API - Users.
 -module(hex_api_user).
 -export([
     create/4,

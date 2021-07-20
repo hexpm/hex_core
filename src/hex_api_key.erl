@@ -1,5 +1,5 @@
 %% @doc
-%% HTTP API - Keys.
+%% Hex HTTP API - Keys.
 -module(hex_api_key).
 -export([
     list/1,

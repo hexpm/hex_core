@@ -1,5 +1,5 @@
 %% @doc
-%% HTTP API - Organizations.
+%% Hex HTTP API - Organizations.
 -module(hex_api_organization).
 -export([
     get/1,
@@ -13,7 +13,7 @@
 %% Examples:
 %%
 %% ```
-%% > hex_api_organization:list(hex_core:default_config()#{api_organization => <<"acme">>}).
+%% > hex_api_organization:list(hex_core:default_config(), #{api_organization => <<"acme">>}).
 %% {ok, {200, ..., [#{
 %%      <<"billing_active">> => true,
 %%      <<"inserted_at">> => <<"2017-08-22T22:19:53Z">>,
@@ -31,7 +31,7 @@ list(Config) when is_map(Config) ->
 %% Examples:
 %%
 %% ```
-%% > hex_api_organization:get(hex_core:default_config()#{api_organization => <<"acme">>}).
+%% > hex_api_organization:get(hex_core:default_config(), #{api_organization => <<"acme">>}).
 %% {ok, {200, ..., #{
 %%      <<"billing_active">> => true,
 %%      <<"inserted_at">> => <<"2017-08-22T22:19:53Z">>,
@@ -52,7 +52,7 @@ get(Config) when is_map(Config) ->
 %% Examples:
 %%
 %% ```
-%% > hex_api_organization:get(hex_core:default_config()#{api_organization => <<"acme">>}, 42).
+%% > hex_api_organization:get(hex_core:default_config(), #{api_organization => <<"acme">>}, 42).
 %% {ok, {200, ..., #{
 %%      <<"billing_active">> => true,
 %%      <<"inserted_at">> => <<"2017-08-22T22:19:53Z">>,

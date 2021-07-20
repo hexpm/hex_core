@@ -1,5 +1,5 @@
 %% @doc
-%% HTTP API - Releases.
+%% Hex HTTP API - Releases.
 -module(hex_api_release).
 -export([
     delete/3,

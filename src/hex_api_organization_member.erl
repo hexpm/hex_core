@@ -1,5 +1,5 @@
 %% @doc
-%% HTTP API - Organization Members.
+%% Hex HTTP API - Organization Members.
 -module(hex_api_organization_member).
 -export([
     add/3,
@@ -17,7 +17,7 @@
 %% Examples:
 %%
 %% ```
-%% > hex_api_organization_member:list(hex_core:default_config()#{api_organization => <<"acme">>}).
+%% > hex_api_organization_member:list(hex_core:default_config(), #{api_organization => <<"acme">>}).
 %% {ok, {200, ..., [#{
 %%      <<"email">> => <<"user@example.com">>,
 %%      <<"role">> => <<"admin">>,
@@ -37,7 +37,7 @@ list(Config) when is_map(Config) ->
 %% Examples:
 %%
 %% ```
-%% > hex_api_organization_member:get(hex_core:default_config()#{api_organization => <<"acme">>}, <<"user">>).
+%% > hex_api_organization_member:get(hex_core:default_config(), #{api_organization => <<"acme">>}, <<"user">>).
 %% {ok, {200, ..., #{
 %%      <<"email">> => <<"user@example.com">>,
 %%      <<"role">> => <<"admin">>,
@@ -57,7 +57,7 @@ get(Config, UsernameOrEmail) when is_map(Config) and is_binary(UsernameOrEmail) 
 %% Examples:
 %%
 %% ```
-%% > hex_api_organization_member:add(hex_core:default_config()#{api_organization => <<"acme">>}, <<"user">>, write).
+%% > hex_api_organization_member:add(hex_core:default_config(), #{api_organization => <<"acme">>}, <<"user">>, write).
 %% {ok, {200, ..., #{
 %%      <<"email">> => <<"user@example.com">>,
 %%      <<"role">> => <<"write">>,
@@ -78,7 +78,7 @@ add(Config, UsernameOrEmail, Role) when is_map(Config) and is_binary(UsernameOrE
 %% Examples:
 %%
 %% ```
-%% > hex_api_organization_member:update(hex_core:default_config()#{api_organization => <<"acme">>}, <<"user">>, read).
+%% > hex_api_organization_member:update(hex_core:default_config(), #{api_organization => <<"acme">>}, <<"user">>, read).
 %% {ok, {200, ..., #{
 %%      <<"email">> => <<"user@example.com">>,
 %%      <<"role">> => <<"read">>,
@@ -99,7 +99,7 @@ update(Config, UsernameOrEmail, Role) when is_map(Config) and is_binary(Username
 %% Examples:
 %%
 %% ```
-%% > hex_api_organization_member:delete(hex_core:default_config()#{api_organization => <<"acme">>}, <<"user">>).
+%% > hex_api_organization_member:delete(hex_core:default_config(), #{api_organization => <<"acme">>}, <<"user">>).
 %% {ok, {204, ..., nil}}
 %% '''
 %% @end

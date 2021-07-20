@@ -1,5 +1,5 @@
 %% @doc
-%% HTTP API - Packages.
+%% Hex HTTP API - Packages.
 -module(hex_api_package).
 -export([get/2, search/3]).
 
@@ -37,13 +37,13 @@ get(Config, Name) when is_map(Config) and is_binary(Name)->
 %% Examples:
 %%
 %% ```
-%% > hex_api_package:search(hex_core:default_config(), <<"package">>, []).
+%% > hex_api_package:search(hex_core:default_config(), <<"package">>, [{page, 1}]).
 %% {ok, {200, ..., [
 %%     #{<<"name">> => <<"package1">>, ...},
 %%     ...
 %% ]}}
 %% '''
--spec search(hex_core:config(), binary(), list(binary())) -> hex_api:response().
+-spec search(hex_core:config(), binary(), [{term(), term()}]) -> hex_api:response().
 search(Config, Query, SearchParams) when is_map(Config) and is_binary(Query) and is_list(SearchParams) ->
     QueryString = hex_api:encode_query_string([{search, Query} | SearchParams]),
     Path = hex_api:join_path_segments(hex_api:build_repository_path(Config, ["packages"])),
