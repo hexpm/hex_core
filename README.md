@@ -127,9 +127,9 @@ hex_repo:get_names(Config).
 %% my_hackney_adapter.erl
 -module(my_hackney_adapter).
 -behaviour(hex_http).
--exports([request/3]).
+-exports([request/5]).
 
-request(Method, URI, ReqHeaders) ->
+request(Method, URI, ReqHeaders, Body, AdapterConfig) ->
     %% ...
 ```
 
