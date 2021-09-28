@@ -1,7 +1,7 @@
 %% @doc
 %% Functions for determine license validatity.
 
--module(mix_hex_licenses).
+-module(hex_licenses).
 
 -define(CANONICAL_LICENSES, load_licenses()).
 
