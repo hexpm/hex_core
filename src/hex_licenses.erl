@@ -8,12 +8,13 @@
 -export([licenses/0]).
 -export([invalid_licenses/1]).
 
-load_licenses() -> 
+load_licenses() ->
     [CanonicalLicenses] = licenses(),
     CanonicalLicenses.
 
 licenses() ->
-    {ok, Contents} = file:consult("src/licenses.erlterm"),
+    {ok, Cwd} = file:get_cwd(),
+    {ok, Contents} = file:consult(Cwd ++ "/src/licenses.erlterm"),
     Contents.
 
 invalid_licenses(UserLicenseList) ->
@@ -24,7 +25,8 @@ invalid_licenses(UserLicenseList) ->
                      UserLicenseList),
     InvalidLicenses.
 
-license_ids_from_license_list ([], Acc) -> Acc; 
-license_ids_from_license_list ([#{license_id := LicenseID} | T] , Acc) -> 
+license_ids_from_license_list([], Acc) ->
+    Acc;
+license_ids_from_license_list([#{license_id := LicenseID} | T], Acc) ->
     NewAcc = gb_sets:add_element(LicenseID, Acc),
-    license_ids_from_license_list (T, NewAcc).
+    license_ids_from_license_list(T, NewAcc).
