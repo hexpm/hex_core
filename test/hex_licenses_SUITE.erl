@@ -14,5 +14,5 @@ licenses_test(_Config) ->
     ok.
 
 invalid_licenses_test(_Config) ->
-    [] = hex_licenses:invalid_licenses(["MIT"]),
+    [] = hex_licenses:invalid_licenses([<<"MIT">>]),
     ok.
