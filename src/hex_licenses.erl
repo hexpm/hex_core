@@ -13,8 +13,7 @@ load_licenses() ->
     CanonicalLicenses.
 
 licenses() ->
-    {ok, Cwd} = file:get_cwd(),
-    {ok, Contents} = file:consult(Cwd ++ "/licenses.erlterm"),
+    {ok, Contents} = file:consult("licenses.erlterm"),
     Contents.
 
 invalid_licenses(UserLicenseList) ->
