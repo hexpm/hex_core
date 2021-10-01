@@ -10,7 +10,7 @@ all() ->
     [licenses_test, invalid_licenses_test].
 
 licenses_test(_Config) ->
-    [] = hex_licenses:licenses(),
+    hex_licenses:licenses(),
     ok.
 
 invalid_licenses_test(_Config) ->
