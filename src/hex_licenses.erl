@@ -13,7 +13,7 @@ load_licenses() ->
     CanonicalLicenses.
 
 licenses() ->
-    {ok, Contents} = file:consult("licenses.erlterm"),
+    {ok, Contents} = file:consult(code:priv_dir(hex_core) ++ "/licenses.erlterm"),
     Contents.
 
 invalid_licenses(UserLicenseList) ->
