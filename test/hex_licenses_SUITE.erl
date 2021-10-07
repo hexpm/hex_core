@@ -10,9 +10,9 @@ all() ->
     [license_test, invalid_license_test].
 
 license_test(_Config) ->
-    true = hex_licenses:valid([<<"MIT">>]),
+    true = hex_licenses:valid(<<"MIT">>),
     ok.
 
 invalid_license_test(_Config) ->
-    false = hex_licenses:valid([<<"MICROSOFT">>]),
+    false = hex_licenses:valid(<<"MICROSOFT">>),
     ok.
