@@ -7,12 +7,12 @@
 -include_lib("common_test/include/ct.hrl").
 
 all() ->
-    [licenses_test, invalid_licenses_test].
+    [license_test, invalid_license_test].
 
-licenses_test(_Config) ->
-    hex_licenses:licenses(),
+license_test(_Config) ->
+    true = hex_licenses:valid([<<"MIT">>]),
     ok.
 
-invalid_licenses_test(_Config) ->
-    [] = hex_licenses:invalid_licenses([<<"MIT">>]),
+invalid_license_test(_Config) ->
+    false = hex_licenses:valid([<<"MICROSOFT">>]),
     ok.
