@@ -31,6 +31,7 @@ filenames="hex_core.hrl \
            hex_api_package_owner.erl \
            hex_api_release.erl \
            hex_api_user.erl \
+           hex_licenses.erl \
            safe_erl_term.xrl"
 
 search_to_replace="hex_core: \
@@ -47,6 +48,7 @@ search_to_replace="hex_core: \
                    hex_http \
                    hex_repo \
                    hex_api \
+                   hex_licenses \
                    safe_erl_term"
 
 rm -f $target_dir/$prefix*
