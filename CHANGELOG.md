@@ -55,7 +55,7 @@
 
 ## 0.6.4 (2019-12-27)
 
-* Fix setting level and trasfer options in organization api
+* Fix setting level and transfer options in organization api
 
 ## 0.6.3 (2019-12-16)
 
@@ -98,13 +98,13 @@
 
 ## 0.4.0 (2018-12-30)
 
-* Revert swich from proto2 to proto3
+* Revert switch from proto2 to proto3
 * Verify authenticity of signed payload
 * Add `repo_verify_origin` config option
 
 ## 0.3.0 (2018-12-14)
 
-* Swich from proto2 to proto3
+* Switch from proto2 to proto3
 * Fix `hex_http:body` type
 * Fix `hex_http:request` spec
 
