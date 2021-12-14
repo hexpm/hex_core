@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.8.3 (2021-12-14)
+
+* Don't warn on non-https URLs
+* Add `hex_licenses` module
+
 ## 0.8.2 (2021-05-28)
 
 * Warn on unsafe httpc default SSL settings

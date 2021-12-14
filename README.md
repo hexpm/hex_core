@@ -200,7 +200,7 @@ Add to `rebar.config`:
 
 ```erlang
 {deps, [
-  {hex_core, "0.8.2"}
+  {hex_core, "0.8.3"}
 ]}
 ```
 
@@ -211,7 +211,7 @@ Add to `mix.exs`:
 ```elixir
 defp deps() do
   [
-    {:hex_core, "~> 0.8.2"}
+    {:hex_core, "~> 0.8.3"}
   ]
 end
 ```
