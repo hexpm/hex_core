@@ -1,5 +1,8 @@
 # CHANGELOG
 
+## 0.8.4 (2021-12-20)
+
+* Add `@doc` to `hex_licenses`
 ## 0.8.3 (2021-12-14)
 
 * Don't warn on non-https URLs
