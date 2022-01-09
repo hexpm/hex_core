@@ -12,17 +12,16 @@
 
 6. `rm src/safe_erl_term.erl`
 
-7. Spot check docs: `./docs.sh`
+7. Spot check docs: `rebar3 ex_doc`
 
 8. Publish package: `rebar3 hex publish`
 
-9. Publish docs: `rebar3 hex docs`
+9. Publish docs: `rebar3 hex publish docs`
 
 ## Places where version is mentioned
 
 ```
 src/hex_core.app.src
 src/hex_core.hrl
-docs.sh
 README.md
 ```
