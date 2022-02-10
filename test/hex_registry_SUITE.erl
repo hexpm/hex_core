@@ -27,6 +27,8 @@ names_test(_Config) ->
     ?assertMatch({ok, Packages}, hex_registry:unpack_names(Payload, <<"hexpm">>, TestPublicKey)),
     ?assertMatch({ok, Packages}, hex_registry:unpack_names(Payload, no_verify, TestPublicKey)),
     ?assertMatch({error, unverified}, hex_registry:unpack_names(Payload, <<"other_repo">>, TestPublicKey)),
+    DecodedName = hex_registry:get_repository_name(Payload, TestPublicKey),
+    ?assertMatch({ok, <<"hexpm">>}, DecodedName),
     ok.
 
 versions_test(_Config) ->
