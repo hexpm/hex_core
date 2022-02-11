@@ -49,8 +49,8 @@ versions_test(_Config) ->
         packages => Packages
     },
     Payload = hex_registry:build_versions(Versions, TestPrivateKey),
-    ?assertMatch({ok, Packages}, hex_registry:unpack_versions(Payload, <<"hexpm">>, TestPublicKey)),
-    ?assertMatch({ok, Packages}, hex_registry:unpack_versions(Payload, no_verify, TestPublicKey)),
+    ?assertMatch({ok, Versions}, hex_registry:unpack_versions(Payload, <<"hexpm">>, TestPublicKey)),
+    ?assertMatch({ok, Versions}, hex_registry:unpack_versions(Payload, no_verify, TestPublicKey)),
     ?assertMatch({error, unverified}, hex_registry:unpack_versions(Payload, <<"other_repo">>, TestPublicKey)),
     ok.
 
@@ -90,8 +90,8 @@ package_test(_Config) ->
         releases => Releases
     },
     Payload = hex_registry:build_package(Package, TestPrivateKey),
-    ?assertMatch({ok, Releases}, hex_registry:unpack_package(Payload, <<"hexpm">>, <<"foobar">>, TestPublicKey)),
-    ?assertMatch({ok, Releases}, hex_registry:unpack_package(Payload, no_verify, no_verify, TestPublicKey)),
+    ?assertMatch({ok, Package}, hex_registry:unpack_package(Payload, <<"hexpm">>, <<"foobar">>, TestPublicKey)),
+    ?assertMatch({ok, Package}, hex_registry:unpack_package(Payload, no_verify, no_verify, TestPublicKey)),
     ?assertMatch({error, unverified}, hex_registry:unpack_package(Payload, <<"other_repo">>, <<"foobar">>, TestPublicKey)),
     ?assertMatch({error, unverified}, hex_registry:unpack_package(Payload, <<"hexpm">>, <<"other_package">>, TestPublicKey)),
     ok.

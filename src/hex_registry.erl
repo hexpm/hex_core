@@ -80,13 +80,13 @@ encode_versions(Versions) ->
 
 %% @private
 decode_versions(Payload, no_verify) ->
-    #{packages := Packages} = hex_pb_versions:decode_msg(Payload, 'Versions'),
-    {ok, Packages};
+    #{repository := Repository, packages := Packages} = hex_pb_versions:decode_msg(Payload, 'Versions'),
+    {ok, #{repository => Repository, packages => Packages}};
 
 decode_versions(Payload, Repository) ->
     case hex_pb_versions:decode_msg(Payload, 'Versions') of
         #{repository := Repository, packages := Packages} ->
-            {ok, Packages};
+            {ok, #{repository => Repository, packages => Packages}};
         _ ->
             {error, unverified}
     end.
@@ -111,13 +111,13 @@ encode_package(Package) ->
 
 %% @private
 decode_package(Payload, no_verify, no_verify) ->
-    #{releases := Releases} = hex_pb_package:decode_msg(Payload, 'Package'),
-    {ok, Releases};
+    #{repository := Repository, name := Package, releases := Releases} = hex_pb_package:decode_msg(Payload, 'Package'),
+    {ok, #{repository => Repository, name => Package, releases => Releases}};
 
 decode_package(Payload, Repository, Package) ->
     case hex_pb_package:decode_msg(Payload, 'Package') of
         #{repository := Repository, name := Package, releases := Releases} ->
-            {ok, Releases};
+            {ok, #{repository => Repository, name => Package, releases => Releases}};
         _ ->
             {error, unverified}
     end.

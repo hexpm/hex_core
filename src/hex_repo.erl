@@ -57,10 +57,12 @@ get_names(Config) when is_map(Config) ->
 get_versions(Config) when is_map(Config) ->
     Verify = maps:get(repo_verify_origin, Config, true),
     Decoder = fun(Data) ->
-        case Verify of
-            true -> hex_registry:decode_versions(Data, repo_name(Config));
-            false -> hex_registry:decode_versions(Data, no_verify)
-        end
+        {ok, #{packages := Packages}} =
+            case Verify of
+                true -> hex_registry:decode_versions(Data, repo_name(Config));
+                false -> hex_registry:decode_versions(Data, no_verify)
+            end,
+        {ok, Packages}
     end,
     get_protobuf(Config, <<"versions">>, Decoder).
 
@@ -83,10 +85,12 @@ get_versions(Config) when is_map(Config) ->
 get_package(Config, Name) when is_binary(Name) and is_map(Config) ->
     Verify = maps:get(repo_verify_origin, Config, true),
     Decoder = fun(Data) ->
-        case Verify of
-            true -> hex_registry:decode_package(Data, repo_name(Config), Name);
-            false -> hex_registry:decode_package(Data, no_verify, no_verify)
-        end
+        {ok, #{releases := Releases}} =
+            case Verify of
+                true -> hex_registry:decode_package(Data, repo_name(Config), Name);
+                false -> hex_registry:decode_package(Data, no_verify, no_verify)
+            end,
+        {ok, Releases}
     end,
     get_protobuf(Config, <<"packages/", Name/binary>>, Decoder).
 
