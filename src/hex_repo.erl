@@ -29,10 +29,12 @@
 get_names(Config) when is_map(Config) ->
     Verify = maps:get(repo_verify_origin, Config, true),
     Decoder = fun(Data) ->
-        case Verify of
-            true -> hex_registry:decode_names(Data, repo_name(Config));
-            false -> hex_registry:decode_names(Data, no_verify)
-        end
+        {ok, #{packages := Packages}} =
+            case Verify of
+                true -> hex_registry:decode_names(Data, repo_name(Config));
+                false -> hex_registry:decode_names(Data, no_verify)
+            end,
+        {ok, Packages}
     end,
     get_protobuf(Config, <<"names">>, Decoder).
 

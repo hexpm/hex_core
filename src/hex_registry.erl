@@ -6,7 +6,6 @@
     decode_names/2,
     build_names/2,
     unpack_names/3,
-    get_repository_name/2,
     encode_versions/1,
     decode_versions/2,
     build_versions/2,
@@ -50,29 +49,16 @@ encode_names(Names) ->
 
 %% @private
 decode_names(Payload, no_verify) ->
-    #{packages := Packages} = hex_pb_names:decode_msg(Payload, 'Names'),
-    {ok, Packages};
+    #{repository := Repository, packages := Packages} = hex_pb_names:decode_msg(Payload, 'Names'),
+    {ok, #{repository => Repository, packages => Packages}};
 
 decode_names(Payload, Repository) ->
     case hex_pb_names:decode_msg(Payload, 'Names') of
         #{repository := Repository, packages := Packages} ->
-            {ok, Packages};
+            {ok, #{repository => Repository, packages => Packages}};
         _ ->
             {error, unverified}
     end.
-
-%% @doc
-%% Get the encoded repository name.
-get_repository_name(Payload, PublicKey) ->
-  case decode_and_verify_signed(zlib:gunzip(Payload), PublicKey) of
-    {ok, Names} -> decode_repository_name(Names);
-    Other -> Other
-  end.
-
-%% @private
-decode_repository_name(Payload) ->
-  #{repository := Repository} = hex_pb_names:decode_msg(Payload, 'Names'),
-  {ok, Repository}.
 
 %% @doc
 %% Builds versions resource.
