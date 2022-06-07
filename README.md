@@ -23,39 +23,38 @@ Get all package names:
 
 ```erlang
 > hex_repo:get_names(Config).
-{ok, {200, ...,
-    #{packages => [
-        #{name => <<"package1">>},
-        #{name => <<"package2">>},
-        ...
-    ]}}}
+{ok,{200, ...,
+     #{packages => [
+           #{name => <<"package1">>},
+           #{name => <<"package2">>},
+           ...]}}}
 ```
 
 Get all package versions from repository:
 
 ```erlang
 > hex_repo:get_versions(Config).
-{ok, {200, ...,
-    [
-        #{name => <<"package1">>, retired => [], versions => [<<"1.0.0">>]},
-        #{name => <<"package2">>, retired => [], versions => [<<"0.5.0">>]},
-    ]}}
+{ok,{200, ...,
+     #{packages => [[
+           #{name => <<"package1">>, retired => [], versions => [<<"1.0.0">>]},
+           #{name => <<"package2">>, retired => [], versions => [<<"0.5.0">>]},
+           ...]}}}
 ```
 
 Get package releases from repository:
 
 ```erlang
 > hex_repo:get_package(Config, <<"package1">>).
-{ok, {200, ...,
-    [
-        #{checksum => ..., version => <<"0.5.0">>, dependencies => []}],
-        #{checksum => ..., version => <<"1.0.0">>, dependencies => []}],
-    ]}}
+{ok,{200, ...,
+     #{releases => [
+           #{checksum => ..., version => <<"0.5.0">>, dependencies => []}],
+           #{checksum => ..., version => <<"1.0.0">>, dependencies => []}],
+           ...]}}}
 ```
 
 ### API
 
-For a full list of all parameters and returned objects for the API, check out the API docs:  https://github.com/hexpm/specifications/blob/master/http_api.md.
+For a full list of all parameters and returned objects for the API, check out the API docs: <https://github.com/hexpm/specifications/blob/master/http_api.md>.
 
 Get package from HTTP API:
 
@@ -200,7 +199,7 @@ Add to `rebar.config`:
 
 ```erlang
 {deps, [
-  {hex_core, "0.8.4"}
+  {hex_core, "0.9.0-dev"}
 ]}
 ```
 
@@ -211,7 +210,7 @@ Add to `mix.exs`:
 ```elixir
 defp deps() do
   [
-    {:hex_core, "~> 0.8.4"}
+    {:hex_core, "~> 0.9.0-dev"}
   ]
 end
 ```
