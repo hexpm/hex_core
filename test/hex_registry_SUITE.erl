@@ -24,8 +24,8 @@ names_test(_Config) ->
         packages => Packages
     },
     Payload = hex_registry:build_names(Names, TestPrivateKey),
-    ?assertMatch({ok, Packages}, hex_registry:unpack_names(Payload, <<"hexpm">>, TestPublicKey)),
-    ?assertMatch({ok, Packages}, hex_registry:unpack_names(Payload, no_verify, TestPublicKey)),
+    ?assertMatch({ok, Names}, hex_registry:unpack_names(Payload, <<"hexpm">>, TestPublicKey)),
+    ?assertMatch({ok, Names}, hex_registry:unpack_names(Payload, no_verify, TestPublicKey)),
     ?assertMatch({error, unverified}, hex_registry:unpack_names(Payload, <<"other_repo">>, TestPublicKey)),
     ok.
 
@@ -49,8 +49,8 @@ versions_test(_Config) ->
         packages => Packages
     },
     Payload = hex_registry:build_versions(Versions, TestPrivateKey),
-    ?assertMatch({ok, Packages}, hex_registry:unpack_versions(Payload, <<"hexpm">>, TestPublicKey)),
-    ?assertMatch({ok, Packages}, hex_registry:unpack_versions(Payload, no_verify, TestPublicKey)),
+    ?assertMatch({ok, Versions}, hex_registry:unpack_versions(Payload, <<"hexpm">>, TestPublicKey)),
+    ?assertMatch({ok, Versions}, hex_registry:unpack_versions(Payload, no_verify, TestPublicKey)),
     ?assertMatch({error, unverified}, hex_registry:unpack_versions(Payload, <<"other_repo">>, TestPublicKey)),
     ok.
 
@@ -90,8 +90,8 @@ package_test(_Config) ->
         releases => Releases
     },
     Payload = hex_registry:build_package(Package, TestPrivateKey),
-    ?assertMatch({ok, Releases}, hex_registry:unpack_package(Payload, <<"hexpm">>, <<"foobar">>, TestPublicKey)),
-    ?assertMatch({ok, Releases}, hex_registry:unpack_package(Payload, no_verify, no_verify, TestPublicKey)),
+    ?assertMatch({ok, Package}, hex_registry:unpack_package(Payload, <<"hexpm">>, <<"foobar">>, TestPublicKey)),
+    ?assertMatch({ok, Package}, hex_registry:unpack_package(Payload, no_verify, no_verify, TestPublicKey)),
     ?assertMatch({error, unverified}, hex_registry:unpack_package(Payload, <<"other_repo">>, <<"foobar">>, TestPublicKey)),
     ?assertMatch({error, unverified}, hex_registry:unpack_package(Payload, <<"hexpm">>, <<"other_package">>, TestPublicKey)),
     ok.
@@ -107,7 +107,7 @@ signed_test(_Config) ->
     Signed = hex_registry:sign_protobuf(Payload, TestPrivateKey),
     #{payload := Payload} = hex_registry:decode_signed(Signed),
     {ok, Payload} = hex_registry:decode_and_verify_signed(Signed, TestPublicKey),
-    {ok, []} = hex_registry:decode_names(Payload, <<"hexpm">>),
+    {ok, #{packages := []}} = hex_registry:decode_names(Payload, <<"hexpm">>),
 
     {error, bad_key} = hex_registry:decode_and_verify_signed(Signed, <<"bad">>),
 

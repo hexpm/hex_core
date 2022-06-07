@@ -49,13 +49,12 @@ encode_names(Names) ->
 
 %% @private
 decode_names(Payload, no_verify) ->
-    #{packages := Packages} = hex_pb_names:decode_msg(Payload, 'Names'),
-    {ok, Packages};
+    {ok, hex_pb_names:decode_msg(Payload, 'Names')};
 
 decode_names(Payload, Repository) ->
     case hex_pb_names:decode_msg(Payload, 'Names') of
-        #{repository := Repository, packages := Packages} ->
-            {ok, Packages};
+        #{repository := Repository, packages := _Packages} = Result ->
+            {ok, Result};
         _ ->
             {error, unverified}
     end.
@@ -80,13 +79,12 @@ encode_versions(Versions) ->
 
 %% @private
 decode_versions(Payload, no_verify) ->
-    #{packages := Packages} = hex_pb_versions:decode_msg(Payload, 'Versions'),
-    {ok, Packages};
+    {ok, hex_pb_versions:decode_msg(Payload, 'Versions')};
 
 decode_versions(Payload, Repository) ->
     case hex_pb_versions:decode_msg(Payload, 'Versions') of
-        #{repository := Repository, packages := Packages} ->
-            {ok, Packages};
+        #{repository := Repository, packages := _Packages} = Result ->
+            {ok, Result};
         _ ->
             {error, unverified}
     end.
@@ -111,13 +109,12 @@ encode_package(Package) ->
 
 %% @private
 decode_package(Payload, no_verify, no_verify) ->
-    #{releases := Releases} = hex_pb_package:decode_msg(Payload, 'Package'),
-    {ok, Releases};
+    {ok, hex_pb_package:decode_msg(Payload, 'Package')};
 
 decode_package(Payload, Repository, Package) ->
     case hex_pb_package:decode_msg(Payload, 'Package') of
-        #{repository := Repository, name := Package, releases := Releases} ->
-            {ok, Releases};
+        #{repository := Repository, name := Package, releases := _Releases} = Result ->
+            {ok, Result};
         _ ->
             {error, unverified}
     end.
