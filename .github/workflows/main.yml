@@ -15,21 +15,38 @@ jobs:
       matrix:
         pair:
           - erlang: master
+            rebar3: 3.18.0
+
           - erlang: 24
+            rebar3: 3.18.0
+
           - erlang: 23
+            rebar3: 3.6.1
+
           - erlang: 22
+            rebar3: 3.6.1
+
           - erlang: 21
+            rebar3: 3.6.1
+
           - erlang: 20
+            rebar3: 3.6.1
+
           - erlang: 19
+            rebar3: 3.6.1
+
           - erlang: 18
+            rebar3: 3.6.1
+
           - erlang: 17
+            rebar3: 3.6.1
     steps:
       - uses: actions/checkout@v2
 
       - uses: erlef/setup-beam@v1
         with:
-          otp-version: ${{matrix.pair.erlang}}
-          rebar3-version: 3.6.1
+          otp-version: ${{ matrix.pair.erlang }}
+          rebar3-version: ${{ matrix.pair.rebar3 }}
 
       - run: rebar3 ct
       - run: rebar3 as test proper
