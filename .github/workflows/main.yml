@@ -30,6 +30,7 @@ jobs:
       - uses: erlef/setup-beam@v1
         with:
           otp-version: ${{matrix.pair.erlang}}
+          rebar3-version: 3.18.0
           # rebar3-version: 3.6.1
 
       - run: rebar3 ct
