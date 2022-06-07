@@ -14,17 +14,17 @@ jobs:
       fail-fast: false
       matrix:
         pair:
-          - erlang: master
+          # - erlang: master
           - erlang: 24
-          - erlang: 23
-          - erlang: 22
-          - erlang: 21
-          - erlang: 20
-          - erlang: 19
-          - erlang: 18
-          - erlang: 17
+          # - erlang: 23
+          # - erlang: 22
+          # - erlang: 21
+          # - erlang: 20
+          # - erlang: 19
+          # - erlang: 18
+          # - erlang: 17
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - uses: erlef/setup-beam@v1
         with:
