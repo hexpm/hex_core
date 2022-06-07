@@ -9,8 +9,7 @@ on:
 jobs:
   test:
     name: Test
-    # runs-on: ubuntu-18.04
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-18.04
     strategy:
       fail-fast: false
       matrix:
@@ -30,8 +29,8 @@ jobs:
       - uses: erlef/setup-beam@v1
         with:
           otp-version: ${{matrix.pair.erlang}}
-          rebar3-version: 3.18.0
-          # rebar3-version: 3.6.1
+          # rebar3-version: 3.18.0
+          rebar3-version: 3.6.1
 
       - run: rebar3 ct
       - run: rebar3 as test proper
