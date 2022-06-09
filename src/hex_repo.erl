@@ -27,14 +27,8 @@
 %% '''
 %% @end
 get_names(Config) when is_map(Config) ->
-    Verify = maps:get(repo_verify_origin, Config, true),
     Decoder = fun(Data) ->
-        {ok, #{packages := Packages}} =
-            case Verify of
-                true -> hex_registry:decode_names(Data, repo_name(Config));
-                false -> hex_registry:decode_names(Data, no_verify)
-            end,
-        {ok, Packages}
+        hex_registry:decode_names(Data, verify_repo(Config))
     end,
     get_protobuf(Config, <<"names">>, Decoder).
 
@@ -57,12 +51,7 @@ get_names(Config) when is_map(Config) ->
 get_versions(Config) when is_map(Config) ->
     Verify = maps:get(repo_verify_origin, Config, true),
     Decoder = fun(Data) ->
-        {ok, #{packages := Packages}} =
-            case Verify of
-                true -> hex_registry:decode_versions(Data, repo_name(Config));
-                false -> hex_registry:decode_versions(Data, no_verify)
-            end,
-        {ok, Packages}
+        hex_registry:decode_versions(Data, verify_repo(Config))
     end,
     get_protobuf(Config, <<"versions">>, Decoder).
 
@@ -85,12 +74,10 @@ get_versions(Config) when is_map(Config) ->
 get_package(Config, Name) when is_binary(Name) and is_map(Config) ->
     Verify = maps:get(repo_verify_origin, Config, true),
     Decoder = fun(Data) ->
-        {ok, #{releases := Releases}} =
-            case Verify of
-                true -> hex_registry:decode_package(Data, repo_name(Config), Name);
-                false -> hex_registry:decode_package(Data, no_verify, no_verify)
-            end,
-        {ok, Releases}
+        case Verify of
+            true -> hex_registry:decode_package(Data, repo_name(Config), Name);
+            false -> hex_registry:decode_package(Data, no_verify, no_verify)
+        end
     end,
     get_protobuf(Config, <<"packages/", Name/binary>>, Decoder).
 
@@ -158,6 +145,13 @@ decode(Signed, PublicKey, Decoder, Config) ->
         false ->
             #{payload := Payload} = hex_registry:decode_signed(Signed),
             Decoder(Payload)
+    end.
+
+%% @private
+verify_repo(Config) ->
+    case maps:get(repo_verify_origin, Config, true) of
+        true -> repo_name(Config);
+        false -> no_verify
     end.
 
 %% @private

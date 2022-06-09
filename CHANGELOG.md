@@ -1,5 +1,41 @@
 # CHANGELOG
 
+## 0.9.0-dev
+
+* Change `hex_registry` functions to match protobuf fields
+
+  Before:
+
+      > hex_registry:unpack_names(Payload, <<"test">>, TestPublicKey)
+      {ok,[#{name => <<"package1">>, ...},
+           #{name => <<"package2">>, ...}]}
+
+  After:
+
+      > hex_registry:unpack_names(Payload, <<"test">>, TestPublicKey)
+      {ok,#{packages => [#{name => <<"package1">>, ...},
+                         #{name => <<"package2">>, ...}],
+            repository: <<"test">>}}
+
+* Change `hex_repo` functions to match protobuf fields
+
+  Before:
+
+      > hex_repo:get_names(Config),
+      {ok,{200, ...,
+           [#{name => <<"pacakge2">>, ...},
+            #{name => <<"pacakge2">>, ...},
+            ...]}}
+
+  After:
+
+      > hex_repo:get_names(Config),
+      {ok,{200, ...,
+           #{packages => [#{name => <<"pacakge2">>, ...},
+                          #{name => <<"pacakge2">>, ...},
+                          ...],
+             repository => <<"test">>}}}
+
 ## 0.8.4 (2021-12-20)
 
 * Add `@doc` to `hex_licenses`

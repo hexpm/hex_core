@@ -22,19 +22,19 @@ all() ->
     [get_names_test, get_versions_test, get_package_test, get_tarball_test, repo_org_not_set].
 
 get_names_test(_Config) ->
-    {ok, {200, _, Packages}} = hex_repo:get_names(?CONFIG),
+    {ok, {200, _, #{repository := <<"hexpm">>, packages := Packages}}} = hex_repo:get_names(?CONFIG),
     [#{name := <<"ecto">>}] =
         lists:filter(fun(#{name := Name}) -> Name == <<"ecto">> end, Packages),
     ok.
 
 get_versions_test(_Config) ->
-    {ok, {200, _, Packages}} = hex_repo:get_versions(?CONFIG),
+    {ok, {200, _, #{repository := <<"hexpm">>, packages := Packages}}} = hex_repo:get_versions(?CONFIG),
     [#{name := <<"ecto">>, versions := _}] =
         lists:filter(fun(#{name := Name}) -> Name == <<"ecto">> end, Packages),
     ok.
 
 get_package_test(_Config) ->
-    {ok, {200, _, Releases}} = hex_repo:get_package(?CONFIG, <<"ecto">>),
+    {ok, {200, _, #{repository := <<"hexpm">>, releases := Releases}}} = hex_repo:get_package(?CONFIG, <<"ecto">>),
     [#{version := <<"1.0.0">>}] =
         lists:filter(fun(#{version := Version}) -> Version == <<"1.0.0">> end, Releases),
 
@@ -52,7 +52,7 @@ get_tarball_test(_Config) ->
 
 repo_org_not_set(_Config) ->
     Config = maps:remove(repo_organization, ?CONFIG),
-    {ok, {200, _, Releases}} = hex_repo:get_package(Config, <<"ecto">>),
+    {ok, {200, _, #{repository := <<"hexpm">>, releases := Releases}}} = hex_repo:get_package(Config, <<"ecto">>),
     [#{version := <<"1.0.0">>}] =
         lists:filter(fun(#{version := Version}) -> Version == <<"1.0.0">> end, Releases),
 
