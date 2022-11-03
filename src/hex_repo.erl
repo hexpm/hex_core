@@ -49,7 +49,6 @@ get_names(Config) when is_map(Config) ->
 %% '''
 %% @end
 get_versions(Config) when is_map(Config) ->
-    Verify = maps:get(repo_verify_origin, Config, true),
     Decoder = fun(Data) ->
         hex_registry:decode_versions(Data, verify_repo(Config))
     end,
