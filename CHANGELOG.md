@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## 0.9.0-dev
+## 0.9.0 (2022-11-03)
 
 * Change `hex_registry` functions to match protobuf fields
 
