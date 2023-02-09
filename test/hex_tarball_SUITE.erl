@@ -265,7 +265,9 @@ unpack_error_handling_test(_Config) ->
 docs_too_big_to_create_test(_Config) ->
     Files = [{"index.html", <<"Docs">>}],
     Config = maps:put(tarball_max_size, 100, hex_core:default_config()),
-    {error, {tarball, too_big}} = hex_tarball:create_docs(Files, Config),
+    {error, {tarball, {too_big_compressed, 100}}} = hex_tarball:create_docs(Files, Config),
+    Config1 = maps:put(tarball_max_uncompressed_size, 100, hex_core:default_config()),
+    {error, {tarball, {too_big_uncompressed, 100}}} = hex_tarball:create_docs(Files, Config1),
 
     ok.
 
