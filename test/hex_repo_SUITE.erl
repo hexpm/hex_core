@@ -19,7 +19,7 @@ suite() ->
     [{require, {ssl_certs, test_pub}}].
 
 all() ->
-    [get_names_test, get_versions_test, get_package_test, get_tarball_test, repo_org_not_set].
+    [get_names_test, get_versions_test, get_package_test, get_tarball_test, get_docs_test, repo_org_not_set].
 
 get_names_test(_Config) ->
     {ok, {200, _, #{repository := <<"hexpm">>, packages := Packages}}} = hex_repo:get_names(?CONFIG),
@@ -49,6 +49,15 @@ get_tarball_test(_Config) ->
 
     {ok, {403, _, _}} = hex_repo:get_tarball(?CONFIG, <<"ecto">>, <<"9.9.9">>),
     ok.
+
+get_docs_test(_Config) ->
+  {ok, {200, #{<<"etag">> := ETag}, Docs}} = hex_repo:get_docs(?CONFIG, <<"ecto">>, <<"1.0.0">>),
+  {ok, _} = hex_tarball:unpack_docs(Docs, memory),
+
+  {ok, {304, _, _}} = hex_repo:get_docs(maps:put(http_etag, ETag, ?CONFIG), <<"ecto">>, <<"1.0.0">>),
+
+  {ok, {403, _, _}} = hex_repo:get_docs(?CONFIG, <<"ecto">>, <<"9.9.9">>),
+  ok.
 
 repo_org_not_set(_Config) ->
     Config = maps:remove(repo_organization, ?CONFIG),
