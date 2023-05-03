@@ -99,6 +99,12 @@ fixture(get, <<?TEST_REPO_URL, "/docs/ecto-1.0.0.tar.gz">>, _, _) ->
     {ok, Docs} = hex_tarball:create_docs([]),
     {ok, {200, Headers, Docs}};
 
+fixture(get, <<?TEST_REPO_URL, "/public_key">>, _, _) ->
+    Headers = #{
+      <<"etag">> => <<"\"dummy\"">>
+    },
+    {ok, {200, Headers, ?PUBLIC_KEY}};
+
 fixture(get, <<?TEST_REPO_URL, _/binary>>, _, _) ->
     {ok, {403, #{}, <<"not found">>}};
 

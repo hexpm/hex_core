@@ -6,7 +6,8 @@
     get_versions/1,
     get_package/2,
     get_tarball/3,
-    get_docs/3
+    get_docs/3,
+    get_public_key/1
 ]).
 
 %%====================================================================
@@ -117,6 +118,27 @@ get_docs(Config, Name, Version) ->
     case get(Config, docs_url(Config, Name, Version), ReqHeaders) of
         {ok, {200, RespHeaders, Docs}} ->
             {ok, {200, RespHeaders, Docs}};
+
+        Other ->
+            Other
+    end.
+
+%% @doc
+%% Gets the public key from the repository.
+%%
+%% Examples:
+%%
+%% ```
+%% > hex_repo:get_public_key(hex_core:default_config())
+%% {ok, {200, _, PublicKey}}
+%% '''
+get_public_key(Config) ->
+    ReqHeaders = make_headers(Config),
+    URI = build_url(Config, <<"public_key">>),
+
+    case get(Config, URI, ReqHeaders) of
+        {ok, {200, RespHeaders, PublicKey}} ->
+            {ok, {200, RespHeaders, PublicKey}};
 
         Other ->
             Other
