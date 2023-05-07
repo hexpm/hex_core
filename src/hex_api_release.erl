@@ -16,11 +16,7 @@
 
 -type retirement_reason() :: other | invalid | security | deprecated | renamed.
 
--ifdef(OTP_19).
 -type retirement_params() :: #{reason := retirement_reason(), message => binary()}.
--else.
--type retirement_params() :: #{reason => retirement_reason(), message => binary()}.
--endif.
 %% @doc
 %% Gets a package release.
 %%
