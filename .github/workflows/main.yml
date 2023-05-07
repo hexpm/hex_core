@@ -9,7 +9,7 @@ on:
 jobs:
   test:
     name: Test
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
       matrix:
@@ -30,15 +30,6 @@ jobs:
             rebar3: 3.6.1
 
           - erlang: 20
-            rebar3: 3.6.1
-
-          - erlang: 19
-            rebar3: 3.6.1
-
-          - erlang: 18
-            rebar3: 3.6.1
-
-          - erlang: 17
             rebar3: 3.6.1
     steps:
       - uses: actions/checkout@v3
