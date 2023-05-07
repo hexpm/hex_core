@@ -11,11 +11,7 @@
 
 -export_type([permission/0]).
 
--ifdef(OTP_19).
 -type permission() :: #{binary() := binary()}.
--else.
--type permission() :: #{binary() => binary()}.
--endif.
 
 %% @doc
 %% Lists the user's or organization's API and repository keys.
