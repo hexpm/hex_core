@@ -5,7 +5,9 @@
     get_names/1,
     get_versions/1,
     get_package/2,
-    get_tarball/3
+    get_tarball/3,
+    get_docs/3,
+    get_public_key/1
 ]).
 
 %%====================================================================
@@ -101,6 +103,47 @@ get_tarball(Config, Name, Version) ->
             Other
     end.
 
+%% @doc
+%% Gets docs tarball from the repository.
+%%
+%% Examples:
+%%
+%% ```
+%% > {ok, {200, _, Docs}} = hex_repo:get_tarball(hex_core:default_config(), <<"package1">>, <<"1.0.0">>),
+%% > {ok, [{"index.html", <<"<!doctype>">>}, ...]} = hex_tarball:unpack_docs(Docs, memory)
+%% '''
+get_docs(Config, Name, Version) ->
+    ReqHeaders = make_headers(Config),
+
+    case get(Config, docs_url(Config, Name, Version), ReqHeaders) of
+        {ok, {200, RespHeaders, Docs}} ->
+            {ok, {200, RespHeaders, Docs}};
+
+        Other ->
+            Other
+    end.
+
+%% @doc
+%% Gets the public key from the repository.
+%%
+%% Examples:
+%%
+%% ```
+%% > hex_repo:get_public_key(hex_core:default_config())
+%% {ok, {200, _, PublicKey}}
+%% '''
+get_public_key(Config) ->
+    ReqHeaders = make_headers(Config),
+    URI = build_url(Config, <<"public_key">>),
+
+    case get(Config, URI, ReqHeaders) of
+        {ok, {200, RespHeaders, PublicKey}} ->
+            {ok, {200, RespHeaders, PublicKey}};
+
+        Other ->
+            Other
+    end.
+
 %%====================================================================
 %% Internal functions
 %%====================================================================
@@ -163,6 +206,11 @@ tarball_url(Config, Name, Version) ->
     build_url(Config, <<"tarballs/", Filename/binary>>).
 
 %% @private
+docs_url(Config, Name, Version) ->
+    Filename = docs_filename(Name, Version),
+    build_url(Config, <<"docs/", Filename/binary>>).
+
+%% @private
 build_url(#{repo_url := URI, repo_organization := Org}, Path) when is_binary(Org) ->
     <<URI/binary, "/repos/", Org/binary, "/", Path/binary>>;
 build_url(#{repo_url := URI, repo_organization := undefined}, Path) ->
@@ -173,6 +221,10 @@ build_url(Config, Path) ->
 %% @private
 tarball_filename(Name, Version) ->
     <<Name/binary, "-", Version/binary, ".tar">>.
+
+%% @private
+docs_filename(Name, Version) ->
+    <<Name/binary, "-", Version/binary, ".tar.gz">>.
 
 %% @private
 make_headers(Config) ->

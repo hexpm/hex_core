@@ -4,7 +4,7 @@
 -define(TEST_REPO_URL, "https://repo.test").
 -define(TEST_API_URL, "https://api.test").
 -define(PRIVATE_KEY, ct:get_config({ssl_certs, test_priv})).
--define(PUBLIC_KEY, ct:get_config({ssl_certs, test_pub}).
+-define(PUBLIC_KEY, ct:get_config({ssl_certs, test_pub})).
 
 %%====================================================================
 %% API functions
@@ -91,6 +91,19 @@ fixture(get, <<?TEST_REPO_URL, "/tarballs/ecto-1.0.0.tar">>, _, _) ->
     },
     {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, []),
     {ok, {200, Headers, Tarball}};
+
+fixture(get, <<?TEST_REPO_URL, "/docs/ecto-1.0.0.tar.gz">>, _, _) ->
+    Headers = #{
+      <<"etag">> => <<"\"dummy\"">>
+    },
+    {ok, Docs} = hex_tarball:create_docs([]),
+    {ok, {200, Headers, Docs}};
+
+fixture(get, <<?TEST_REPO_URL, "/public_key">>, _, _) ->
+    Headers = #{
+      <<"etag">> => <<"\"dummy\"">>
+    },
+    {ok, {200, Headers, ?PUBLIC_KEY}};
 
 fixture(get, <<?TEST_REPO_URL, _/binary>>, _, _) ->
     {ok, {403, #{}, <<"not found">>}};
