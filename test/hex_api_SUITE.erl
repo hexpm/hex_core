@@ -27,29 +27,42 @@ package_test(_Config) ->
 
     {ok, {404, _, #{}}} = hex_api_package:get(?CONFIG, <<"nonexisting">>),
 
-    {ok, {200, _, [Package | _]}} = hex_api_package:search(?CONFIG, <<"ecto">>, [{sort, downloads}, {page, 1}]),
+    {ok, {200, _, [Package | _]}} = hex_api_package:search(?CONFIG, <<"ecto">>, [
+        {sort, downloads}, {page, 1}
+    ]),
     #{<<"name">> := <<"ecto">>, <<"releases">> := _} = Package,
     ok.
 
 release_test(_Config) ->
     {ok, {200, _, Release}} = hex_api_release:get(?CONFIG, <<"ecto">>, <<"1.0.0">>),
     #{<<"version">> := <<"1.0.0">>, <<"requirements">> := Requirements} = Release,
-    #{<<"decimal">> := #{
-        <<"app">> := <<"decimal">>, <<"optional">> := false, <<"requirement">> := <<"~> 1.0">>}} = Requirements,
+    #{
+        <<"decimal">> := #{
+            <<"app">> := <<"decimal">>, <<"optional">> := false, <<"requirement">> := <<"~> 1.0">>
+        }
+    } = Requirements,
     ok.
 
 publish_test(_Config) ->
     {ok, {200, _, Release}} = hex_api_release:publish(?CONFIG, <<"dummy_tarball">>),
     #{<<"version">> := <<"1.0.0">>, <<"requirements">> := Requirements} = Release,
-    #{<<"decimal">> := #{
-        <<"app">> := <<"decimal">>, <<"optional">> := false, <<"requirement">> := <<"~> 1.0">>}} = Requirements,
+    #{
+        <<"decimal">> := #{
+            <<"app">> := <<"decimal">>, <<"optional">> := false, <<"requirement">> := <<"~> 1.0">>
+        }
+    } = Requirements,
     ok.
 
 replace_test(_Config) ->
-    {ok, {201, _, Release}} = hex_api_release:publish(?CONFIG, <<"dummy_tarball">>, [{replace, true}]),
+    {ok, {201, _, Release}} = hex_api_release:publish(?CONFIG, <<"dummy_tarball">>, [
+        {replace, true}
+    ]),
     #{<<"version">> := <<"1.0.0">>, <<"requirements">> := Requirements} = Release,
-    #{<<"decimal">> := #{
-        <<"app">> := <<"decimal">>, <<"optional">> := false, <<"requirement">> := <<"~> 1.0">>}} = Requirements,
+    #{
+        <<"decimal">> := #{
+            <<"app">> := <<"decimal">>, <<"optional">> := false, <<"requirement">> := <<"~> 1.0">>
+        }
+    } = Requirements,
     ok.
 
 user_test(_Config) ->

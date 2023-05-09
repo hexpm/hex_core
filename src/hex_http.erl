@@ -16,22 +16,25 @@
 -type adapter_config() :: map().
 
 -callback request(method(), URI :: binary(), headers(), body(), adapter_config()) ->
-    {ok, status(), headers(), binary()} |
-    {error, term()}.
+    {ok, status(), headers(), binary()}
+    | {error, term()}.
 
 -spec request(hex_core:config(), method(), URI :: binary(), headers(), body()) ->
     {ok, {status(), headers(), binary()}} | {error, term()}.
 request(Config, Method, URI, Headers, Body) when is_binary(URI) and is_map(Headers) ->
-    {Adapter, AdapterConfig} = case maps:get(http_adapter, Config, {hex_http_httpc, #{}}) of
-        {Adapter0, AdapterConfig0} ->
-            {Adapter0, AdapterConfig0};
-        %% TODO: remove in v0.9
-        Adapter0 when is_atom(Adapter0) ->
-            AdapterConfig0 = maps:get(http_adapter_config, Config, #{}),
-            io:format("[hex_http] setting #{http_adapter => Module, http_adapter_config => Map} "
-                      "is deprecated in favour of #{http_adapter => {Module, Map}}~n"),
-            {Adapter0, AdapterConfig0}
-    end,
+    {Adapter, AdapterConfig} =
+        case maps:get(http_adapter, Config, {hex_http_httpc, #{}}) of
+            {Adapter0, AdapterConfig0} ->
+                {Adapter0, AdapterConfig0};
+            %% TODO: remove in v0.9
+            Adapter0 when is_atom(Adapter0) ->
+                AdapterConfig0 = maps:get(http_adapter_config, Config, #{}),
+                io:format(
+                    "[hex_http] setting #{http_adapter => Module, http_adapter_config => Map} "
+                    "is deprecated in favour of #{http_adapter => {Module, Map}}~n"
+                ),
+                {Adapter0, AdapterConfig0}
+        end,
     UserAgentFragment = maps:get(http_user_agent_fragment, Config),
     Headers2 = put_new(<<"user-agent">>, user_agent(UserAgentFragment), Headers),
     Adapter:request(Method, URI, Headers2, Body, AdapterConfig).

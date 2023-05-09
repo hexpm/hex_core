@@ -75,7 +75,6 @@ get(Config, Name, Version) when is_map(Config) and is_binary(Name) and is_binary
 -spec publish(hex_core:config(), binary()) -> hex_api:response().
 publish(Config, Tarball) -> publish(Config, Tarball, []).
 
-
 %% @doc
 %% Publishes a new package release with query parameters.
 %%
@@ -105,8 +104,12 @@ publish(Config, Tarball) -> publish(Config, Tarball, []).
 %% '''
 %% @end
 -spec publish(hex_core:config(), binary(), publish_params()) -> hex_api:response().
-publish(Config, Tarball, Params) when is_map(Config) andalso is_binary(Tarball) andalso is_list(Params)->
-    QueryString = hex_api:encode_query_string([{replace, proplists:get_value(replace, Params, false)}]),
+publish(Config, Tarball, Params) when
+    is_map(Config) andalso is_binary(Tarball) andalso is_list(Params)
+->
+    QueryString = hex_api:encode_query_string([
+        {replace, proplists:get_value(replace, Params, false)}
+    ]),
     Path = hex_api:join_path_segments(hex_api:build_repository_path(Config, ["publish"])),
     PathWithQuery = <<Path/binary, "?", QueryString/binary>>,
     TarballContentType = "application/octet-stream",
@@ -140,7 +143,9 @@ delete(Config, Name, Version) when is_map(Config) and is_binary(Name) and is_bin
 %% '''
 %% @end
 -spec retire(hex_core:config(), binary(), binary(), retirement_params()) -> hex_api:response().
-retire(Config, Name, Version, Params) when is_map(Config) and is_binary(Name) and is_binary(Version) ->
+retire(Config, Name, Version, Params) when
+    is_map(Config) and is_binary(Name) and is_binary(Version)
+->
     Path = hex_api:build_repository_path(Config, ["packages", Name, "releases", Version, "retire"]),
     hex_api:post(Config, Path, Params).
 

@@ -98,7 +98,6 @@ get_tarball(Config, Name, Version) ->
     case get(Config, tarball_url(Config, Name, Version), ReqHeaders) of
         {ok, {200, RespHeaders, Tarball}} ->
             {ok, {200, RespHeaders, Tarball}};
-
         Other ->
             Other
     end.
@@ -118,7 +117,6 @@ get_docs(Config, Name, Version) ->
     case get(Config, docs_url(Config, Name, Version), ReqHeaders) of
         {ok, {200, RespHeaders, Docs}} ->
             {ok, {200, RespHeaders, Docs}};
-
         Other ->
             Other
     end.
@@ -139,7 +137,6 @@ get_public_key(Config) ->
     case get(Config, URI, ReqHeaders) of
         {ok, {200, RespHeaders, PublicKey}} ->
             {ok, {200, RespHeaders, PublicKey}};
-
         Other ->
             Other
     end.
@@ -163,11 +160,9 @@ get_protobuf(Config, Path, Decoder) ->
             case decode(Signed, PublicKey, Decoder, Config) of
                 {ok, Decoded} ->
                     {ok, {200, RespHeaders, Decoded}};
-
                 {error, _} = Error ->
                     Error
             end;
-
         Other ->
             Other
     end.
@@ -231,6 +226,9 @@ make_headers(Config) ->
     maps:fold(fun set_header/3, #{}, Config).
 
 %% @private
-set_header(http_etag, ETag, Headers) when is_binary(ETag) -> maps:put(<<"if-none-match">>, ETag, Headers);
-set_header(repo_key, Token, Headers) when is_binary(Token) -> maps:put(<<"authorization">>, Token, Headers);
-set_header(_, _, Headers) -> Headers.
+set_header(http_etag, ETag, Headers) when is_binary(ETag) ->
+    maps:put(<<"if-none-match">>, ETag, Headers);
+set_header(repo_key, Token, Headers) when is_binary(Token) ->
+    maps:put(<<"authorization">>, Token, Headers);
+set_header(_, _, Headers) ->
+    Headers.

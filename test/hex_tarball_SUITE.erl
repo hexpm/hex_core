@@ -7,34 +7,45 @@
 -include_lib("common_test/include/ct.hrl").
 
 all() ->
-    [disk_test, timestamps_and_permissions_test, symlinks_test,
-     memory_test, build_tools_test, requirements_test,
-     decode_metadata_test, unpack_error_handling_test,
-     docs_test, too_big_to_create_test, too_big_to_unpack_test,
-     docs_too_big_to_create_test, docs_too_big_to_unpack_test
+    [
+        disk_test,
+        timestamps_and_permissions_test,
+        symlinks_test,
+        memory_test,
+        build_tools_test,
+        requirements_test,
+        decode_metadata_test,
+        unpack_error_handling_test,
+        docs_test,
+        too_big_to_create_test,
+        too_big_to_unpack_test,
+        docs_too_big_to_create_test,
+        docs_too_big_to_unpack_test
     ].
 
 too_big_to_create_test(_Config) ->
     Metadata = #{
-      <<"name">> => <<"foo">>,
-      <<"version">> => <<"1.0.0">>,
-      <<"maintainers">> => [<<"José">>],
-      <<"build_tool">> => <<"rebar3">>
-     },
+        <<"name">> => <<"foo">>,
+        <<"version">> => <<"1.0.0">>,
+        <<"maintainers">> => [<<"José">>],
+        <<"build_tool">> => <<"rebar3">>
+    },
     Contents = [{"src/foo.erl", <<"-module(foo).">>}],
     Config = maps:put(tarball_max_size, 5100, hex_core:default_config()),
     {error, {tarball, {too_big_compressed, 5100}}} = hex_tarball:create(Metadata, Contents, Config),
     Config1 = maps:put(tarball_max_uncompressed_size, 100, hex_core:default_config()),
-    {error, {tarball,{too_big_uncompressed, 100}}} = hex_tarball:create(Metadata, Contents, Config1),
+    {error, {tarball, {too_big_uncompressed, 100}}} = hex_tarball:create(
+        Metadata, Contents, Config1
+    ),
     ok.
 
 too_big_to_unpack_test(_Config) ->
     Metadata = #{
-      <<"name">> => <<"foo">>,
-      <<"version">> => <<"1.0.0">>,
-      <<"maintainers">> => [<<"José">>],
-      <<"build_tool">> => <<"rebar3">>
-     },
+        <<"name">> => <<"foo">>,
+        <<"version">> => <<"1.0.0">>,
+        <<"maintainers">> => [<<"José">>],
+        <<"build_tool">> => <<"rebar3">>
+    },
     Contents = [{"src/foo.erl", <<"-module(foo).">>}],
     {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, Contents),
     Config = maps:put(tarball_max_size, 5100, hex_core:default_config()),
@@ -43,14 +54,21 @@ too_big_to_unpack_test(_Config) ->
 
 memory_test(_Config) ->
     Metadata = #{
-      <<"name">> => <<"foo">>,
-      <<"version">> => <<"1.0.0">>,
-      <<"maintainers">> => [<<"José">>],
-      <<"build_tool">> => <<"rebar3">>
-     },
+        <<"name">> => <<"foo">>,
+        <<"version">> => <<"1.0.0">>,
+        <<"maintainers">> => [<<"José">>],
+        <<"build_tool">> => <<"rebar3">>
+    },
     Contents = [{"src/foo.erl", <<"-module(foo).">>}],
-    {ok, #{tarball := Tarball, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:create(Metadata, Contents),
-    {ok, #{inner_checksum := InnerChecksum, outer_checksum := OuterChecksum, contents := Contents, metadata := Metadata}} = hex_tarball:unpack(Tarball, memory),
+    {ok, #{tarball := Tarball, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:create(
+        Metadata, Contents
+    ),
+    {ok, #{
+        inner_checksum := InnerChecksum,
+        outer_checksum := OuterChecksum,
+        contents := Contents,
+        metadata := Metadata
+    }} = hex_tarball:unpack(Tarball, memory),
     ok.
 
 disk_test(Config) ->
@@ -68,21 +86,30 @@ disk_test(Config) ->
     ok = file:write_file(filename:join(SrcDir, "not_whitelisted.erl"), <<"">>),
 
     Files = [{"empty", EmptyDir}, {"src", SrcDir}, {"src/foo.erl", Foo}],
-    Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>, <<"build_tool">> => <<"rebar3">>},
-    {ok, #{tarball := Tarball, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:create(Metadata, Files),
-    ?assertEqual(<<"6D47908182CC721920B2F2C1D5777ED9E9EDBD86A29638448D97588AA0419C98">>,
-                 hex_tarball:format_checksum(OuterChecksum)),
-    {ok, #{inner_checksum := InnerChecksum, outer_checksum := OuterChecksum, metadata := Metadata}} = hex_tarball:unpack(Tarball, UnpackDir),
-    UnpackedFiles = [filename:join(UnpackDir, "empty"),
-                     filename:join(UnpackDir, "hex_metadata.config"),
-                     filename:join(UnpackDir, "src"),
-                     filename:join([UnpackDir, "src", "foo.erl"])
-                    ],
+    Metadata = #{
+        <<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>, <<"build_tool">> => <<"rebar3">>
+    },
+    {ok, #{tarball := Tarball, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:create(
+        Metadata, Files
+    ),
+    ?assertEqual(
+        <<"6D47908182CC721920B2F2C1D5777ED9E9EDBD86A29638448D97588AA0419C98">>,
+        hex_tarball:format_checksum(OuterChecksum)
+    ),
+    {ok, #{inner_checksum := InnerChecksum, outer_checksum := OuterChecksum, metadata := Metadata}} = hex_tarball:unpack(
+        Tarball, UnpackDir
+    ),
+    UnpackedFiles = [
+        filename:join(UnpackDir, "empty"),
+        filename:join(UnpackDir, "hex_metadata.config"),
+        filename:join(UnpackDir, "src"),
+        filename:join([UnpackDir, "src", "foo.erl"])
+    ],
     ?assertMatch(UnpackedFiles, filelib:wildcard(filename:join(UnpackDir, "**/*"))),
     {ok, <<"-module(foo).">>} = file:read_file(filename:join(UnpackDir, "src/foo.erl")),
-    {ok, <<"{<<\"build_tool\">>,<<\"rebar3\">>}.\n{<<\"name\">>,<<\"foo\">>}.\n{<<\"version\">>,<<\"1.0.0\">>}.\n">>} =
+    {ok,
+        <<"{<<\"build_tool\">>,<<\"rebar3\">>}.\n{<<\"name\">>,<<\"foo\">>}.\n{<<\"version\">>,<<\"1.0.0\">>}.\n">>} =
         file:read_file(filename:join(UnpackDir, "hex_metadata.config")).
-
 
 timestamps_and_permissions_test(Config) ->
     BaseDir = ?config(priv_dir, Config),
@@ -93,16 +120,20 @@ timestamps_and_permissions_test(Config) ->
     ok = file:write_file(Foo, <<"">>),
     ok = file:change_mode(Foo, 8#100755),
     Files = [
-             {"foo.erl", <<"">>},
-             {"foo.sh", Foo}
-            ],
+        {"foo.erl", <<"">>},
+        {"foo.sh", Foo}
+    ],
 
-    {ok, #{tarball := Tarball, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:create(Metadata, Files),
+    {ok, #{tarball := Tarball, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:create(
+        Metadata, Files
+    ),
 
     %% inside tarball
     {ok, Files2} = hex_erl_tar:extract({binary, Tarball}, [memory]),
     {_, ContentsBinary} = lists:keyfind("contents.tar.gz", 1, Files2),
-    {ok, [FooErlEntry, FooShEntry]} = hex_erl_tar:table({binary, ContentsBinary}, [compressed, verbose]),
+    {ok, [FooErlEntry, FooShEntry]} = hex_erl_tar:table({binary, ContentsBinary}, [
+        compressed, verbose
+    ]),
     Epoch = epoch(),
 
     {"foo.erl", regular, _, Epoch, 8#100644, 0, 0} = FooErlEntry,
@@ -110,7 +141,9 @@ timestamps_and_permissions_test(Config) ->
 
     %% unpacked
     UnpackDir = filename:join(BaseDir, "timestamps_and_permissions"),
-    {ok, #{inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:unpack(Tarball, UnpackDir),
+    {ok, #{inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:unpack(
+        Tarball, UnpackDir
+    ),
 
     {ok, FooErlFileInfo} = file:read_file_info(UnpackDir ++ "/foo.erl"),
     {ok, FooShFileInfo} = file:read_file_info(UnpackDir ++ "/foo.sh"),
@@ -132,13 +165,17 @@ symlinks_test(Config) ->
     ok = file:make_symlink("foo.sh", BarSh),
 
     Files = [
-             {"dir/foo.sh", FooSh},
-             {"dir/bar.sh", BarSh}
-            ],
+        {"dir/foo.sh", FooSh},
+        {"dir/bar.sh", BarSh}
+    ],
 
-    {ok, #{tarball := Tarball, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:create(Metadata, Files),
+    {ok, #{tarball := Tarball, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:create(
+        Metadata, Files
+    ),
     UnpackDir = filename:join(BaseDir, "symlinks"),
-    {ok, #{inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:unpack(Tarball, UnpackDir),
+    {ok, #{inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:unpack(
+        Tarball, UnpackDir
+    ),
     {ok, _} = file:read_link_info(filename:join([UnpackDir, "dir", "bar.sh"])),
     ok.
 
@@ -146,10 +183,16 @@ build_tools_test(_Config) ->
     Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
     Contents = [],
 
-    {ok, #{tarball := Tarball1}} = hex_tarball:create(maps:put(<<"files">>, [<<"Makefile">>], Metadata), Contents),
-    {ok, #{metadata := #{<<"build_tools">> := [<<"make">>]}}} = hex_tarball:unpack(Tarball1, memory),
+    {ok, #{tarball := Tarball1}} = hex_tarball:create(
+        maps:put(<<"files">>, [<<"Makefile">>], Metadata), Contents
+    ),
+    {ok, #{metadata := #{<<"build_tools">> := [<<"make">>]}}} = hex_tarball:unpack(
+        Tarball1, memory
+    ),
 
-    {ok, #{tarball := Tarball2}} = hex_tarball:create(maps:put(<<"build_tools">>, [<<"mix">>], Metadata), Contents),
+    {ok, #{tarball := Tarball2}} = hex_tarball:create(
+        maps:put(<<"build_tools">>, [<<"mix">>], Metadata), Contents
+    ),
     {ok, #{metadata := #{<<"build_tools">> := [<<"mix">>]}}} = hex_tarball:unpack(Tarball2, memory),
 
     {ok, #{tarball := Tarball3}} = hex_tarball:create(Metadata, Contents),
@@ -164,33 +207,48 @@ requirements_test(_Config) ->
             <<"app">> => <<"aaa">>,
             <<"optional">> => true,
             <<"requirement">> => <<"~> 1.0">>,
-            <<"repository">> => <<"hexpm">>},
+            <<"repository">> => <<"hexpm">>
+        },
         <<"bbb">> => #{
             <<"app">> => <<"bbb">>,
             <<"optional">> => true,
             <<"requirement">> => <<"~> 1.0">>,
-            <<"repository">> => <<"hexpm">>}},
+            <<"repository">> => <<"hexpm">>
+        }
+    },
 
-    Normal = [{<<"aaa">>, [{<<"app">>, <<"aaa">>},
-                           {<<"optional">>, true},
-                           {<<"requirement">>, <<"~> 1.0">>},
-                           {<<"repository">>, <<"hexpm">>}]},
-              {<<"bbb">>, [{<<"app">>, <<"bbb">>},
-                           {<<"optional">>, true},
-                           {<<"requirement">>, <<"~> 1.0">>},
-                           {<<"repository">>, <<"hexpm">>}]}],
+    Normal = [
+        {<<"aaa">>, [
+            {<<"app">>, <<"aaa">>},
+            {<<"optional">>, true},
+            {<<"requirement">>, <<"~> 1.0">>},
+            {<<"repository">>, <<"hexpm">>}
+        ]},
+        {<<"bbb">>, [
+            {<<"app">>, <<"bbb">>},
+            {<<"optional">>, true},
+            {<<"requirement">>, <<"~> 1.0">>},
+            {<<"repository">>, <<"hexpm">>}
+        ]}
+    ],
 
-    Legacy = [[{<<"name">>, <<"aaa">>},
-               {<<"app">>, <<"aaa">>},
-               {<<"optional">>, true},
-               {<<"requirement">>, <<"~> 1.0">>},
-               {<<"repository">>, <<"hexpm">>}],
+    Legacy = [
+        [
+            {<<"name">>, <<"aaa">>},
+            {<<"app">>, <<"aaa">>},
+            {<<"optional">>, true},
+            {<<"requirement">>, <<"~> 1.0">>},
+            {<<"repository">>, <<"hexpm">>}
+        ],
 
-              [{<<"name">>, <<"bbb">>},
-               {<<"app">>, <<"bbb">>},
-               {<<"optional">>, true},
-               {<<"requirement">>, <<"~> 1.0">>},
-               {<<"repository">>, <<"hexpm">>}]],
+        [
+            {<<"name">>, <<"bbb">>},
+            {<<"app">>, <<"bbb">>},
+            {<<"optional">>, true},
+            {<<"requirement">>, <<"~> 1.0">>},
+            {<<"repository">>, <<"hexpm">>}
+        ]
+    ],
 
     ExpectedRequirements = hex_tarball:normalize_requirements(Normal),
     ExpectedRequirements = hex_tarball:normalize_requirements(Legacy),
@@ -199,7 +257,9 @@ requirements_test(_Config) ->
 decode_metadata_test(_Config) ->
     #{<<"foo">> := <<"bar">>} = hex_tarball:do_decode_metadata(<<"{<<\"foo\">>, <<\"bar\">>}.">>),
 
-    #{<<"foo">> := <<"bö/utf8">>} = hex_tarball:do_decode_metadata(<<"{<<\"foo\">>, <<\"bö/utf8\">>}.">>),
+    #{<<"foo">> := <<"bö/utf8">>} = hex_tarball:do_decode_metadata(
+        <<"{<<\"foo\">>, <<\"bö/utf8\">>}.">>
+    ),
 
     %% we should convert invalid latin1 encoded metadata to utf8 so that this becomes:
     %% #{<<"foo">> := <<"bö/utf8">>} = hex_tarball:do_decode_metadata(<<"{<<\"foo\">>, <<\"bö\">>}.">>),
@@ -215,8 +275,12 @@ decode_metadata_test(_Config) ->
 
 unpack_error_handling_test(_Config) ->
     Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
-    {ok, #{tarball := Tarball, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:create(Metadata, [{"rebar.config", <<"">>}]),
-    {ok, #{inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:unpack(Tarball, memory),
+    {ok, #{tarball := Tarball, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:create(
+        Metadata, [{"rebar.config", <<"">>}]
+    ),
+    {ok, #{inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:unpack(
+        Tarball, memory
+    ),
     {ok, OuterFileList} = hex_erl_tar:extract({binary, Tarball}, [memory]),
     OuterFiles = maps:from_list(OuterFileList),
 
@@ -241,24 +305,24 @@ unpack_error_handling_test(_Config) ->
     %% metadata
 
     Files1 = OuterFiles#{
-      "metadata.config" => <<"ok $">>,
-      "CHECKSUM" => <<"1BB37F9A91F9E4A3667A4527930187ACF6B9714C0DE7EADD55DC31BE5CFDD98C">>
+        "metadata.config" => <<"ok $">>,
+        "CHECKSUM" => <<"1BB37F9A91F9E4A3667A4527930187ACF6B9714C0DE7EADD55DC31BE5CFDD98C">>
     },
     {error, {metadata, {illegal, "$"}}} = unpack_files(Files1),
 
     %% contents
 
     Files5 = OuterFiles#{
-      "contents.tar.gz" => hex_tarball:gzip(<<"badtar">>),
-      "CHECKSUM" => <<"1D87B5FFDA2480FC41F282A722FDAE60661349D47E7E084E93190BC242BB4D9C">>
+        "contents.tar.gz" => hex_tarball:gzip(<<"badtar">>),
+        "CHECKSUM" => <<"1D87B5FFDA2480FC41F282A722FDAE60661349D47E7E084E93190BC242BB4D9C">>
     },
-    {error,{inner_tarball,eof}} = unpack_files(Files5),
+    {error, {inner_tarball, eof}} = unpack_files(Files5),
 
     Files6 = OuterFiles#{
-      "contents.tar.gz" => <<"badgzip">>,
-      "CHECKSUM" => <<"C01D8E226CE736680D2D402E5A32A53D6C0DCEA47A773F77A30EE361416FF5BA">>
+        "contents.tar.gz" => <<"badgzip">>,
+        "CHECKSUM" => <<"C01D8E226CE736680D2D402E5A32A53D6C0DCEA47A773F77A30EE361416FF5BA">>
     },
-    {error,{inner_tarball,eof}} = unpack_files(Files6),
+    {error, {inner_tarball, eof}} = unpack_files(Files6),
 
     ok.
 

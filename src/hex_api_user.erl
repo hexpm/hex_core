@@ -51,12 +51,13 @@ me(Config) when is_map(Config) ->
 %% '''
 %% @end
 -spec create(hex_core:config(), binary(), binary(), binary()) -> hex_api:response().
-create(Config, Username, Password, Email)
-when is_map(Config) and is_binary(Username) and is_binary(Password) and is_binary(Email) ->
+create(Config, Username, Password, Email) when
+    is_map(Config) and is_binary(Username) and is_binary(Password) and is_binary(Email)
+->
     Params = #{
-      <<"username">> => Username,
-      <<"password">> => Password,
-      <<"email">> => Email
+        <<"username">> => Username,
+        <<"password">> => Password,
+        <<"email">> => Email
     },
     hex_api:post(Config, ["users"], Params).
 

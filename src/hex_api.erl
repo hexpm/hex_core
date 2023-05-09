@@ -37,17 +37,17 @@ delete(Config, Path) ->
 
 %% @private
 encode_query_string(List) ->
-    Pairs = lists:map(fun ({K, V}) -> {to_list(K), to_list(V)} end, List),
+    Pairs = lists:map(fun({K, V}) -> {to_list(K), to_list(V)} end, List),
     list_to_binary(compose_query(Pairs)).
 
 %% OTP 21+
 %% @private
--ifdef (OTP_RELEASE).
+-ifdef(OTP_RELEASE).
 compose_query(Pairs) ->
     uri_string:compose_query(Pairs).
 -else.
 compose_query(Pairs) ->
-    String = join("&", lists:map(fun ({K, V}) -> K ++ "=" ++ V end, Pairs)),
+    String = join("&", lists:map(fun({K, V}) -> K ++ "=" ++ V end, Pairs)),
     http_uri:encode(String).
 -endif.
 
@@ -69,7 +69,7 @@ join_path_segments(Segments) ->
 
 %% OTP 21+
 %% @private
--ifdef (OTP_RELEASE).
+-ifdef(OTP_RELEASE).
 recompose(Segments) ->
     Concatenated = join(<<"/">>, Segments),
     %% uri_string:recompose/1 accepts path segments as a list,
@@ -104,11 +104,9 @@ request(Config, Method, Path, Body) when is_binary(Path) and is_map(Config) ->
             case binary:match(ContentType, ?ERL_CONTENT_TYPE) of
                 {_, _} ->
                     {ok, {Status, RespHeaders, binary_to_term(RespBody)}};
-
                 nomatch ->
                     {ok, {Status, RespHeaders, nil}}
             end;
-
         Other ->
             Other
     end.
@@ -133,8 +131,10 @@ make_headers(Config) ->
 
 %% TODO: not needed after exdoc is fixed
 %% @private
-set_header(api_key, Token, Headers) when is_binary(Token) -> maps:put(<<"authorization">>, Token, Headers);
-set_header(_, _, Headers) -> Headers.
+set_header(api_key, Token, Headers) when is_binary(Token) ->
+    maps:put(<<"authorization">>, Token, Headers);
+set_header(_, _, Headers) ->
+    Headers.
 
 %% TODO: not needed after exdoc is fixed
 %% @private
@@ -148,12 +148,12 @@ put_new(Key, Value, Map) ->
 %% @private
 %% https://github.com/erlang/otp/blob/OTP-20.3/lib/stdlib/src/lists.erl#L1449:L1453
 join(_Sep, []) -> [];
-join(Sep, [H|T]) -> [H|join_prepend(Sep, T)].
+join(Sep, [H | T]) -> [H | join_prepend(Sep, T)].
 
 %% TODO: not needed after exdoc is fixed
 %% @private
 join_prepend(_Sep, []) -> [];
-join_prepend(Sep, [H|T]) -> [Sep,H|join_prepend(Sep,T)].
+join_prepend(Sep, [H | T]) -> [Sep, H | join_prepend(Sep, T)].
 
 %% TODO: not needed after exdoc is fixed
 %% @private

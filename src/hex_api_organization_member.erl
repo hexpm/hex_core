@@ -67,7 +67,9 @@ get(Config, UsernameOrEmail) when is_map(Config) and is_binary(UsernameOrEmail) 
 %% '''
 %% @end
 -spec add(hex_core:config(), binary(), role()) -> hex_api:response().
-add(Config, UsernameOrEmail, Role) when is_map(Config) and is_binary(UsernameOrEmail) and is_atom(Role) ->
+add(Config, UsernameOrEmail, Role) when
+    is_map(Config) and is_binary(UsernameOrEmail) and is_atom(Role)
+->
     Path = hex_api:build_organization_path(Config, ["members"]),
     Params = #{<<"name">> => UsernameOrEmail, <<"role">> => Role},
     hex_api:post(Config, Path, Params).
@@ -88,7 +90,9 @@ add(Config, UsernameOrEmail, Role) when is_map(Config) and is_binary(UsernameOrE
 %% '''
 %% @end
 -spec update(hex_core:config(), binary(), role()) -> hex_api:response().
-update(Config, UsernameOrEmail, Role) when is_map(Config) and is_binary(UsernameOrEmail) and is_atom(Role) ->
+update(Config, UsernameOrEmail, Role) when
+    is_map(Config) and is_binary(UsernameOrEmail) and is_atom(Role)
+->
     Path = hex_api:build_organization_path(Config, ["members", UsernameOrEmail]),
     Params = #{<<"role">> => Role},
     hex_api:post(Config, Path, Params).

@@ -32,16 +32,16 @@
 %% @doc
 %% Builds names resource.
 build_names(Names, PrivateKey) ->
-  Payload = encode_names(Names),
-  zlib:gzip(sign_protobuf(Payload, PrivateKey)).
+    Payload = encode_names(Names),
+    zlib:gzip(sign_protobuf(Payload, PrivateKey)).
 
 %% @doc
 %% Unpacks names resource.
 unpack_names(Payload, Repository, PublicKey) ->
-  case decode_and_verify_signed(zlib:gunzip(Payload), PublicKey) of
-    {ok, Names} -> decode_names(Names, Repository);
-    Other -> Other
-  end.
+    case decode_and_verify_signed(zlib:gunzip(Payload), PublicKey) of
+        {ok, Names} -> decode_names(Names, Repository);
+        Other -> Other
+    end.
 
 %% @private
 encode_names(Names) ->
@@ -50,7 +50,6 @@ encode_names(Names) ->
 %% @private
 decode_names(Payload, no_verify) ->
     {ok, hex_pb_names:decode_msg(Payload, 'Names')};
-
 decode_names(Payload, Repository) ->
     case hex_pb_names:decode_msg(Payload, 'Names') of
         #{repository := Repository, packages := _Packages} = Result ->
@@ -62,16 +61,16 @@ decode_names(Payload, Repository) ->
 %% @doc
 %% Builds versions resource.
 build_versions(Versions, PrivateKey) ->
-  Payload = encode_versions(Versions),
-  zlib:gzip(sign_protobuf(Payload, PrivateKey)).
+    Payload = encode_versions(Versions),
+    zlib:gzip(sign_protobuf(Payload, PrivateKey)).
 
 %% @doc
 %% Unpacks versions resource.
 unpack_versions(Payload, Repository, PublicKey) ->
-  case decode_and_verify_signed(zlib:gunzip(Payload), PublicKey) of
-    {ok, Versions} -> decode_versions(Versions, Repository);
-    Other -> Other
-  end.
+    case decode_and_verify_signed(zlib:gunzip(Payload), PublicKey) of
+        {ok, Versions} -> decode_versions(Versions, Repository);
+        Other -> Other
+    end.
 
 %% @private
 encode_versions(Versions) ->
@@ -80,7 +79,6 @@ encode_versions(Versions) ->
 %% @private
 decode_versions(Payload, no_verify) ->
     {ok, hex_pb_versions:decode_msg(Payload, 'Versions')};
-
 decode_versions(Payload, Repository) ->
     case hex_pb_versions:decode_msg(Payload, 'Versions') of
         #{repository := Repository, packages := _Packages} = Result ->
@@ -92,16 +90,16 @@ decode_versions(Payload, Repository) ->
 %% @doc
 %% Builds package resource.
 build_package(Package, PrivateKey) ->
-  Payload = encode_package(Package),
-  zlib:gzip(sign_protobuf(Payload, PrivateKey)).
+    Payload = encode_package(Package),
+    zlib:gzip(sign_protobuf(Payload, PrivateKey)).
 
 %% @doc
 %% Unpacks package resource.
 unpack_package(Payload, Repository, Name, PublicKey) ->
-  case decode_and_verify_signed(zlib:gunzip(Payload), PublicKey) of
-    {ok, Package} -> decode_package(Package, Repository, Name);
-    Other -> Other
-  end.
+    case decode_and_verify_signed(zlib:gunzip(Payload), PublicKey) of
+        {ok, Package} -> decode_package(Package, Repository, Name);
+        Other -> Other
+    end.
 
 %% @private
 encode_package(Package) ->
@@ -110,7 +108,6 @@ encode_package(Package) ->
 %% @private
 decode_package(Payload, no_verify, no_verify) ->
     {ok, hex_pb_package:decode_msg(Payload, 'Package')};
-
 decode_package(Payload, Repository, Package) ->
     case hex_pb_package:decode_msg(Payload, 'Package') of
         #{repository := Repository, name := Package, releases := _Releases} = Result ->

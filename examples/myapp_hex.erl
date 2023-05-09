@@ -16,7 +16,6 @@ get_api_package(Name) ->
     case Result of
         {ok, {200, _Headers, Payload}} ->
             {ok, Payload};
-
         Other ->
             Other
     end.
@@ -28,7 +27,6 @@ get_repo_versions() ->
     case Result of
         {ok, {200, _Headers, Payload}} ->
             {ok, maps:get(packages, Payload)};
-
         Other ->
             Other
     end.
@@ -40,7 +38,6 @@ get_repo_tarball(Name, Version) ->
     case Result of
         {ok, {200, _Headers, Tarball}} ->
             {ok, Tarball};
-
         Other ->
             Other
     end.
@@ -72,10 +69,8 @@ with_http_cache(Key, Fun) ->
             ok = put_cache({etag, Key}, ETag),
             ok = put_cache({body, Key}, Body),
             {200, Headers, Body};
-
         {ok, {304, Headers, _Body}} ->
             {200, Headers, get_cache({body, Key}, undefined)};
-
         Other ->
             Other
     end.

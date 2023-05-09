@@ -52,8 +52,12 @@ list(Config, PackageName) when is_binary(PackageName) ->
 %% '''
 %% @end
 -spec get(hex_core:config(), binary(), binary()) -> hex_api:response().
-get(Config, PackageName, UsernameOrEmail) when is_map(Config) and is_binary(PackageName) and is_binary(UsernameOrEmail) ->
-    Path = hex_api:build_repository_path(Config, ["packages", PackageName, "owners", UsernameOrEmail]),
+get(Config, PackageName, UsernameOrEmail) when
+    is_map(Config) and is_binary(PackageName) and is_binary(UsernameOrEmail)
+->
+    Path = hex_api:build_repository_path(Config, [
+        "packages", PackageName, "owners", UsernameOrEmail
+    ]),
     hex_api:get(Config, Path).
 
 %% @doc
@@ -76,11 +80,14 @@ get(Config, PackageName, UsernameOrEmail) when is_map(Config) and is_binary(Pack
 %% '''
 %% @end
 -spec add(hex_core:config(), binary(), binary(), binary(), boolean()) -> hex_api:response().
-add(Config, PackageName, UsernameOrEmail, Level, Transfer)
-when is_binary(PackageName) and is_binary(UsernameOrEmail) and is_map(Config) and is_binary(Level) and is_boolean(Transfer) ->
-    Path = hex_api:build_repository_path(Config, ["packages", PackageName, "owners", UsernameOrEmail]),
+add(Config, PackageName, UsernameOrEmail, Level, Transfer) when
+    is_binary(PackageName) and is_binary(UsernameOrEmail) and is_map(Config) and is_binary(Level) and
+        is_boolean(Transfer)
+->
+    Path = hex_api:build_repository_path(Config, [
+        "packages", PackageName, "owners", UsernameOrEmail
+    ]),
     hex_api:put(Config, Path, #{<<"level">> => Level, <<"transfer">> => Transfer}).
-
 
 %% @doc
 %% Deletes a packages owner.
@@ -93,6 +100,10 @@ when is_binary(PackageName) and is_binary(UsernameOrEmail) and is_map(Config) an
 %% '''
 %% @end
 -spec delete(hex_core:config(), binary(), binary()) -> hex_api:response().
-delete(Config, PackageName, UsernameOrEmail) when is_map(Config) and is_binary(PackageName) and is_binary(UsernameOrEmail) ->
-    Path = hex_api:build_repository_path(Config, ["packages", PackageName, "owners", UsernameOrEmail]),
+delete(Config, PackageName, UsernameOrEmail) when
+    is_map(Config) and is_binary(PackageName) and is_binary(UsernameOrEmail)
+->
+    Path = hex_api:build_repository_path(Config, [
+        "packages", PackageName, "owners", UsernameOrEmail
+    ]),
     hex_api:delete(Config, Path).

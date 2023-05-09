@@ -45,7 +45,6 @@ get(Config) when is_map(Config) ->
     Path = hex_api:build_organization_path(Config, []),
     hex_api:get(Config, Path).
 
-
 %% @doc
 %% Updates the number of seats in an organzation.
 %%
@@ -62,7 +61,7 @@ get(Config) when is_map(Config) ->
 %%      }}}
 %% '''
 -spec update(hex_core:config(), pos_integer()) -> hex_api:response().
-update(Config, Seats) when is_map(Config) and is_integer(Seats)->
+update(Config, Seats) when is_map(Config) and is_integer(Seats) ->
     Path = hex_api:build_organization_path(Config, []),
     Params = #{<<"seats">> => Seats},
     hex_api:post(Config, Path, Params).
