@@ -108,8 +108,9 @@ get_tarball(Config, Name, Version) ->
 %% Examples:
 %%
 %% ```
-%% > {ok, {200, _, Docs}} = hex_repo:get_tarball(hex_core:default_config(), <<"package1">>, <<"1.0.0">>),
-%% > {ok, [{"index.html", <<"<!doctype>">>}, ...]} = hex_tarball:unpack_docs(Docs, memory)
+%% > {ok, {200, _, Docs}} = hex_repo:get_docs(hex_core:default_config(), <<"package1">>, <<"1.0.0">>),
+%% > hex_tarball:unpack_docs(Docs, memory)
+%% {ok, [{"index.html", <<"<!doctype>">>}, ...]}
 %% '''
 get_docs(Config, Name, Version) ->
     ReqHeaders = make_headers(Config),
