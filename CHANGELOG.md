@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.10.0 (2023-05-09)
+
+* Drop support for old OTP and Rebar versions. `hex_core` now requires OTP20+ and Rebar 3.15.1+.
+
+* Add `hex_repo:get_docs/3` and `hex_repo:get_public_key/1`.
+
 ## 0.9.0 (2022-11-03)
 
 * Change `hex_registry` functions to match protobuf fields
