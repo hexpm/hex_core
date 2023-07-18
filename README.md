@@ -219,4 +219,4 @@ end
 
 * Run `rebar3 as dev compile` to re-generate protobuf files
 * Run `rebar3 as test proper` for property-based tests
-* Run `./docs.sh` to generate documentation
+* Run `rebar3 ex_doc` to generate documentation
