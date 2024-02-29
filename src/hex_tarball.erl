@@ -619,7 +619,7 @@ gzip_no_header(Uncompressed) ->
 %% @private
 valid_size(Binary, undefined) when is_binary(Binary) ->
     true;
-valid_size(Binary, Limit) when is_binary(Binary) ->
+valid_size(Binary, Limit) when is_binary(Binary) and is_integer(Limit) ->
     byte_size(Binary) =< Limit.
 
 %% @private
