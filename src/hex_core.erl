@@ -82,7 +82,9 @@
     repo_verify => boolean(),
     repo_verify_origin => boolean(),
     tarball_max_size => pos_integer(),
-    tarball_max_uncompressed_size => pos_integer()
+    tarball_max_uncompressed_size => pos_integer(),
+    docs_tarball_max_size => pos_integer(),
+    docs_tarball_max_uncompressed_size => pos_integer()
 }.
 
 -spec default_config() -> config().
@@ -104,5 +106,7 @@ default_config() ->
         repo_verify => true,
         repo_verify_origin => true,
         tarball_max_size => 8 * 1024 * 1024,
-        tarball_max_uncompressed_size => 64 * 1024 * 1024
+        tarball_max_uncompressed_size => 64 * 1024 * 1024,
+        docs_tarball_max_size => 16 * 1024 * 1024,
+        docs_tarball_max_uncompressed_size => 128 * 1024 * 1024
     }.

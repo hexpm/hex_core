@@ -112,7 +112,8 @@ create(Metadata, Files) ->
 %% @end
 -spec create_docs(files(), hex_core:config()) -> {ok, tarball()} | {error, term()}.
 create_docs(Files, #{
-    tarball_max_size := TarballMaxSize, tarball_max_uncompressed_size := TarballMaxUncompressedSize
+    docs_tarball_max_size := TarballMaxSize,
+    docs_tarball_max_uncompressed_size := TarballMaxUncompressedSize
 }) ->
     UncompressedTarball = create_memory_tarball(Files),
     UncompressedSize = byte_size(UncompressedTarball),
@@ -219,7 +220,7 @@ unpack(Tarball, Output) ->
 -spec unpack_docs
     (tarball(), memory, hex_core:config()) -> {ok, contents()} | {error, term()};
     (tarball(), filename(), hex_core:config()) -> ok | {error, term()}.
-unpack_docs(Tarball, _, #{tarball_max_size := TarballMaxSize}) when
+unpack_docs(Tarball, _, #{docs_tarball_max_size := TarballMaxSize}) when
     byte_size(Tarball) > TarballMaxSize
 ->
     {error, {tarball, too_big}};
