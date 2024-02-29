@@ -103,5 +103,5 @@ default_config() ->
         repo_verify => true,
         repo_verify_origin => true,
         tarball_max_size => 16 * 1024 * 1024,
-        tarball_max_uncompressed_size => 64 * 1024 * 1024
+        tarball_max_uncompressed_size => 128 * 1024 * 1024
     }.
