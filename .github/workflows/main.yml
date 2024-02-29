@@ -15,7 +15,7 @@ jobs:
       matrix:
         pair:
           - erlang: master
-            rebar3: 3.18.0
+            rebar3: 3.22.1
 
           - erlang: 25
             rebar3: 3.18.0
