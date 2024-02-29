@@ -48,7 +48,7 @@
 %%   requires protobuf messages as of hex_core v0.4.0 (default: `true').
 %%
 %% * `tarball_max_size' - Maximum size of package tarball, defaults to
-%%   `16_777_216' (16 MiB). Set to `infinity' to not enforce the limit.
+%%   `8_388_608' (8 MiB). Set to `infinity' to not enforce the limit.
 %%
 %% * `tarball_max_uncompressed_size' - Maximum size of uncompressed package tarball, defaults to
 %%   `67_108_864' (64 MiB). Set to `infinity' to not enforce the limit.
