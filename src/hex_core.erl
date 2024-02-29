@@ -46,6 +46,18 @@
 %%
 %% * `repo_verify_origin' - If `true' will verify the repository signature origin,
 %%   requires protobuf messages as of hex_core v0.4.0 (default: `true').
+%%
+%% * `tarball_max_size' - Maximum size of package tarball, defaults to
+%%   `8_388_608' (8 MiB). Set to `undefined' to not enforce the limit.
+%%
+%% * `tarball_max_uncompressed_size' - Maximum size of uncompressed package tarball, defaults to
+%%   `67_108_864' (64 MiB). Set to `undefined' to not enforce the limit.
+%%
+%% * `docs_tarball_max_size' - Maximum size of docs tarball, defaults to
+%%   `16_777_216' (16 MiB). Set to `undefined' to not enforce the limit.
+%%
+%% * `docs_tarball_max_uncompressed_size' - Maximum size of uncompressed docs tarball, defaults to
+%%   `134_217_728' (128 MiB). Set to `undefined' to not enforce the limit.
 
 -module(hex_core).
 -export([default_config/0]).
@@ -81,10 +93,10 @@
     repo_organization => binary() | undefined,
     repo_verify => boolean(),
     repo_verify_origin => boolean(),
-    tarball_max_size => pos_integer(),
-    tarball_max_uncompressed_size => pos_integer(),
-    docs_tarball_max_size => pos_integer(),
-    docs_tarball_max_uncompressed_size => pos_integer()
+    tarball_max_size => pos_integer() | undefined,
+    tarball_max_uncompressed_size => pos_integer() | undefined,
+    docs_tarball_max_size => pos_integer() | undefined,
+    docs_tarball_max_uncompressed_size => pos_integer() | undefined
 }.
 
 -spec default_config() -> config().
