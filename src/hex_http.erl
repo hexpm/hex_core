@@ -16,7 +16,7 @@
 -type adapter_config() :: map().
 
 -callback request(method(), URI :: binary(), headers(), body(), adapter_config()) ->
-    {ok, status(), headers(), binary()}
+    {ok, {status(), headers(), binary()}}
     | {error, term()}.
 
 -spec request(hex_core:config(), method(), URI :: binary(), headers(), body()) ->
