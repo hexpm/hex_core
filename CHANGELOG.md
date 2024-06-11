@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v0.10.1 (2024-06-11)
+
+* Update `hex_licenses` module to reflect most recent list available from SPDX.
+
 ## v0.10.0 (2023-05-09)
 
 * Drop support for old OTP and Rebar versions. `hex_core` now requires OTP20+ and Rebar 3.15.1+.
