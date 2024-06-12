@@ -141,7 +141,7 @@ create_docs(Files, Config) ->
             {error, {tarball, {too_big_uncompressed, TarballMaxUncompressedSize}}}
     end.
 
--spec create_docs(files()) -> {ok, tarball()}.
+-spec create_docs(files()) -> {ok, tarball()} | {error, term()}.
 create_docs(Files) ->
     create_docs(Files, hex_core:default_config()).
 
