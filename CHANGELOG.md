@@ -1,7 +1,12 @@
 # CHANGELOG
 
+## v0.10.2 (2024-06-12)
+
+* Fix `hex_tarball:create_docs/1` type spec.
+
 ## v0.10.1 (2024-06-11)
 
+* Drop support for OTP 20.
 * Update `hex_licenses` module to reflect most recent list available from SPDX.
 
 ## v0.10.0 (2023-05-09)
