@@ -14,9 +14,9 @@
 
 -type publish_params() :: [{replace, boolean()}].
 
--type retirement_reason() :: other | invalid | security | deprecated | renamed.
+-type retirement_reason() :: binary().
 
--type retirement_params() :: #{reason := retirement_reason(), message => binary()}.
+-type retirement_params() :: #{binary() := binary()}.
 %% @doc
 %% Gets a package release.
 %%
