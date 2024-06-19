@@ -10,11 +10,9 @@
     unretire/3
 ]).
 
--export_type([publish_params/0, retirement_params/0, retirement_reason/0]).
+-export_type([publish_params/0, retirement_params/0]).
 
 -type publish_params() :: [{replace, boolean()}].
-
--type retirement_reason() :: binary().
 
 -type retirement_params() :: #{binary() := binary()}.
 %% @doc
