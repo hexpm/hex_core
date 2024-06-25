@@ -15,27 +15,30 @@ jobs:
       matrix:
         pair:
           - erlang: master
-            rebar3: 3.22.1
+            rebar3: 3.23.0
+
+          - erlang: 27
+            rebar3: 3.23.0
 
           - erlang: 26
             rebar3: 3.21.0
 
           - erlang: 25
-            rebar3: 3.18.0
+            rebar3: 3.21.0
 
           - erlang: 24
-            rebar3: 3.18.0
+            rebar3: 3.21.0
 
           - erlang: 23
-            rebar3: 3.18.0
+            rebar3: 3.20.0
 
           - erlang: 22
             rebar3: 3.18.0
 
           - erlang: 21
-            rebar3: 3.15.1
+            rebar3: 3.15.2
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: erlef/setup-beam@v1
         with:
