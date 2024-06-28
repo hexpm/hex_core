@@ -10,13 +10,11 @@
     unretire/3
 ]).
 
--export_type([publish_params/0, retirement_params/0, retirement_reason/0]).
+-export_type([publish_params/0, retirement_params/0]).
 
 -type publish_params() :: [{replace, boolean()}].
 
--type retirement_reason() :: other | invalid | security | deprecated | renamed.
-
--type retirement_params() :: #{reason := retirement_reason(), message => binary()}.
+-type retirement_params() :: #{binary() := binary()}.
 %% @doc
 %% Gets a package release.
 %%
