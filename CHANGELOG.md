@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v0.10.3 (2024-06-28)
+
+* Fix `hex_api_release:retirement_params/0` type spec.
+
 ## v0.10.2 (2024-06-12)
 
 * Fix `hex_tarball:create_docs/1` type spec.
