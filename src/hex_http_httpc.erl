@@ -20,24 +20,38 @@
 
 request(Method, URI, ReqHeaders, Body, AdapterConfig) when is_binary(URI) ->
     Profile = maps:get(profile, AdapterConfig, default),
-    HTTPOptions = maps:get(http_options, AdapterConfig, []),
+    HTTPOptions0 = maps:get(http_options, AdapterConfig, []),
 
     HTTPS =
         case URI of
             <<"https", _/binary>> -> true;
             _ -> false
         end,
-    SSLOpts = proplists:get_value(ssl, HTTPOptions),
+    SSLOpts0 = proplists:get_value(ssl, HTTPOptions0),
 
-    if
-        HTTPS == true andalso SSLOpts == undefined ->
-            io:format(
-                "[hex_http_httpc] using default ssl options which are insecure.~n"
-                "Configure your adapter with: "
-                "{hex_http_httpc, #{http_options => [{ssl, SslOpts}]}}~n"
-            );
+    HTTPOptions = if
+        HTTPS == true andalso SSLOpts0 == undefined ->
+            %% Add safe defaults if possible.
+            try
+                [{ssl, [
+                    {verify, verify_peer},
+                    {cacerts, public_key:cacerts_get()},
+                    {depth, 3},
+                    {customize_hostname_check, [
+                        {match_fun, public_key:pkix_verify_hostname_match_fun(https)}
+                    ]}
+                ]}|HTTPOptions0]
+            catch _:_ ->
+                io:format(
+                    "[hex_http_httpc] using default ssl options which are insecure.~n"
+                    "Configure your adapter with: "
+                    "{hex_http_httpc, #{http_options => [{ssl, SslOpts}]}}~n"
+                    "or upgrade Erlang/OTP to OTP-25 or later.~n"
+                ),
+                HTTPOptions0
+            end;
         true ->
-            ok
+            HTTPOptions0
     end,
 
     Request = build_request(URI, ReqHeaders, Body),
