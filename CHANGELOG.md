@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v0.11.0 (2024-12-03)
+
+* Use secure SSL defaults for OTP 25+.
+
+* Start inets and ssl applications.
+
 ## v0.10.3 (2024-06-28)
 
 * Fix `hex_api_release:retirement_params/0` type spec.
