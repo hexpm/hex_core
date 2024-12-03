@@ -2,7 +2,7 @@
     {description, "Reference implementation of Hex specifications"},
     {vsn, "0.10.3"},
     {registered, []},
-    {applications, [kernel, stdlib]},
+    {applications, [kernel, stdlib, inets, ssl]},
     {licenses, ["Apache-2.0"]},
     {include_files, ["CHANGELOG.md"]},
     {links, [
