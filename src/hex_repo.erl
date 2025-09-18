@@ -7,7 +7,8 @@
     get_package/2,
     get_tarball/3,
     get_docs/3,
-    get_public_key/1
+    get_public_key/1,
+    get_hex_installs/1
 ]).
 
 %%====================================================================
@@ -139,6 +140,27 @@ get_public_key(Config) ->
     case get(Config, URI, ReqHeaders) of
         {ok, {200, RespHeaders, PublicKey}} ->
             {ok, {200, RespHeaders, PublicKey}};
+        Other ->
+            Other
+    end.
+
+%% @doc
+%% Gets Hex installation versions CSV from repository.
+%%
+%% Examples:
+%%
+%% ```
+%% > hex_repo:get_hex_installs(hex_core:default_config()).
+%% {ok, {200, ..., <<"1.0.0,abc123,1.13.0\n1.1.0,def456,1.14.0\n...">>}}
+%% '''
+%% @end
+get_hex_installs(Config) ->
+    ReqHeaders = make_headers(Config),
+    URI = build_url(Config, <<"installs/hex-1.x.csv">>),
+
+    case get(Config, URI, ReqHeaders) of
+        {ok, {200, RespHeaders, CSV}} ->
+            {ok, {200, RespHeaders, CSV}};
         Other ->
             Other
     end.

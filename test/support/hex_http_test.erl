@@ -99,6 +99,13 @@ fixture(get, <<?TEST_REPO_URL, "/docs/ecto-1.0.0.tar.gz">>, _, _) ->
     {ok, Docs} = hex_tarball:create_docs([]),
     {ok, {200, Headers, Docs}};
 
+fixture(get, <<?TEST_REPO_URL, "/installs/hex-1.x.csv">>, _, _) ->
+    Headers = #{
+      <<"etag">> => <<"\"dummy\"">>
+    },
+    CSV = <<"1.0.0,abc123,1.13.0\n1.1.0,def456,1.14.0\n">>,
+    {ok, {200, Headers, CSV}};
+
 fixture(get, <<?TEST_REPO_URL, "/public_key">>, _, _) ->
     Headers = #{
       <<"etag">> => <<"\"dummy\"">>
