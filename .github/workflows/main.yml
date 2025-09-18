@@ -15,11 +15,11 @@ jobs:
       matrix:
         pair:
           - erlang: master
-            rebar3: 3.23.0
+            rebar3: 3.25.0
             os: ubuntu-24.04
 
           - erlang: 28
-            rebar3: 3.23.0
+            rebar3: 3.25.0
             os: ubuntu-24.04
 
           - erlang: 27
