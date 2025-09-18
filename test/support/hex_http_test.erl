@@ -233,6 +233,15 @@ fixture(delete, <<?TEST_API_URL, "/keys/", Name/binary>>, #{<<"authorization">> 
     },
     {ok, {200, api_headers(), term_to_binary(Payload)}};
 
+fixture(post, <<?TEST_API_URL, "/short_url">>, _, {_, Body}) ->
+    DecodedBody = binary_to_term(Body),
+    #{<<"url">> := URL} = DecodedBody,
+    ShortURL = <<"https://hex.pm/l/", (integer_to_binary(erlang:phash2(URL)))/binary>>,
+    Payload = #{
+        <<"url">> => ShortURL
+    },
+    {ok, {201, api_headers(), term_to_binary(Payload)}};
+
 %% Other
 
 fixture(Method, URI, _, _) ->

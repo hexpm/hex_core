@@ -19,7 +19,7 @@ suite() ->
     [{require, {ssl_certs, [test_pub, test_priv]}}].
 
 all() ->
-    [package_test, release_test, replace_test, user_test, owner_test, keys_test, auth_test].
+    [package_test, release_test, replace_test, user_test, owner_test, keys_test, auth_test, short_url_test].
 
 package_test(_Config) ->
     {ok, {200, _, Package}} = hex_api_package:get(?CONFIG, <<"ecto">>),
@@ -91,4 +91,12 @@ keys_test(_Config) ->
     #{<<"name">> := Name2} = Key2,
 
     {ok, {200, _, #{<<"name">> := Name2}}} = hex_api_key:delete(?CONFIG, Name2),
+    ok.
+
+short_url_test(_Config) ->
+    LongURL = <<"https://hex.pm/packages/ecto">>,
+    {ok, {201, _, Response}} = hex_api_short_url:create(?CONFIG, LongURL),
+    #{<<"url">> := ShortURL} = Response,
+    ?assert(is_binary(ShortURL)),
+    ?assert(binary:match(ShortURL, <<"https://hex.pm/l/">>) =/= nomatch),
     ok.
