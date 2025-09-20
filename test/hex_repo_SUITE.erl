@@ -25,6 +25,7 @@ all() ->
         get_package_test,
         get_tarball_test,
         get_docs_test,
+        get_hex_installs_test,
         get_public_key_test,
         repo_org_not_set
     ].
@@ -77,6 +78,12 @@ get_docs_test(_Config) ->
     ),
 
     {ok, {403, _, _}} = hex_repo:get_docs(?CONFIG, <<"ecto">>, <<"9.9.9">>),
+    ok.
+
+get_hex_installs_test(_Config) ->
+    {ok, {200, _, CSV}} = hex_repo:get_hex_installs(?CONFIG),
+    ?assert(is_binary(CSV)),
+    ?assert(binary:match(CSV, <<"1.0.0,abc123,1.13.0\n">>) =/= nomatch),
     ok.
 
 get_public_key_test(_Config) ->
