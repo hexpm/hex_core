@@ -104,11 +104,9 @@ short_url_test(_Config) ->
 
 oauth_device_flow_test(_Config) ->
     % Test device authorization initiation
-    DeviceParams = #{
-        client_id => <<"cli">>,
-        scope => <<"api:write">>
-    },
-    {ok, {200, _, DeviceResponse}} = hex_api_oauth:device_authorization(?CONFIG, DeviceParams),
+    ClientId = <<"cli">>,
+    Scope = <<"api:write">>,
+    {ok, {200, _, DeviceResponse}} = hex_api_oauth:device_authorization(?CONFIG, ClientId, Scope),
     #{
         <<"device_code">> := DeviceCode,
         <<"user_code">> := UserCode,
@@ -125,25 +123,16 @@ oauth_device_flow_test(_Config) ->
     ?assert(is_integer(Interval)),
 
     % Test polling for token (should be pending initially)
-    PollParams = #{
-        grant_type => <<"urn:ietf:params:oauth:grant-type:device_code">>,
-        device_code => DeviceCode,
-        client_id => <<"cli">>
-    },
-    {ok, {400, _, PollResponse}} = hex_api_oauth:token(?CONFIG, PollParams),
+    {ok, {400, _, PollResponse}} = hex_api_oauth:poll_device_token(?CONFIG, ClientId, DeviceCode),
     #{<<"error">> := <<"authorization_pending">>} = PollResponse,
     ok.
 
 oauth_token_exchange_test(_Config) ->
     % Test token exchange
-    ExchangeParams = #{
-        grant_type => <<"urn:ietf:params:oauth:grant-type:token-exchange">>,
-        subject_token => <<"test_api_key">>,
-        subject_token_type => <<"urn:x-oath:params:oauth:token-type:key">>,
-        client_id => <<"cli">>,
-        scope => <<"api:read">>
-    },
-    {ok, {200, _, TokenResponse}} = hex_api_oauth:token(?CONFIG, ExchangeParams),
+    ClientId = <<"cli">>,
+    SubjectToken = <<"test_api_key">>,
+    Scope = <<"api:read">>,
+    {ok, {200, _, TokenResponse}} = hex_api_oauth:exchange_token(?CONFIG, ClientId, SubjectToken, Scope),
     #{
         <<"access_token">> := AccessToken,
         <<"token_type">> := <<"Bearer">>,
@@ -155,12 +144,9 @@ oauth_token_exchange_test(_Config) ->
 
 oauth_refresh_token_test(_Config) ->
     % Test token refresh
-    RefreshParams = #{
-        grant_type => <<"refresh_token">>,
-        refresh_token => <<"test_refresh_token">>,
-        client_id => <<"cli">>
-    },
-    {ok, {200, _, RefreshResponse}} = hex_api_oauth:token(?CONFIG, RefreshParams),
+    ClientId = <<"cli">>,
+    RefreshTokenValue = <<"test_refresh_token">>,
+    {ok, {200, _, RefreshResponse}} = hex_api_oauth:refresh_token(?CONFIG, ClientId, RefreshTokenValue),
     #{
         <<"access_token">> := NewAccessToken,
         <<"refresh_token">> := NewRefreshToken,
@@ -174,17 +160,11 @@ oauth_refresh_token_test(_Config) ->
 
 oauth_revoke_test(_Config) ->
     % Test token revocation
-    RevokeParams = #{
-        token => <<"test_access_token">>,
-        client_id => <<"cli">>,
-        token_type_hint => <<"access_token">>
-    },
-    {ok, {200, _, nil}} = hex_api_oauth:revoke(?CONFIG, RevokeParams),
+    ClientId = <<"cli">>,
+    Token = <<"test_access_token">>,
+    {ok, {200, _, nil}} = hex_api_oauth:revoke_token(?CONFIG, ClientId, Token),
 
     % Test revoking non-existent token (should still return 200)
-    RevokeParams2 = #{
-        token => <<"non_existent_token">>,
-        client_id => <<"cli">>
-    },
-    {ok, {200, _, nil}} = hex_api_oauth:revoke(?CONFIG, RevokeParams2),
+    NonExistentToken = <<"non_existent_token">>,
+    {ok, {200, _, nil}} = hex_api_oauth:revoke_token(?CONFIG, ClientId, NonExistentToken),
     ok.

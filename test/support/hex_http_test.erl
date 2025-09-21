@@ -253,7 +253,7 @@ fixture(post, <<?TEST_API_URL, "/short_url">>, _, {_, Body}) ->
 
 fixture(post, <<?TEST_API_URL, "/oauth/device_authorization">>, _, {_, Body}) ->
     DecodedBody = binary_to_term(Body),
-    #{client_id := _ClientId, scope := _Scope} = DecodedBody,
+    #{<<"client_id">> := _ClientId, <<"scope">> := _Scope} = DecodedBody,
     DeviceCode = base64:encode(crypto:strong_rand_bytes(32)),
     UserCode = iolist_to_binary([
         integer_to_binary(rand:uniform(9999)), "-",
@@ -271,7 +271,7 @@ fixture(post, <<?TEST_API_URL, "/oauth/device_authorization">>, _, {_, Body}) ->
 
 fixture(post, <<?TEST_API_URL, "/oauth/token">>, _, {_, Body}) ->
     DecodedBody = binary_to_term(Body),
-    case maps:get(grant_type, DecodedBody) of
+    case maps:get(<<"grant_type">>, DecodedBody) of
         <<"urn:ietf:params:oauth:grant-type:device_code">> ->
             % Simulate pending authorization
             ErrorPayload = #{
