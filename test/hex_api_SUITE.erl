@@ -19,7 +19,8 @@ suite() ->
     [{require, {ssl_certs, [test_pub, test_priv]}}].
 
 all() ->
-    [package_test, release_test, replace_test, user_test, owner_test, keys_test, auth_test, short_url_test].
+    [package_test, release_test, replace_test, user_test, owner_test, keys_test, auth_test, short_url_test,
+     oauth_device_flow_test, oauth_token_exchange_test, oauth_refresh_token_test, oauth_revoke_test].
 
 package_test(_Config) ->
     {ok, {200, _, Package}} = hex_api_package:get(?CONFIG, <<"ecto">>),
@@ -99,4 +100,91 @@ short_url_test(_Config) ->
     #{<<"url">> := ShortURL} = Response,
     ?assert(is_binary(ShortURL)),
     ?assert(binary:match(ShortURL, <<"https://hex.pm/l/">>) =/= nomatch),
+    ok.
+
+oauth_device_flow_test(_Config) ->
+    % Test device authorization initiation
+    DeviceParams = #{
+        client_id => <<"cli">>,
+        scope => <<"api:write">>
+    },
+    {ok, {200, _, DeviceResponse}} = hex_api_oauth:device_authorization(?CONFIG, DeviceParams),
+    #{
+        <<"device_code">> := DeviceCode,
+        <<"user_code">> := UserCode,
+        <<"verification_uri">> := VerificationURI,
+        <<"verification_uri_complete">> := VerificationURIComplete,
+        <<"expires_in">> := ExpiresIn,
+        <<"interval">> := Interval
+    } = DeviceResponse,
+    ?assert(is_binary(DeviceCode)),
+    ?assert(is_binary(UserCode)),
+    ?assert(is_binary(VerificationURI)),
+    ?assert(is_binary(VerificationURIComplete)),
+    ?assert(is_integer(ExpiresIn)),
+    ?assert(is_integer(Interval)),
+
+    % Test polling for token (should be pending initially)
+    PollParams = #{
+        grant_type => <<"urn:ietf:params:oauth:grant-type:device_code">>,
+        device_code => DeviceCode,
+        client_id => <<"cli">>
+    },
+    {ok, {400, _, PollResponse}} = hex_api_oauth:token(?CONFIG, PollParams),
+    #{<<"error">> := <<"authorization_pending">>} = PollResponse,
+    ok.
+
+oauth_token_exchange_test(_Config) ->
+    % Test token exchange
+    ExchangeParams = #{
+        grant_type => <<"urn:ietf:params:oauth:grant-type:token-exchange">>,
+        subject_token => <<"test_api_key">>,
+        subject_token_type => <<"urn:x-oath:params:oauth:token-type:key">>,
+        client_id => <<"cli">>,
+        scope => <<"api:read">>
+    },
+    {ok, {200, _, TokenResponse}} = hex_api_oauth:token(?CONFIG, ExchangeParams),
+    #{
+        <<"access_token">> := AccessToken,
+        <<"token_type">> := <<"Bearer">>,
+        <<"expires_in">> := ExpiresIn
+    } = TokenResponse,
+    ?assert(is_binary(AccessToken)),
+    ?assert(is_integer(ExpiresIn)),
+    ok.
+
+oauth_refresh_token_test(_Config) ->
+    % Test token refresh
+    RefreshParams = #{
+        grant_type => <<"refresh_token">>,
+        refresh_token => <<"test_refresh_token">>,
+        client_id => <<"cli">>
+    },
+    {ok, {200, _, RefreshResponse}} = hex_api_oauth:token(?CONFIG, RefreshParams),
+    #{
+        <<"access_token">> := NewAccessToken,
+        <<"refresh_token">> := NewRefreshToken,
+        <<"token_type">> := <<"Bearer">>,
+        <<"expires_in">> := ExpiresIn
+    } = RefreshResponse,
+    ?assert(is_binary(NewAccessToken)),
+    ?assert(is_binary(NewRefreshToken)),
+    ?assert(is_integer(ExpiresIn)),
+    ok.
+
+oauth_revoke_test(_Config) ->
+    % Test token revocation
+    RevokeParams = #{
+        token => <<"test_access_token">>,
+        client_id => <<"cli">>,
+        token_type_hint => <<"access_token">>
+    },
+    {ok, {200, _, nil}} = hex_api_oauth:revoke(?CONFIG, RevokeParams),
+
+    % Test revoking non-existent token (should still return 200)
+    RevokeParams2 = #{
+        token => <<"non_existent_token">>,
+        client_id => <<"cli">>
+    },
+    {ok, {200, _, nil}} = hex_api_oauth:revoke(?CONFIG, RevokeParams2),
     ok.
