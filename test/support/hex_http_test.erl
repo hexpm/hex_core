@@ -249,6 +249,68 @@ fixture(post, <<?TEST_API_URL, "/short_url">>, _, {_, Body}) ->
     },
     {ok, {201, api_headers(), term_to_binary(Payload)}};
 
+%% OAuth API
+
+fixture(post, <<?TEST_API_URL, "/oauth/device_authorization">>, _, {_, Body}) ->
+    DecodedBody = binary_to_term(Body),
+    #{<<"client_id">> := _ClientId, <<"scope">> := _Scope} = DecodedBody,
+    DeviceCode = base64:encode(crypto:strong_rand_bytes(32)),
+    UserCode = iolist_to_binary([
+        integer_to_binary(rand:uniform(9999)), "-",
+        integer_to_binary(rand:uniform(9999))
+    ]),
+    Payload = #{
+        <<"device_code">> => DeviceCode,
+        <<"user_code">> => UserCode,
+        <<"verification_uri">> => <<"https://hex.pm/oauth/device">>,
+        <<"verification_uri_complete">> => <<"https://hex.pm/oauth/device?user_code=", UserCode/binary>>,
+        <<"expires_in">> => 600,
+        <<"interval">> => 5
+    },
+    {ok, {200, api_headers(), term_to_binary(Payload)}};
+
+fixture(post, <<?TEST_API_URL, "/oauth/token">>, _, {_, Body}) ->
+    DecodedBody = binary_to_term(Body),
+    case maps:get(<<"grant_type">>, DecodedBody) of
+        <<"urn:ietf:params:oauth:grant-type:device_code">> ->
+            % Simulate pending authorization
+            ErrorPayload = #{
+                <<"error">> => <<"authorization_pending">>,
+                <<"error_description">> => <<"Authorization pending">>
+            },
+            {ok, {400, api_headers(), term_to_binary(ErrorPayload)}};
+        <<"urn:ietf:params:oauth:grant-type:token-exchange">> ->
+            % Simulate successful token exchange
+            AccessToken = base64:encode(crypto:strong_rand_bytes(32)),
+            Payload = #{
+                <<"access_token">> => AccessToken,
+                <<"token_type">> => <<"Bearer">>,
+                <<"expires_in">> => 3600
+            },
+            {ok, {200, api_headers(), term_to_binary(Payload)}};
+        <<"refresh_token">> ->
+            % Simulate successful token refresh
+            NewAccessToken = base64:encode(crypto:strong_rand_bytes(32)),
+            NewRefreshToken = base64:encode(crypto:strong_rand_bytes(32)),
+            Payload = #{
+                <<"access_token">> => NewAccessToken,
+                <<"refresh_token">> => NewRefreshToken,
+                <<"token_type">> => <<"Bearer">>,
+                <<"expires_in">> => 3600
+            },
+            {ok, {200, api_headers(), term_to_binary(Payload)}};
+        _ ->
+            ErrorPayload = #{
+                <<"error">> => <<"unsupported_grant_type">>,
+                <<"error_description">> => <<"Unsupported grant type">>
+            },
+            {ok, {400, api_headers(), term_to_binary(ErrorPayload)}}
+    end;
+
+fixture(post, <<?TEST_API_URL, "/oauth/revoke">>, _, _) ->
+    % OAuth revoke always returns 200 OK per RFC 7009
+    {ok, {200, api_headers(), term_to_binary(nil)}};
+
 %% Other
 
 fixture(Method, URI, _, _) ->

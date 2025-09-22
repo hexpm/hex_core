@@ -19,7 +19,8 @@ suite() ->
     [{require, {ssl_certs, [test_pub, test_priv]}}].
 
 all() ->
-    [package_test, release_test, replace_test, user_test, owner_test, keys_test, auth_test, short_url_test].
+    [package_test, release_test, replace_test, user_test, owner_test, keys_test, auth_test, short_url_test,
+     oauth_device_flow_test, oauth_token_exchange_test, oauth_refresh_token_test, oauth_revoke_test].
 
 package_test(_Config) ->
     {ok, {200, _, Package}} = hex_api_package:get(?CONFIG, <<"ecto">>),
@@ -99,4 +100,71 @@ short_url_test(_Config) ->
     #{<<"url">> := ShortURL} = Response,
     ?assert(is_binary(ShortURL)),
     ?assert(binary:match(ShortURL, <<"https://hex.pm/l/">>) =/= nomatch),
+    ok.
+
+oauth_device_flow_test(_Config) ->
+    % Test device authorization initiation
+    ClientId = <<"cli">>,
+    Scope = <<"api:write">>,
+    {ok, {200, _, DeviceResponse}} = hex_api_oauth:device_authorization(?CONFIG, ClientId, Scope),
+    #{
+        <<"device_code">> := DeviceCode,
+        <<"user_code">> := UserCode,
+        <<"verification_uri">> := VerificationURI,
+        <<"verification_uri_complete">> := VerificationURIComplete,
+        <<"expires_in">> := ExpiresIn,
+        <<"interval">> := Interval
+    } = DeviceResponse,
+    ?assert(is_binary(DeviceCode)),
+    ?assert(is_binary(UserCode)),
+    ?assert(is_binary(VerificationURI)),
+    ?assert(is_binary(VerificationURIComplete)),
+    ?assert(is_integer(ExpiresIn)),
+    ?assert(is_integer(Interval)),
+
+    % Test polling for token (should be pending initially)
+    {ok, {400, _, PollResponse}} = hex_api_oauth:poll_device_token(?CONFIG, ClientId, DeviceCode),
+    #{<<"error">> := <<"authorization_pending">>} = PollResponse,
+    ok.
+
+oauth_token_exchange_test(_Config) ->
+    % Test token exchange
+    ClientId = <<"cli">>,
+    SubjectToken = <<"test_api_key">>,
+    Scope = <<"api:read">>,
+    {ok, {200, _, TokenResponse}} = hex_api_oauth:exchange_token(?CONFIG, ClientId, SubjectToken, Scope),
+    #{
+        <<"access_token">> := AccessToken,
+        <<"token_type">> := <<"Bearer">>,
+        <<"expires_in">> := ExpiresIn
+    } = TokenResponse,
+    ?assert(is_binary(AccessToken)),
+    ?assert(is_integer(ExpiresIn)),
+    ok.
+
+oauth_refresh_token_test(_Config) ->
+    % Test token refresh
+    ClientId = <<"cli">>,
+    RefreshTokenValue = <<"test_refresh_token">>,
+    {ok, {200, _, RefreshResponse}} = hex_api_oauth:refresh_token(?CONFIG, ClientId, RefreshTokenValue),
+    #{
+        <<"access_token">> := NewAccessToken,
+        <<"refresh_token">> := NewRefreshToken,
+        <<"token_type">> := <<"Bearer">>,
+        <<"expires_in">> := ExpiresIn
+    } = RefreshResponse,
+    ?assert(is_binary(NewAccessToken)),
+    ?assert(is_binary(NewRefreshToken)),
+    ?assert(is_integer(ExpiresIn)),
+    ok.
+
+oauth_revoke_test(_Config) ->
+    % Test token revocation
+    ClientId = <<"cli">>,
+    Token = <<"test_access_token">>,
+    {ok, {200, _, nil}} = hex_api_oauth:revoke_token(?CONFIG, ClientId, Token),
+
+    % Test revoking non-existent token (should still return 200)
+    NonExistentToken = <<"non_existent_token">>,
+    {ok, {200, _, nil}} = hex_api_oauth:revoke_token(?CONFIG, ClientId, NonExistentToken),
     ok.
