@@ -3,6 +3,7 @@
 -module(hex_api_oauth).
 -export([
     device_authorization/3,
+    device_authorization/4,
     poll_device_token/3,
     exchange_token/4,
     refresh_token/3,
@@ -12,7 +13,19 @@
 %% @doc
 %% Initiates the OAuth device authorization flow.
 %%
+%% @see device_authorization/4
+%% @end
+-spec device_authorization(hex_core:config(), binary(), binary()) -> hex_api:response().
+device_authorization(Config, ClientId, Scope) ->
+    device_authorization(Config, ClientId, Scope, []).
+
+%% @doc
+%% Initiates the OAuth device authorization flow with optional parameters.
+%%
 %% Returns device code, user code, and verification URIs for user authentication.
+%%
+%% Options:
+%%   * `name' - A name to identify the token (e.g., hostname of the device)
 %%
 %% Examples:
 %%
@@ -27,15 +40,21 @@
 %%     <<"expires_in">> => 600,
 %%     <<"interval">> => 5
 %% }}}
+%%
+%% 3> hex_api_oauth:device_authorization(Config, <<"cli">>, <<"api:write">>, [{name, <<"MyMachine">>}]).
 %% '''
 %% @end
--spec device_authorization(hex_core:config(), binary(), binary()) -> hex_api:response().
-device_authorization(Config, ClientId, Scope) ->
+-spec device_authorization(hex_core:config(), binary(), binary(), proplists:proplist()) -> hex_api:response().
+device_authorization(Config, ClientId, Scope, Opts) ->
     Path = <<"oauth/device_authorization">>,
-    Params = #{
+    Params0 = #{
         <<"client_id">> => ClientId,
         <<"scope">> => Scope
     },
+    Params = case proplists:get_value(name, Opts) of
+        undefined -> Params0;
+        Name -> Params0#{<<"name">> => Name}
+    end,
     hex_api:post(Config, Path, Params).
 
 %% @doc
