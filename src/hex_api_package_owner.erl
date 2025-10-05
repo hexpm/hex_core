@@ -63,6 +63,12 @@ get(Config, PackageName, UsernameOrEmail) when
 %% @doc
 %% Adds a packages owner.
 %%
+%% === Two-Factor Authentication ===
+%%
+%% When using OAuth tokens, you must provide the TOTP code via the
+%% `api_otp' config option. See {@link hex_api_release:publish/3} for
+%% possible 2FA-related error responses.
+%%
 %% Examples:
 %%
 %% ```
@@ -91,6 +97,12 @@ add(Config, PackageName, UsernameOrEmail, Level, Transfer) when
 
 %% @doc
 %% Deletes a packages owner.
+%%
+%% === Two-Factor Authentication ===
+%%
+%% When using OAuth tokens, you must provide the TOTP code via the
+%% `api_otp' config option. See {@link hex_api_release:publish/3} for
+%% possible 2FA-related error responses.
 %%
 %% Examples:
 %%

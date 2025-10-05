@@ -90,6 +90,20 @@ Publish package tarball:
 {ok, {200, _Headers, _Body} = hex_api_package:publish(Config, Tarball).
 ```
 
+### Two-Factor Authentication
+
+When using OAuth tokens for write operations, you must include the TOTP code via the `api_otp` configuration option:
+
+```erlang
+%% Add TOTP code to config
+Config = maps:put(api_otp, <<"123456">>, hex_core:default_config()).
+
+%% Use for write operations (publish, delete, etc.)
+hex_api_release:publish(Config, Tarball).
+```
+
+The TOTP code is required for write API endpoints when using OAuth tokens. API keys don't require TOTP validation.
+
 ### Package tarballs
 
 Unpack package tarball:

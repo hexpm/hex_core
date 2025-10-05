@@ -133,6 +133,8 @@ make_headers(Config) ->
 %% @private
 set_header(api_key, Token, Headers) when is_binary(Token) ->
     maps:put(<<"authorization">>, Token, Headers);
+set_header(api_otp, OTP, Headers) when is_binary(OTP) ->
+    maps:put(<<"x-hex-otp">>, OTP, Headers);
 set_header(_, _, Headers) ->
     Headers.
 

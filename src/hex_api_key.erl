@@ -76,6 +76,12 @@ get(Config, Name) when is_map(Config) and is_binary(Name) ->
 %%
 %% Valid `Resource' values: `<<"read">> | <<"write">>'.
 %%
+%% === Two-Factor Authentication ===
+%%
+%% When using OAuth tokens, you must provide the TOTP code via the
+%% `api_otp' config option. See {@link hex_api_release:publish/3} for
+%% possible 2FA-related error responses.
+%%
 %% Examples:
 %%
 %% ```
@@ -104,6 +110,12 @@ add(Config, Name, Permissions) when is_map(Config) and is_binary(Name) and is_li
 %% @doc
 %% Deletes an API or repository key.
 %%
+%% === Two-Factor Authentication ===
+%%
+%% When using OAuth tokens, you must provide the TOTP code via the
+%% `api_otp' config option. See {@link hex_api_release:publish/3} for
+%% possible 2FA-related error responses.
+%%
 %% Examples:
 %%
 %% ```
@@ -130,6 +142,12 @@ delete(Config, Name) when is_map(Config) and is_binary(Name) ->
 
 %% @doc
 %% Deletes all API and repository keys associated with the account.
+%%
+%% === Two-Factor Authentication ===
+%%
+%% When using OAuth tokens, you must provide the TOTP code via the
+%% `api_otp' config option. See {@link hex_api_release:publish/3} for
+%% possible 2FA-related error responses.
 %%
 %% Examples:
 %%

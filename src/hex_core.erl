@@ -12,6 +12,10 @@
 %%
 %% * `api_key' - Authentication key used when accessing the HTTP API.
 %%
+%% * `api_otp' - TOTP (Time-based One-Time Password) code for two-factor authentication.
+%%   Required for write operations when using OAuth tokens.
+%%   The 6-digit code from your authenticator app.
+%%
 %% * `api_organization' - Name of the organization endpoint in the API, this should
 %%   for example be set when accessing key for a specific organization.
 %%
@@ -79,6 +83,7 @@
 
 -type config() :: #{
     api_key => binary() | undefined,
+    api_otp => binary() | undefined,
     api_organization => binary() | undefined,
     api_repository => binary() | undefined,
     api_url => binary(),
@@ -103,6 +108,7 @@
 default_config() ->
     #{
         api_key => undefined,
+        api_otp => undefined,
         api_organization => undefined,
         api_repository => undefined,
         api_url => <<"https://hex.pm/api">>,
