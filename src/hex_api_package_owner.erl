@@ -63,12 +63,6 @@ get(Config, PackageName, UsernameOrEmail) when
 %% @doc
 %% Adds a packages owner.
 %%
-%% === Two-Factor Authentication ===
-%%
-%% When using OAuth tokens, two-factor authentication may be required.
-%% See {@link hex_api_release:publish/3} for possible 2FA-related error
-%% responses and handling.
-%%
 %% Examples:
 %%
 %% ```
@@ -97,12 +91,6 @@ add(Config, PackageName, UsernameOrEmail, Level, Transfer) when
 
 %% @doc
 %% Deletes a packages owner.
-%%
-%% === Two-Factor Authentication ===
-%%
-%% When using OAuth tokens, two-factor authentication may be required.
-%% See {@link hex_api_release:publish/3} for possible 2FA-related error
-%% responses and handling.
 %%
 %% Examples:
 %%

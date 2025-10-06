@@ -76,12 +76,6 @@ get(Config, Name) when is_map(Config) and is_binary(Name) ->
 %%
 %% Valid `Resource' values: `<<"read">> | <<"write">>'.
 %%
-%% === Two-Factor Authentication ===
-%%
-%% When using OAuth tokens, two-factor authentication may be required.
-%% See {@link hex_api_release:publish/3} for possible 2FA-related error
-%% responses and handling.
-%%
 %% Examples:
 %%
 %% ```
@@ -110,12 +104,6 @@ add(Config, Name, Permissions) when is_map(Config) and is_binary(Name) and is_li
 %% @doc
 %% Deletes an API or repository key.
 %%
-%% === Two-Factor Authentication ===
-%%
-%% When using OAuth tokens, two-factor authentication may be required.
-%% See {@link hex_api_release:publish/3} for possible 2FA-related error
-%% responses and handling.
-%%
 %% Examples:
 %%
 %% ```
@@ -142,12 +130,6 @@ delete(Config, Name) when is_map(Config) and is_binary(Name) ->
 
 %% @doc
 %% Deletes all API and repository keys associated with the account.
-%%
-%% === Two-Factor Authentication ===
-%%
-%% When using OAuth tokens, two-factor authentication may be required.
-%% See {@link hex_api_release:publish/3} for possible 2FA-related error
-%% responses and handling.
 %%
 %% Examples:
 %%
