@@ -81,13 +81,15 @@ publish(Config, Tarball) -> publish(Config, Tarball, []).
 %%
 %% === Two-Factor Authentication ===
 %%
-%% When using OAuth tokens, you must provide the TOTP code via the
-%% `api_otp' config option. Possible 2FA-related errors:
+%% When using OAuth tokens, two-factor authentication may be required.
+%% If required, the server will respond with `{error, otp_required}' and
+%% you should retry the request with the TOTP code in the `api_otp' config option.
 %%
-%% - `{ok, {401, _, #{<<"message">> => <<"Two-factor authentication required. Include X-Hex-OTP header with your TOTP code.">>}}}'
-%% - `{ok, {401, _, #{<<"message">> => <<"Invalid two-factor authentication code">>}}}'
-%% - `{ok, {403, _, #{<<"message">> => <<"Two-factor authentication must be enabled for API write access">>}}}'
-%% - `{ok, {429, _, #{<<"message">> => <<"Too many failed two-factor authentication attempts. Please try again later.">>}}}'
+%% Possible 2FA-related errors:
+%% - `{error, otp_required}' - OTP code is required, retry with `api_otp' set
+%% - `{error, invalid_totp}' - OTP code was invalid, retry with correct code
+%% - `{ok, {403, _, #{<<"message">> => <<"Two-factor authentication must be enabled for API write access">>}}}' - User must enable 2FA
+%% - `{ok, {429, _, #{<<"message">> => <<"Too many failed two-factor authentication attempts. Please try again later.">>}}}' - Rate limited
 %%
 %% Examples:
 %%
@@ -126,8 +128,9 @@ publish(Config, Tarball, Params) when
     PathWithQuery = <<Path/binary, "?", QueryString/binary>>,
     TarballContentType = "application/octet-stream",
     Config2 = put_header(<<"content-length">>, integer_to_binary(byte_size(Tarball)), Config),
+    Config3 = maybe_put_expect_header(Config2),
     Body = {TarballContentType, Tarball},
-    hex_api:post(Config2, PathWithQuery, Body).
+    hex_api:post(Config3, PathWithQuery, Body).
 
 %% @doc
 %% Deletes a package release.
@@ -203,3 +206,10 @@ put_header(Name, Value, Config) ->
     Headers = maps:get(http_headers, Config, #{}),
     Headers2 = maps:put(Name, Value, Headers),
     maps:put(http_headers, Headers2, Config).
+
+%% @private
+maybe_put_expect_header(Config) ->
+    case maps:get(send_100_continue, Config, true) of
+        true -> put_header(<<"expect">>, <<"100-continue">>, Config);
+        false -> Config
+    end.

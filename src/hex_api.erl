@@ -101,12 +101,13 @@ request(Config, Method, Path, Body) when is_binary(Path) and is_map(Config) ->
     case hex_http:request(Config, Method, build_url(Path, Config), ReqHeaders2, Body) of
         {ok, {Status, RespHeaders, RespBody}} ->
             ContentType = maps:get(<<"content-type">>, RespHeaders, <<"">>),
-            case binary:match(ContentType, ?ERL_CONTENT_TYPE) of
+            Response = case binary:match(ContentType, ?ERL_CONTENT_TYPE) of
                 {_, _} ->
                     {ok, {Status, RespHeaders, binary_to_term(RespBody)}};
                 nomatch ->
                     {ok, {Status, RespHeaders, nil}}
-            end;
+            end,
+            detect_otp_error(Response);
         Other ->
             Other
     end.
@@ -163,3 +164,17 @@ to_list(A) when is_atom(A) -> atom_to_list(A);
 to_list(B) when is_binary(B) -> unicode:characters_to_list(B);
 to_list(I) when is_integer(I) -> integer_to_list(I);
 to_list(Str) -> unicode:characters_to_list(Str).
+
+%% TODO: not needed after exdoc is fixed
+%% @private
+detect_otp_error({ok, {401, Headers, Body}}) ->
+    case maps:get(<<"www-authenticate">>, Headers, nil) of
+        <<"Bearer realm=\"hex\", error=\"totp_required\"", _/binary>> ->
+            {error, otp_required};
+        <<"Bearer realm=\"hex\", error=\"invalid_totp\"", _/binary>> ->
+            {error, invalid_totp};
+        _ ->
+            {ok, {401, Headers, Body}}
+    end;
+detect_otp_error(Response) ->
+    Response.

@@ -78,9 +78,9 @@ get(Config, Name) when is_map(Config) and is_binary(Name) ->
 %%
 %% === Two-Factor Authentication ===
 %%
-%% When using OAuth tokens, you must provide the TOTP code via the
-%% `api_otp' config option. See {@link hex_api_release:publish/3} for
-%% possible 2FA-related error responses.
+%% When using OAuth tokens, two-factor authentication may be required.
+%% See {@link hex_api_release:publish/3} for possible 2FA-related error
+%% responses and handling.
 %%
 %% Examples:
 %%
@@ -112,9 +112,9 @@ add(Config, Name, Permissions) when is_map(Config) and is_binary(Name) and is_li
 %%
 %% === Two-Factor Authentication ===
 %%
-%% When using OAuth tokens, you must provide the TOTP code via the
-%% `api_otp' config option. See {@link hex_api_release:publish/3} for
-%% possible 2FA-related error responses.
+%% When using OAuth tokens, two-factor authentication may be required.
+%% See {@link hex_api_release:publish/3} for possible 2FA-related error
+%% responses and handling.
 %%
 %% Examples:
 %%
@@ -145,9 +145,9 @@ delete(Config, Name) when is_map(Config) and is_binary(Name) ->
 %%
 %% === Two-Factor Authentication ===
 %%
-%% When using OAuth tokens, you must provide the TOTP code via the
-%% `api_otp' config option. See {@link hex_api_release:publish/3} for
-%% possible 2FA-related error responses.
+%% When using OAuth tokens, two-factor authentication may be required.
+%% See {@link hex_api_release:publish/3} for possible 2FA-related error
+%% responses and handling.
 %%
 %% Examples:
 %%

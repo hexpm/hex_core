@@ -65,9 +65,9 @@ get(Config, PackageName, UsernameOrEmail) when
 %%
 %% === Two-Factor Authentication ===
 %%
-%% When using OAuth tokens, you must provide the TOTP code via the
-%% `api_otp' config option. See {@link hex_api_release:publish/3} for
-%% possible 2FA-related error responses.
+%% When using OAuth tokens, two-factor authentication may be required.
+%% See {@link hex_api_release:publish/3} for possible 2FA-related error
+%% responses and handling.
 %%
 %% Examples:
 %%
@@ -100,9 +100,9 @@ add(Config, PackageName, UsernameOrEmail, Level, Transfer) when
 %%
 %% === Two-Factor Authentication ===
 %%
-%% When using OAuth tokens, you must provide the TOTP code via the
-%% `api_otp' config option. See {@link hex_api_release:publish/3} for
-%% possible 2FA-related error responses.
+%% When using OAuth tokens, two-factor authentication may be required.
+%% See {@link hex_api_release:publish/3} for possible 2FA-related error
+%% responses and handling.
 %%
 %% Examples:
 %%
