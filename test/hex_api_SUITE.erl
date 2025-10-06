@@ -20,7 +20,8 @@ suite() ->
 
 all() ->
     [package_test, release_test, replace_test, user_test, owner_test, keys_test, auth_test, short_url_test,
-     oauth_device_flow_test, oauth_token_exchange_test, oauth_refresh_token_test, oauth_revoke_test].
+     oauth_device_flow_test, oauth_token_exchange_test, oauth_refresh_token_test, oauth_revoke_test,
+     publish_with_expect_header_test, publish_without_expect_header_test].
 
 package_test(_Config) ->
     {ok, {200, _, Package}} = hex_api_package:get(?CONFIG, <<"ecto">>),
@@ -171,4 +172,26 @@ oauth_revoke_test(_Config) ->
     % Test revoking non-existent token (should still return 200)
     NonExistentToken = <<"non_existent_token">>,
     {ok, {200, _, nil}} = hex_api_oauth:revoke_token(?CONFIG, ClientId, NonExistentToken),
+    ok.
+
+publish_with_expect_header_test(_Config) ->
+    % Test that send_100_continue => true includes Expect: 100-continue header
+    Metadata = #{<<"name">> => <<"expect_test">>, <<"version">> => <<"1.0.0">>},
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, []),
+
+    % Default config has send_100_continue => true
+    Config = ?CONFIG,
+    {ok, {200, _, Release}} = hex_api_release:publish(Config, Tarball),
+    #{<<"version">> := <<"1.0.0">>} = Release,
+    ok.
+
+publish_without_expect_header_test(_Config) ->
+    % Test that send_100_continue => false does not include Expect header
+    Metadata = #{<<"name">> => <<"no_expect_test">>, <<"version">> => <<"1.0.0">>},
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, []),
+
+    % Explicitly disable send_100_continue
+    Config = maps:put(send_100_continue, false, ?CONFIG),
+    {ok, {200, _, Release}} = hex_api_release:publish(Config, Tarball),
+    #{<<"version">> := <<"1.0.0">>} = Release,
     ok.
