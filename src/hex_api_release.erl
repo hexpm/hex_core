@@ -121,16 +121,24 @@ publish(Config, Tarball) -> publish(Config, Tarball, []).
 publish(Config, Tarball, Params) when
     is_map(Config) andalso is_binary(Tarball) andalso is_list(Params)
 ->
-    QueryString = hex_api:encode_query_string([
-        {replace, proplists:get_value(replace, Params, false)}
-    ]),
-    Path = hex_api:join_path_segments(hex_api:build_repository_path(Config, ["publish"])),
-    PathWithQuery = <<Path/binary, "?", QueryString/binary>>,
-    TarballContentType = "application/octet-stream",
-    Config2 = put_header(<<"content-length">>, integer_to_binary(byte_size(Tarball)), Config),
-    Config3 = maybe_put_expect_header(Config2),
-    Body = {TarballContentType, Tarball},
-    hex_api:post(Config3, PathWithQuery, Body).
+    case hex_tarball:unpack(Tarball, memory) of
+        {ok, #{metadata := Metadata}} ->
+            PackageName = maps:get(<<"name">>, Metadata),
+            QueryString = hex_api:encode_query_string([
+                {replace, proplists:get_value(replace, Params, false)}
+            ]),
+            Path = hex_api:join_path_segments(
+                hex_api:build_repository_path(Config, ["packages", PackageName, "releases"])
+            ),
+            PathWithQuery = <<Path/binary, "?", QueryString/binary>>,
+            TarballContentType = "application/octet-stream",
+            Config2 = put_header(<<"content-length">>, integer_to_binary(byte_size(Tarball)), Config),
+            Config3 = maybe_put_expect_header(Config2),
+            Body = {TarballContentType, Tarball},
+            hex_api:post(Config3, PathWithQuery, Body);
+        {error, Reason} ->
+            {error, {tarball, Reason}}
+    end.
 
 %% @doc
 %% Deletes a package release.

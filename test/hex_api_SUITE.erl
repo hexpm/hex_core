@@ -45,7 +45,9 @@ release_test(_Config) ->
     ok.
 
 publish_test(_Config) ->
-    {ok, {200, _, Release}} = hex_api_release:publish(?CONFIG, <<"dummy_tarball">>),
+    Metadata = #{<<"name">> => <<"ecto">>, <<"version">> => <<"1.0.0">>},
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, []),
+    {ok, {200, _, Release}} = hex_api_release:publish(?CONFIG, Tarball),
     #{<<"version">> := <<"1.0.0">>, <<"requirements">> := Requirements} = Release,
     #{
         <<"decimal">> := #{
@@ -55,7 +57,9 @@ publish_test(_Config) ->
     ok.
 
 replace_test(_Config) ->
-    {ok, {201, _, Release}} = hex_api_release:publish(?CONFIG, <<"dummy_tarball">>, [
+    Metadata = #{<<"name">> => <<"ecto">>, <<"version">> => <<"1.0.0">>},
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, []),
+    {ok, {201, _, Release}} = hex_api_release:publish(?CONFIG, Tarball, [
         {replace, true}
     ]),
     #{<<"version">> := <<"1.0.0">>, <<"requirements">> := Requirements} = Release,
