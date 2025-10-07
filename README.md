@@ -90,6 +90,24 @@ Publish package tarball:
 {ok, {200, _Headers, _Body} = hex_api_package:publish(Config, Tarball).
 ```
 
+### Two-Factor Authentication
+
+When using OAuth tokens, two-factor authentication may be required. If required, the server will return `{error, otp_required}` and you should retry the request with the TOTP code via the `api_otp` configuration option:
+
+```erlang
+%% First attempt without OTP
+case hex_api_release:publish(Config, Tarball) of
+    {error, otp_required} ->
+        %% Retry with TOTP code
+        ConfigWithOTP = Config#{api_otp := <<"123456">>},
+        hex_api_release:publish(ConfigWithOTP, Tarball);
+    Result ->
+        Result
+end.
+```
+
+API keys don't require TOTP validation.
+
 ### Package tarballs
 
 Unpack package tarball:

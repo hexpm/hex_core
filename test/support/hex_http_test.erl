@@ -158,9 +158,39 @@ fixture(get, <<?TEST_API_URL, "/packages/ecto/releases/1.0.0">>, _, _) ->
     },
     {ok, {200, api_headers(), term_to_binary(Payload)}};
 
-%% /publish
+%% /packages/:name/releases - test expect header presence
 
-fixture(get, <<?TEST_API_URL, "/publish">>, _, _) ->
+fixture(post, <<?TEST_API_URL, "/packages/expect_test/releases?replace=false">>, Headers, _) ->
+    % Verify that Expect: 100-continue header is present
+    case maps:get(<<"expect">>, Headers, undefined) of
+        <<"100-continue">> ->
+            Payload = #{
+                <<"version">> => <<"1.0.0">>,
+                <<"requirements">> => #{}
+            },
+            {ok, {200, api_headers(), term_to_binary(Payload)}};
+        _ ->
+            error({expect_header_missing, Headers})
+    end;
+
+%% /packages/:name/releases - test expect header absence
+
+fixture(post, <<?TEST_API_URL, "/packages/no_expect_test/releases?replace=false">>, Headers, _) ->
+    % Verify that Expect header is NOT present
+    case maps:get(<<"expect">>, Headers, undefined) of
+        undefined ->
+            Payload = #{
+                <<"version">> => <<"1.0.0">>,
+                <<"requirements">> => #{}
+            },
+            {ok, {200, api_headers(), term_to_binary(Payload)}};
+        Value ->
+            error({expect_header_present, Value})
+    end;
+
+%% /packages/:name/releases
+
+fixture(post, <<?TEST_API_URL, "/packages/ecto/releases?replace=false">>, _, _) ->
     Payload = #{
         <<"version">> => <<"1.0.0">>,
         <<"requirements">> => #{
@@ -173,9 +203,9 @@ fixture(get, <<?TEST_API_URL, "/publish">>, _, _) ->
     },
     {ok, {200, api_headers(), term_to_binary(Payload)}};
 
-%% /publish?replace=true
+%% /packages/:name/releases?replace=true
 
-fixture(post, <<?TEST_API_URL, "/publish?replace=true">>, _, _) ->
+fixture(post, <<?TEST_API_URL, "/packages/ecto/releases?replace=true">>, _, _) ->
     Payload = #{
         <<"version">> => <<"1.0.0">>,
         <<"requirements">> => #{
