@@ -5,7 +5,6 @@
     device_authorization/3,
     device_authorization/4,
     poll_device_token/3,
-    exchange_token/4,
     refresh_token/3,
     revoke_token/3
 ]).
@@ -87,34 +86,6 @@ poll_device_token(Config, ClientId, DeviceCode) ->
         <<"grant_type">> => <<"urn:ietf:params:oauth:grant-type:device_code">>,
         <<"device_code">> => DeviceCode,
         <<"client_id">> => ClientId
-    },
-    hex_api:post(Config, Path, Params).
-
-%% @doc
-%% Exchanges a token for a new token with different scopes using RFC 8693 token exchange.
-%%
-%% Examples:
-%%
-%% ```
-%% 1> Config = hex_core:default_config().
-%% 2> hex_api_oauth:exchange_token(Config, <<"cli">>, SubjectToken, <<"api:write">>).
-%% {ok, {200, _, #{
-%%     <<"access_token">> => <<"...">>,
-%%     <<"refresh_token">> => <<"...">>,
-%%     <<"token_type">> => <<"Bearer">>,
-%%     <<"expires_in">> => 3600
-%% }}}
-%% '''
-%% @end
--spec exchange_token(hex_core:config(), binary(), binary(), binary()) -> hex_api:response().
-exchange_token(Config, ClientId, SubjectToken, Scope) ->
-    Path = <<"oauth/token">>,
-    Params = #{
-        <<"grant_type">> => <<"urn:ietf:params:oauth:grant-type:token-exchange">>,
-        <<"subject_token">> => SubjectToken,
-        <<"subject_token_type">> => <<"urn:ietf:params:oauth:token-type:access_token">>,
-        <<"client_id">> => ClientId,
-        <<"scope">> => Scope
     },
     hex_api:post(Config, Path, Params).
 

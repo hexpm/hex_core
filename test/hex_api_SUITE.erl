@@ -20,7 +20,7 @@ suite() ->
 
 all() ->
     [package_test, release_test, replace_test, user_test, owner_test, keys_test, auth_test, short_url_test,
-     oauth_device_flow_test, oauth_token_exchange_test, oauth_refresh_token_test, oauth_revoke_test,
+     oauth_device_flow_test, oauth_refresh_token_test, oauth_revoke_test,
      publish_with_expect_header_test, publish_without_expect_header_test].
 
 package_test(_Config) ->
@@ -130,21 +130,6 @@ oauth_device_flow_test(_Config) ->
     % Test polling for token (should be pending initially)
     {ok, {400, _, PollResponse}} = hex_api_oauth:poll_device_token(?CONFIG, ClientId, DeviceCode),
     #{<<"error">> := <<"authorization_pending">>} = PollResponse,
-    ok.
-
-oauth_token_exchange_test(_Config) ->
-    % Test token exchange
-    ClientId = <<"cli">>,
-    SubjectToken = <<"test_api_key">>,
-    Scope = <<"api:read">>,
-    {ok, {200, _, TokenResponse}} = hex_api_oauth:exchange_token(?CONFIG, ClientId, SubjectToken, Scope),
-    #{
-        <<"access_token">> := AccessToken,
-        <<"token_type">> := <<"Bearer">>,
-        <<"expires_in">> := ExpiresIn
-    } = TokenResponse,
-    ?assert(is_binary(AccessToken)),
-    ?assert(is_integer(ExpiresIn)),
     ok.
 
 oauth_refresh_token_test(_Config) ->
