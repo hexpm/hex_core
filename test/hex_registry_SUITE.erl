@@ -27,7 +27,7 @@ names_test(_Config) ->
     ?assertMatch({ok, Names}, hex_registry:unpack_names(Payload, <<"hexpm">>, TestPublicKey)),
     ?assertMatch({ok, Names}, hex_registry:unpack_names(Payload, no_verify, TestPublicKey)),
     ?assertMatch(
-        {error, unverified}, hex_registry:unpack_names(Payload, <<"other_repo">>, TestPublicKey)
+        {error, bad_repo_name}, hex_registry:unpack_names(Payload, <<"other_repo">>, TestPublicKey)
     ),
     ok.
 
@@ -54,7 +54,7 @@ versions_test(_Config) ->
     ?assertMatch({ok, Versions}, hex_registry:unpack_versions(Payload, <<"hexpm">>, TestPublicKey)),
     ?assertMatch({ok, Versions}, hex_registry:unpack_versions(Payload, no_verify, TestPublicKey)),
     ?assertMatch(
-        {error, unverified}, hex_registry:unpack_versions(Payload, <<"other_repo">>, TestPublicKey)
+        {error, bad_repo_name}, hex_registry:unpack_versions(Payload, <<"other_repo">>, TestPublicKey)
     ),
     ok.
 
@@ -102,11 +102,11 @@ package_test(_Config) ->
         {ok, Package}, hex_registry:unpack_package(Payload, no_verify, no_verify, TestPublicKey)
     ),
     ?assertMatch(
-        {error, unverified},
+        {error, bad_repo_name},
         hex_registry:unpack_package(Payload, <<"other_repo">>, <<"foobar">>, TestPublicKey)
     ),
     ?assertMatch(
-        {error, unverified},
+        {error, bad_repo_name},
         hex_registry:unpack_package(Payload, <<"hexpm">>, <<"other_package">>, TestPublicKey)
     ),
     ok.
@@ -126,6 +126,6 @@ signed_test(_Config) ->
 
     {error, bad_key} = hex_registry:decode_and_verify_signed(Signed, <<"bad">>),
 
-    {error, unverified} = hex_registry:decode_and_verify_signed(Signed, HexpmPublicKey),
+    {error, bad_signature} = hex_registry:decode_and_verify_signed(Signed, HexpmPublicKey),
 
     ok.
