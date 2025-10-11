@@ -329,6 +329,17 @@ fixture(post, <<?TEST_API_URL, "/oauth/token">>, _, {_, Body}) ->
                 <<"expires_in">> => 3600
             },
             {ok, {200, api_headers(), term_to_binary(Payload)}};
+        <<"client_credentials">> ->
+            % Simulate successful client credentials token exchange
+            #{<<"scope">> := Scope} = DecodedBody,
+            AccessToken = base64:encode(crypto:strong_rand_bytes(32)),
+            Payload = #{
+                <<"access_token">> => AccessToken,
+                <<"token_type">> => <<"bearer">>,
+                <<"expires_in">> => 1800,
+                <<"scope">> => Scope
+            },
+            {ok, {200, api_headers(), term_to_binary(Payload)}};
         _ ->
             ErrorPayload = #{
                 <<"error">> => <<"unsupported_grant_type">>,
