@@ -20,7 +20,7 @@ suite() ->
 
 all() ->
     [package_test, release_test, replace_test, user_test, owner_test, keys_test, auth_test, short_url_test,
-     oauth_device_flow_test, oauth_refresh_token_test, oauth_revoke_test,
+     oauth_device_flow_test, oauth_refresh_token_test, oauth_revoke_test, oauth_client_credentials_test,
      publish_with_expect_header_test, publish_without_expect_header_test].
 
 package_test(_Config) ->
@@ -157,6 +157,35 @@ oauth_revoke_test(_Config) ->
     % Test revoking non-existent token (should still return 200)
     NonExistentToken = <<"non_existent_token">>,
     {ok, {200, _, nil}} = hex_api_oauth:revoke_token(?CONFIG, ClientId, NonExistentToken),
+    ok.
+
+oauth_client_credentials_test(_Config) ->
+    % Test client credentials token exchange without options
+    ClientId = <<"cli">>,
+    ApiKey = <<"test_api_key">>,
+    Scope = <<"api">>,
+    {ok, {200, _, TokenResponse}} = hex_api_oauth:client_credentials_token(?CONFIG, ClientId, ApiKey, Scope),
+    #{
+        <<"access_token">> := AccessToken,
+        <<"token_type">> := <<"bearer">>,
+        <<"expires_in">> := ExpiresIn,
+        <<"scope">> := Scope
+    } = TokenResponse,
+    ?assert(is_binary(AccessToken)),
+    ?assert(is_integer(ExpiresIn)),
+    % Client credentials grant should not return a refresh token
+    ?assertEqual(false, maps:is_key(<<"refresh_token">>, TokenResponse)),
+
+    % Test client credentials token exchange with name option
+    Name = <<"MyMachine">>,
+    {ok, {200, _, TokenResponse2}} = hex_api_oauth:client_credentials_token(?CONFIG, ClientId, ApiKey, Scope, [{name, Name}]),
+    #{
+        <<"access_token">> := AccessToken2,
+        <<"token_type">> := <<"bearer">>,
+        <<"expires_in">> := ExpiresIn2
+    } = TokenResponse2,
+    ?assert(is_binary(AccessToken2)),
+    ?assert(is_integer(ExpiresIn2)),
     ok.
 
 publish_with_expect_header_test(_Config) ->
