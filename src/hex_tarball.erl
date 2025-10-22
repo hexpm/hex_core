@@ -660,18 +660,30 @@ maybe_update_with(Key, Fun, Map) ->
     end.
 
 %% @private
-try_into_map(List) ->
-    try_into_map(fun(X) -> X end, List).
+try_into_map(Input) ->
+    case has_map_shape(Input)
+    of
+      true ->
+        maps:from_list(lists:map(fun({Key, Value}) ->
+          case has_map_shape(Value) of
+            true -> {Key, try_into_map(Value)};
+            false -> {Key, Value}
+          end
+        end, Input));
+      false -> Input
+    end.
 
 %% @private
 try_into_map(Fun, Input) ->
-    case
-        is_list(Input) andalso
-            lists:all(fun(E) -> is_tuple(E) andalso (tuple_size(E) == 2) end, Input)
-    of
+    case has_map_shape(Input) of
         true -> maps:from_list(lists:map(Fun, Input));
         false -> Input
     end.
+
+%% @private
+has_map_shape(Input) ->
+    is_list(Input) andalso
+        lists:all(fun(E) -> is_tuple(E) andalso (tuple_size(E) == 2) end, Input).
 
 %% @private
 encode_base16(Binary) ->
