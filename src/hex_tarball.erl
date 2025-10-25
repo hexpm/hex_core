@@ -457,7 +457,7 @@ characters_to_list(Binary) ->
 normalize_metadata(Metadata1) ->
     Metadata2 = maybe_update_with(<<"requirements">>, fun normalize_requirements/1, Metadata1),
     Metadata3 = maybe_update_with(<<"links">>, fun try_into_map/1, Metadata2),
-    Metadata4 = maybe_update_with(<<"extra">>, fun try_into_map/1, Metadata3),
+    Metadata4 = maybe_update_with(<<"extra">>, fun try_into_nested_map/1, Metadata3),
     guess_build_tools(Metadata4).
 
 %% @private
@@ -665,13 +665,28 @@ try_into_map(List) ->
 
 %% @private
 try_into_map(Fun, Input) ->
-    case
-        is_list(Input) andalso
-            lists:all(fun(E) -> is_tuple(E) andalso (tuple_size(E) == 2) end, Input)
-    of
+    case has_map_shape(Input) of
         true -> maps:from_list(lists:map(Fun, Input));
         false -> Input
     end.
+
+%% @private
+try_into_nested_map(List) ->
+    try_into_nested_map(fun(X) -> X end, List).
+
+%% @private
+try_into_nested_map(Fun, Input) ->
+    case has_map_shape(Input) of
+        true -> maps:from_list(lists:map(fun({Key, Value}) ->
+          Fun({Key, try_into_nested_map(Fun, Value)})
+        end, Input));
+        false -> Input
+    end.
+
+%% @private
+has_map_shape(Input) ->
+    is_list(Input) andalso
+        lists:all(fun(E) -> is_tuple(E) andalso (tuple_size(E) == 2) end, Input).
 
 %% @private
 encode_base16(Binary) ->

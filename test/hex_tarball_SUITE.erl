@@ -57,17 +57,19 @@ memory_test(_Config) ->
         <<"name">> => <<"foo">>,
         <<"version">> => <<"1.0.0">>,
         <<"maintainers">> => [<<"José">>],
-        <<"build_tool">> => <<"rebar3">>
+        <<"build_tool">> => <<"rebar3">>,
+        <<"extra">> => [{<<"foo">>, [{<<"bar">>, <<"baz">>}]}]
     },
     Contents = [{"src/foo.erl", <<"-module(foo).">>}],
     {ok, #{tarball := Tarball, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:create(
         Metadata, Contents
     ),
+    Metadata1 = maps:put(<<"extra">>, #{<<"foo">> => #{<<"bar">> => <<"baz">>}}, Metadata),
     {ok, #{
         inner_checksum := InnerChecksum,
         outer_checksum := OuterChecksum,
         contents := Contents,
-        metadata := Metadata
+        metadata := Metadata1
     }} = hex_tarball:unpack(Tarball, memory),
     ok.
 
