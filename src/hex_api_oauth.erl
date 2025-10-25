@@ -45,17 +45,19 @@ device_authorization(Config, ClientId, Scope) ->
 %% 3> hex_api_oauth:device_authorization(Config, <<"cli">>, <<"api:write">>, [{name, <<"MyMachine">>}]).
 %% '''
 %% @end
--spec device_authorization(hex_core:config(), binary(), binary(), proplists:proplist()) -> hex_api:response().
+-spec device_authorization(hex_core:config(), binary(), binary(), proplists:proplist()) ->
+    hex_api:response().
 device_authorization(Config, ClientId, Scope, Opts) ->
     Path = <<"oauth/device_authorization">>,
     Params0 = #{
         <<"client_id">> => ClientId,
         <<"scope">> => Scope
     },
-    Params = case proplists:get_value(name, Opts) of
-        undefined -> Params0;
-        Name -> Params0#{<<"name">> => Name}
-    end,
+    Params =
+        case proplists:get_value(name, Opts) of
+            undefined -> Params0;
+            Name -> Params0#{<<"name">> => Name}
+        end,
     hex_api:post(Config, Path, Params).
 
 %% @doc
@@ -122,7 +124,8 @@ refresh_token(Config, ClientId, RefreshToken) ->
 %%
 %% @see client_credentials_token/5
 %% @end
--spec client_credentials_token(hex_core:config(), binary(), binary(), binary()) -> hex_api:response().
+-spec client_credentials_token(hex_core:config(), binary(), binary(), binary()) ->
+    hex_api:response().
 client_credentials_token(Config, ClientId, ApiKey, Scope) ->
     client_credentials_token(Config, ClientId, ApiKey, Scope, []).
 
@@ -155,7 +158,9 @@ client_credentials_token(Config, ClientId, ApiKey, Scope) ->
 %% 3> hex_api_oauth:client_credentials_token(Config, <<"cli">>, ApiKey, <<"api">>, [{name, <<"MyMachine">>}]).
 %% '''
 %% @end
--spec client_credentials_token(hex_core:config(), binary(), binary(), binary(), proplists:proplist()) -> hex_api:response().
+-spec client_credentials_token(
+    hex_core:config(), binary(), binary(), binary(), proplists:proplist()
+) -> hex_api:response().
 client_credentials_token(Config, ClientId, ApiKey, Scope, Opts) ->
     Path = <<"oauth/token">>,
     Params0 = #{
@@ -164,10 +169,11 @@ client_credentials_token(Config, ClientId, ApiKey, Scope, Opts) ->
         <<"client_secret">> => ApiKey,
         <<"scope">> => Scope
     },
-    Params = case proplists:get_value(name, Opts) of
-        undefined -> Params0;
-        Name -> Params0#{<<"name">> => Name}
-    end,
+    Params =
+        case proplists:get_value(name, Opts) of
+            undefined -> Params0;
+            Name -> Params0#{<<"name">> => Name}
+        end,
     hex_api:post(Config, Path, Params).
 
 %% @doc

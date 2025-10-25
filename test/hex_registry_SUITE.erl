@@ -54,7 +54,8 @@ versions_test(_Config) ->
     ?assertMatch({ok, Versions}, hex_registry:unpack_versions(Payload, <<"hexpm">>, TestPublicKey)),
     ?assertMatch({ok, Versions}, hex_registry:unpack_versions(Payload, no_verify, TestPublicKey)),
     ?assertMatch(
-        {error, bad_repo_name}, hex_registry:unpack_versions(Payload, <<"other_repo">>, TestPublicKey)
+        {error, bad_repo_name},
+        hex_registry:unpack_versions(Payload, <<"other_repo">>, TestPublicKey)
     ),
     ok.
 

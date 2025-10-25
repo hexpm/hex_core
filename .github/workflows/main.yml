@@ -21,6 +21,7 @@ jobs:
           - erlang: 28
             rebar3: 3.25.0
             os: ubuntu-24.04
+            lint: true
 
           - erlang: 27
             rebar3: 3.23.0
@@ -47,3 +48,5 @@ jobs:
 
       - run: rebar3 ct
       - run: rebar3 as test proper
+      - run: rebar3 fmt --check
+        if: ${{ matrix.pair.lint }}

@@ -29,30 +29,35 @@ request(Method, URI, ReqHeaders, Body, AdapterConfig) when is_binary(URI) ->
         end,
     SSLOpts0 = proplists:get_value(ssl, HTTPOptions0),
 
-    HTTPOptions = if
-        HTTPS == true andalso SSLOpts0 == undefined ->
-            %% Add safe defaults if possible.
-            try
-                [{ssl, [
-                    {verify, verify_peer},
-                    {cacerts, public_key:cacerts_get()},
-                    {depth, 3},
-                    {customize_hostname_check, [
-                        {match_fun, public_key:pkix_verify_hostname_match_fun(https)}
-                    ]}
-                ]}|HTTPOptions0]
-            catch _:_ ->
-                io:format(
-                    "[hex_http_httpc] using default ssl options which are insecure.~n"
-                    "Configure your adapter with: "
-                    "{hex_http_httpc, #{http_options => [{ssl, SslOpts}]}}~n"
-                    "or upgrade Erlang/OTP to OTP-25 or later.~n"
-                ),
+    HTTPOptions =
+        if
+            HTTPS == true andalso SSLOpts0 == undefined ->
+                %% Add safe defaults if possible.
+                try
+                    [
+                        {ssl, [
+                            {verify, verify_peer},
+                            {cacerts, public_key:cacerts_get()},
+                            {depth, 3},
+                            {customize_hostname_check, [
+                                {match_fun, public_key:pkix_verify_hostname_match_fun(https)}
+                            ]}
+                        ]}
+                        | HTTPOptions0
+                    ]
+                catch
+                    _:_ ->
+                        io:format(
+                            "[hex_http_httpc] using default ssl options which are insecure.~n"
+                            "Configure your adapter with: "
+                            "{hex_http_httpc, #{http_options => [{ssl, SslOpts}]}}~n"
+                            "or upgrade Erlang/OTP to OTP-25 or later.~n"
+                        ),
+                        HTTPOptions0
+                end;
+            true ->
                 HTTPOptions0
-            end;
-        true ->
-            HTTPOptions0
-    end,
+        end,
 
     Request = build_request(URI, ReqHeaders, Body),
     case httpc:request(Method, Request, HTTPOptions, [{body_format, binary}], Profile) of

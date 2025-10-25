@@ -116,7 +116,9 @@ publish(Config, Tarball, Params) when
             ),
             PathWithQuery = <<Path/binary, "?", QueryString/binary>>,
             TarballContentType = "application/octet-stream",
-            Config2 = put_header(<<"content-length">>, integer_to_binary(byte_size(Tarball)), Config),
+            Config2 = put_header(
+                <<"content-length">>, integer_to_binary(byte_size(Tarball)), Config
+            ),
             Config3 = maybe_put_expect_header(Config2),
             Body = {TarballContentType, Tarball},
             hex_api:post(Config3, PathWithQuery, Body);

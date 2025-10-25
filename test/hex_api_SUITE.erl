@@ -19,9 +19,22 @@ suite() ->
     [{require, {ssl_certs, [test_pub, test_priv]}}].
 
 all() ->
-    [package_test, release_test, replace_test, user_test, owner_test, keys_test, auth_test, short_url_test,
-     oauth_device_flow_test, oauth_refresh_token_test, oauth_revoke_test, oauth_client_credentials_test,
-     publish_with_expect_header_test, publish_without_expect_header_test].
+    [
+        package_test,
+        release_test,
+        replace_test,
+        user_test,
+        owner_test,
+        keys_test,
+        auth_test,
+        short_url_test,
+        oauth_device_flow_test,
+        oauth_refresh_token_test,
+        oauth_revoke_test,
+        oauth_client_credentials_test,
+        publish_with_expect_header_test,
+        publish_without_expect_header_test
+    ].
 
 package_test(_Config) ->
     {ok, {200, _, Package}} = hex_api_package:get(?CONFIG, <<"ecto">>),
@@ -136,7 +149,9 @@ oauth_refresh_token_test(_Config) ->
     % Test token refresh
     ClientId = <<"cli">>,
     RefreshTokenValue = <<"test_refresh_token">>,
-    {ok, {200, _, RefreshResponse}} = hex_api_oauth:refresh_token(?CONFIG, ClientId, RefreshTokenValue),
+    {ok, {200, _, RefreshResponse}} = hex_api_oauth:refresh_token(
+        ?CONFIG, ClientId, RefreshTokenValue
+    ),
     #{
         <<"access_token">> := NewAccessToken,
         <<"refresh_token">> := NewRefreshToken,
@@ -164,7 +179,9 @@ oauth_client_credentials_test(_Config) ->
     ClientId = <<"cli">>,
     ApiKey = <<"test_api_key">>,
     Scope = <<"api">>,
-    {ok, {200, _, TokenResponse}} = hex_api_oauth:client_credentials_token(?CONFIG, ClientId, ApiKey, Scope),
+    {ok, {200, _, TokenResponse}} = hex_api_oauth:client_credentials_token(
+        ?CONFIG, ClientId, ApiKey, Scope
+    ),
     #{
         <<"access_token">> := AccessToken,
         <<"token_type">> := <<"bearer">>,
@@ -178,7 +195,9 @@ oauth_client_credentials_test(_Config) ->
 
     % Test client credentials token exchange with name option
     Name = <<"MyMachine">>,
-    {ok, {200, _, TokenResponse2}} = hex_api_oauth:client_credentials_token(?CONFIG, ClientId, ApiKey, Scope, [{name, Name}]),
+    {ok, {200, _, TokenResponse2}} = hex_api_oauth:client_credentials_token(
+        ?CONFIG, ClientId, ApiKey, Scope, [{name, Name}]
+    ),
     #{
         <<"access_token">> := AccessToken2,
         <<"token_type">> := <<"bearer">>,

@@ -677,10 +677,17 @@ try_into_nested_map(List) ->
 %% @private
 try_into_nested_map(Fun, Input) ->
     case has_map_shape(Input) of
-        true -> maps:from_list(lists:map(fun({Key, Value}) ->
-          Fun({Key, try_into_nested_map(Fun, Value)})
-        end, Input));
-        false -> Input
+        true ->
+            maps:from_list(
+                lists:map(
+                    fun({Key, Value}) ->
+                        Fun({Key, try_into_nested_map(Fun, Value)})
+                    end,
+                    Input
+                )
+            );
+        false ->
+            Input
     end.
 
 %% @private

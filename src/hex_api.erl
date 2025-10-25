@@ -101,12 +101,13 @@ request(Config, Method, Path, Body) when is_binary(Path) and is_map(Config) ->
     case hex_http:request(Config, Method, build_url(Path, Config), ReqHeaders2, Body) of
         {ok, {Status, RespHeaders, RespBody}} ->
             ContentType = maps:get(<<"content-type">>, RespHeaders, <<"">>),
-            Response = case binary:match(ContentType, ?ERL_CONTENT_TYPE) of
-                {_, _} ->
-                    {ok, {Status, RespHeaders, binary_to_term(RespBody)}};
-                nomatch ->
-                    {ok, {Status, RespHeaders, nil}}
-            end,
+            Response =
+                case binary:match(ContentType, ?ERL_CONTENT_TYPE) of
+                    {_, _} ->
+                        {ok, {Status, RespHeaders, binary_to_term(RespBody)}};
+                    nomatch ->
+                        {ok, {Status, RespHeaders, nil}}
+                end,
             detect_otp_error(Response);
         Other ->
             Other
