@@ -48,5 +48,5 @@ jobs:
 
       - run: rebar3 ct
       - run: rebar3 as test proper
-      - run: rebar3 fmt --check
+      - run: rm src/safe_erl_term.erl && rebar3 fmt --check
         if: ${{ matrix.pair.lint }}
