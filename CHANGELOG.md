@@ -1,9 +1,23 @@
 # CHANGELOG
 
+## v0.12.0 (2025-10-26)
+
+* Add short URL API `hex_api_short_url:create/2`.
+* Add OAuth API:
+  * `hex_api_oauth:device_authorization/3,4`
+  * `hex_api_oauth:poll_device_token/3`
+  * `hex_api_oauth:refresh_token/3`
+  * `hex_api_oauth:revoke_token/3`
+  * `hex_api_oauth:client_credentials_token/4,5`
+* Support 2FA authentication, any API request can now return `{error, otp_required | invalid_totp}`
+  if 2FA is required. The config option `api_otp` can be used to provide the TOTP code.
+* Differentiate between registry verification errors. `{error, unverified}` has been replaced with
+  `{error, bad_repo_name | bad_signature}`.
+* Support nested maps in `extra` package metadata field.
+
 ## v0.11.0 (2024-12-03)
 
 * Use secure SSL defaults for OTP 25+.
-
 * Start inets and ssl applications.
 
 ## v0.10.3 (2024-06-28)

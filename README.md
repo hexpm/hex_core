@@ -92,13 +92,17 @@ Publish package tarball:
 
 ### Two-Factor Authentication
 
-When using OAuth tokens, two-factor authentication may be required. If required, the server will return `{error, otp_required}` and you should retry the request with the TOTP code via the `api_otp` configuration option:
+When using OAuth tokens, two-factor authentication may be required. If required, the server will return `{error, otp_required}` and you should retry the request with the TOTP code via the `api_otp` configuration option. If the TOTP code is incorrect, the server will return `{error, invalid_totp}` and you should retry with the correct TOTP code.
 
 ```erlang
 %% First attempt without OTP
 case hex_api_release:publish(Config, Tarball) of
     {error, otp_required} ->
         %% Retry with TOTP code
+        ConfigWithOTP = Config#{api_otp := <<"123456">>},
+        hex_api_release:publish(ConfigWithOTP, Tarball);
+    {error, invalid_totp} ->
+        %% Retry with correct TOTP code
         ConfigWithOTP = Config#{api_otp := <<"123456">>},
         hex_api_release:publish(ConfigWithOTP, Tarball);
     Result ->
@@ -217,7 +221,7 @@ Add to `rebar.config`:
 
 ```erlang
 {deps, [
-  {hex_core, "0.11.0"}
+  {hex_core, "0.12.0"}
 ]}
 ```
 
@@ -228,7 +232,7 @@ Add to `mix.exs`:
 ```elixir
 defp deps do
   [
-    {:hex_core, "~> 0.11.0"}
+    {:hex_core, "~> 0.12.0"}
   ]
 end
 ```
