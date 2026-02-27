@@ -104,7 +104,12 @@ request(Config, Method, Path, Body) when is_binary(Path) and is_map(Config) ->
             Response =
                 case binary:match(ContentType, ?ERL_CONTENT_TYPE) of
                     {_, _} ->
-                        {ok, {Status, RespHeaders, binary_to_term(RespBody)}};
+                        case hex_safe_binary_to_term:safe_binary_to_term(RespBody) of
+                            {ok, Term} ->
+                                {ok, {Status, RespHeaders, Term}};
+                            {error, Reason} ->
+                                {error, Reason}
+                        end;
                     nomatch ->
                         {ok, {Status, RespHeaders, nil}}
                 end,
