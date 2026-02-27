@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v0.12.1 (2026-02-27)
+
+* Fix unsafe deserialization of Erlang terms in API responses (CVE-2026-21619)
+
 ## v0.12.0 (2025-10-26)
 
 * Add short URL API `hex_api_short_url:create/2`.
