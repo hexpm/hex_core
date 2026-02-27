@@ -5,6 +5,7 @@
     {applications, [kernel, stdlib, inets, ssl]},
     {licenses, ["Apache-2.0"]},
     {include_paths, ["CHANGELOG.md"]},
+    {exclude_paths, ["src/safe_erl_term.erl"]},
     {links, [
         {"GitHub", "https://github.com/hexpm/hex_core"},
         {"Hex specifications", "https://github.com/hexpm/specifications"}
