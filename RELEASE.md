@@ -14,8 +14,6 @@
 
 7. Publish package: `rebar3 hex publish`
 
-8. Publish docs: `rebar3 hex publish docs`
-
 ## Places where version is mentioned
 
 ```

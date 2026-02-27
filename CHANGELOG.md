@@ -1,8 +1,12 @@
 # CHANGELOG
 
+## v0.12.2 (2026-02-27)
+
+* Exclude `src/safe_erl_term.erl` from package.
+
 ## v0.12.1 (2026-02-27)
 
-* Fix unsafe deserialization of Erlang terms in API responses (CVE-2026-21619)
+* Fix unsafe deserialization of Erlang terms in API responses (CVE-2026-21619).
 
 ## v0.12.0 (2025-10-26)
 
