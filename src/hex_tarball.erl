@@ -565,7 +565,7 @@ add_file(Tar, {Filename, AbsFilename}) when is_list(Filename), is_list(AbsFilena
         _ ->
             Mode = FileInfo#file_info.mode,
             {ok, Contents} = file:read_file(AbsFilename),
-            ok = hex_erl_tar:add(Tar, Contents, Filename, Mode, tar_opts())
+            ok = hex_erl_tar:add(Tar, Contents, Filename, [{mode, Mode} | tar_opts()])
     end.
 
 %% @private

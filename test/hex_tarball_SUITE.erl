@@ -95,7 +95,7 @@ disk_test(Config) ->
         Metadata, Files
     ),
     ?assertEqual(
-        <<"6D47908182CC721920B2F2C1D5777ED9E9EDBD86A29638448D97588AA0419C98">>,
+        <<"3DED88F7BAC738294907ACEED89FE63C9914713F988E608F2B17D7AE6EAC8446">>,
         hex_tarball:format_checksum(OuterChecksum)
     ),
     {ok, #{inner_checksum := InnerChecksum, outer_checksum := OuterChecksum, metadata := Metadata}} = hex_tarball:unpack(
