@@ -11,6 +11,7 @@ all() ->
         disk_test,
         timestamps_and_permissions_test,
         symlinks_test,
+        symlinks_parent_dir_test,
         memory_test,
         build_tools_test,
         requirements_test,
@@ -116,12 +117,16 @@ disk_test(Config) ->
 timestamps_and_permissions_test(Config) ->
     BaseDir = ?config(priv_dir, Config),
     Foo = filename:join(BaseDir, "foo.sh"),
+    EmptyDir = filename:join(BaseDir, "timestamps_empty"),
 
     Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
 
     ok = file:write_file(Foo, <<"">>),
     ok = file:change_mode(Foo, 8#100755),
+    ok = file:make_dir(EmptyDir),
+    ok = file:change_mode(EmptyDir, 8#100755),
     Files = [
+        {"empty", EmptyDir},
         {"foo.erl", <<"">>},
         {"foo.sh", Foo}
     ],
@@ -133,11 +138,12 @@ timestamps_and_permissions_test(Config) ->
     %% inside tarball
     {ok, Files2} = hex_erl_tar:extract({binary, Tarball}, [memory]),
     {_, ContentsBinary} = lists:keyfind("contents.tar.gz", 1, Files2),
-    {ok, [FooErlEntry, FooShEntry]} = hex_erl_tar:table({binary, ContentsBinary}, [
+    {ok, [EmptyDirEntry, FooErlEntry, FooShEntry]} = hex_erl_tar:table({binary, ContentsBinary}, [
         compressed, verbose
     ]),
     Epoch = epoch(),
 
+    {"empty", directory, _, Epoch, 8#40755, 0, 0} = EmptyDirEntry,
     {"foo.erl", regular, _, Epoch, 8#100644, 0, 0} = FooErlEntry,
     {"foo.sh", regular, _, Epoch, 8#100755, 0, 0} = FooShEntry,
 
@@ -179,6 +185,77 @@ symlinks_test(Config) ->
         Tarball, UnpackDir
     ),
     {ok, _} = file:read_link_info(filename:join([UnpackDir, "dir", "bar.sh"])),
+    ok.
+
+%% OTP's erl_tar validates symlink targets relative to the extraction directory (Cwd),
+%% but symlink targets are relative to the symlink's parent directory. This causes
+%% safe symlinks with ".." components to be incorrectly rejected.
+%%
+%% For example, a symlink "dir/link -> ../file" resolves to "file" which is inside the
+%% extraction directory, but erl_tar rejects it because "../file" relative to Cwd is
+%% considered unsafe.
+%%
+%% TODO: Fix safe_link_name in erl_tar to validate the resolved path and contribute
+%% the fix back to OTP.
+symlinks_parent_dir_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+
+    Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+
+    %% dir/link -> ../file is safe (resolves to file within extraction dir)
+    Dir = filename:join(BaseDir, "dir2"),
+    FooSh = filename:join(BaseDir, "foo2.sh"),
+    LinkSh = filename:join(Dir, "link.sh"),
+    ok = file:make_dir(Dir),
+    ok = file:write_file(FooSh, <<"foo">>),
+    ok = file:make_symlink("../foo2.sh", LinkSh),
+
+    Files = [
+        {"foo.sh", FooSh},
+        {"dir/link.sh", LinkSh}
+    ],
+
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, Files),
+    {ok, _} = hex_tarball:unpack(Tarball, memory),
+
+    UnpackDir = filename:join(BaseDir, "symlinks_parent_dir"),
+    {ok, _} = hex_tarball:unpack(Tarball, UnpackDir),
+    {ok, #file_info{type = symlink}} =
+        file:read_link_info(filename:join([UnpackDir, "dir", "link.sh"])),
+    {ok, "../foo2.sh"} = file:read_link(filename:join([UnpackDir, "dir", "link.sh"])),
+
+    %% a/b/link -> ../../file is safe (resolves to file within extraction dir)
+    ABDir = filename:join([BaseDir, "a2", "b2"]),
+    FooSh2 = filename:join(BaseDir, "foo3.sh"),
+    LinkSh2 = filename:join(ABDir, "link.sh"),
+    ok = filelib:ensure_dir(LinkSh2),
+    ok = file:write_file(FooSh2, <<"foo">>),
+    ok = file:make_symlink("../../foo3.sh", LinkSh2),
+
+    Files2 = [
+        {"foo.sh", FooSh2},
+        {"a/b/link.sh", LinkSh2}
+    ],
+
+    {ok, #{tarball := Tarball2}} = hex_tarball:create(Metadata, Files2),
+    UnpackDir2 = filename:join(BaseDir, "symlinks_parent_dir2"),
+    {ok, _} = hex_tarball:unpack(Tarball2, UnpackDir2),
+    {ok, #file_info{type = symlink}} =
+        file:read_link_info(filename:join([UnpackDir2, "a", "b", "link.sh"])),
+    {ok, "../../foo3.sh"} = file:read_link(filename:join([UnpackDir2, "a", "b", "link.sh"])),
+
+    %% dir/link -> ../../escape is unsafe (escapes extraction dir)
+    UnsafeDir = filename:join(BaseDir, "unsafe_dir"),
+    UnsafeLink = filename:join(UnsafeDir, "link.sh"),
+    ok = file:make_dir(UnsafeDir),
+    ok = file:make_symlink("../../escape", UnsafeLink),
+
+    UnsafeFiles = [{"dir/link.sh", UnsafeLink}],
+    {ok, #{tarball := UnsafeTarball}} = hex_tarball:create(Metadata, UnsafeFiles),
+    UnpackDir3 = filename:join(BaseDir, "symlinks_parent_dir3"),
+    {error, {inner_tarball, {"../../escape", unsafe_symlink}}} =
+        hex_tarball:unpack(UnsafeTarball, UnpackDir3),
+
     ok.
 
 build_tools_test(_Config) ->

@@ -2,6 +2,8 @@
 %% 1. Module renamed from erl_tar to hex_erl_tar
 %% 2. -include changed from erl_tar.hrl to hex_erl_tar.hrl
 %% 3. -doc and -moduledoc attributes removed for OTP 24 compatibility
+%% 4. safe_link_name/2 fixed to validate symlink targets relative to symlink's
+%%    parent directory instead of in isolation
 %%
 %% OTP commit: 013041bd68c2547848e88963739edea7f0a1a90f
 %%
@@ -1706,10 +1708,12 @@ make_safe_path(Path0, #read_opts{cwd=Cwd}) ->
         Path -> filename:absname(Path, Cwd)
     end.
 
-safe_link_name(#tar_header{linkname=Path0},#read_opts{cwd=Cwd} ) ->
-    case filelib:safe_relative_path(Path0, Cwd) of
+safe_link_name(#tar_header{name=Name,linkname=Path0},#read_opts{cwd=Cwd} ) ->
+    ParentDir = filename:dirname(Name),
+    ResolvedTarget = filename:join(ParentDir, Path0),
+    case filelib:safe_relative_path(ResolvedTarget, Cwd) of
         unsafe -> throw({error,{Path0,unsafe_symlink}});
-        Path -> Path
+        _Path -> Path0
     end.
 
 create_regular(Name, NameInArchive, Bin, Opts) ->
