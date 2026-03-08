@@ -20,7 +20,13 @@ all() ->
         too_big_to_create_test,
         too_big_to_unpack_test,
         docs_too_big_to_create_test,
-        docs_too_big_to_unpack_test
+        docs_too_big_to_unpack_test,
+        file_unpack_memory_test,
+        file_unpack_disk_test,
+        file_unpack_too_big_test,
+        file_unpack_oversized_inner_files_test,
+        oversized_outer_files_test,
+        too_big_metadata_to_create_test
     ].
 
 too_big_to_create_test(_Config) ->
@@ -355,6 +361,121 @@ docs_test(Config) ->
     ok = hex_tarball:unpack_docs(Tarball, UnpackDir),
     {ok, <<"Docs">>} = file:read_file(filename:join(UnpackDir, "index.html")),
 
+    ok.
+
+file_unpack_memory_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    Metadata = #{
+        <<"name">> => <<"foo">>,
+        <<"version">> => <<"1.0.0">>,
+        <<"build_tool">> => <<"rebar3">>
+    },
+    Contents = [{"src/foo.erl", <<"-module(foo).">>}],
+    {ok, #{tarball := Tarball, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} =
+        hex_tarball:create(Metadata, Contents),
+
+    %% Write tarball to file
+    TarballPath = filename:join(BaseDir, "test_file_unpack.tar"),
+    ok = file:write_file(TarballPath, Tarball),
+
+    %% Unpack from file to memory - should return metadata and checksums but no contents
+    {ok,
+        #{
+            inner_checksum := InnerChecksum,
+            outer_checksum := OuterChecksum,
+            metadata := Metadata
+        } = Result} = hex_tarball:unpack({file, TarballPath}, memory),
+    false = maps:is_key(contents, Result),
+    ok.
+
+file_unpack_disk_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    Metadata = #{
+        <<"name">> => <<"foo">>,
+        <<"version">> => <<"1.0.0">>,
+        <<"build_tool">> => <<"rebar3">>
+    },
+    Contents = [{"src/foo.erl", <<"-module(foo).">>}],
+    {ok, #{tarball := Tarball, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} =
+        hex_tarball:create(Metadata, Contents),
+
+    %% Write tarball to file
+    TarballPath = filename:join(BaseDir, "test_file_unpack_disk.tar"),
+    ok = file:write_file(TarballPath, Tarball),
+
+    %% Unpack from file to disk
+    UnpackDir = filename:join(BaseDir, "file_unpack_disk"),
+    {ok, #{
+        inner_checksum := InnerChecksum,
+        outer_checksum := OuterChecksum,
+        metadata := Metadata
+    }} = hex_tarball:unpack({file, TarballPath}, UnpackDir),
+    {ok, <<"-module(foo).">>} = file:read_file(filename:join([UnpackDir, "src", "foo.erl"])),
+    ok.
+
+file_unpack_too_big_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    Metadata = #{
+        <<"name">> => <<"foo">>,
+        <<"version">> => <<"1.0.0">>
+    },
+    Contents = [{"src/foo.erl", <<"-module(foo).">>}],
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, Contents),
+
+    TarballPath = filename:join(BaseDir, "test_file_too_big.tar"),
+    ok = file:write_file(TarballPath, Tarball),
+
+    SmallConfig = maps:put(tarball_max_size, 100, hex_core:default_config()),
+    {error, {tarball, too_big}} = hex_tarball:unpack({file, TarballPath}, memory, SmallConfig),
+    ok.
+
+file_unpack_oversized_inner_files_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+
+    %% Create a tarball with oversized VERSION file
+    BigVersion = binary:copy(<<"3">>, 64),
+    Files = [
+        {"VERSION", BigVersion},
+        {"CHECKSUM", <<"bad">>},
+        {"metadata.config", <<"{<<\"name\">>, <<\"foo\">>}.">>},
+        {"contents.tar.gz", <<"">>}
+    ],
+    TarballPath = filename:join(BaseDir, "oversized_inner.tar"),
+    ok = hex_erl_tar:create(TarballPath, maps:to_list(maps:from_list(Files)), [write]),
+    {error, {tarball, {file_too_big, "VERSION"}}} =
+        hex_tarball:unpack({file, TarballPath}, memory),
+    ok.
+
+oversized_outer_files_test(_Config) ->
+    Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, []),
+    {ok, FileList} = hex_erl_tar:extract({binary, Tarball}, [memory]),
+    OuterFiles = maps:from_list(FileList),
+
+    BigVersion = binary:copy(<<"3">>, 64),
+    {error, {tarball, {file_too_big, "VERSION"}}} =
+        unpack_files(OuterFiles#{"VERSION" => BigVersion}),
+
+    BigChecksum = binary:copy(<<"A">>, 256),
+    {error, {tarball, {file_too_big, "CHECKSUM"}}} =
+        unpack_files(OuterFiles#{"CHECKSUM" => BigChecksum}),
+
+    BigMetadata = binary:copy(<<"{<<\"k\">>,<<\"v\">>}.\n">>, 10000),
+    {error, {tarball, {file_too_big, "metadata.config"}}} =
+        unpack_files(OuterFiles#{"metadata.config" => BigMetadata}),
+
+    ok.
+
+too_big_metadata_to_create_test(_Config) ->
+    BigValue = binary:copy(<<"x">>, 128 * 1024),
+    Metadata = #{
+        <<"name">> => <<"foo">>,
+        <<"version">> => <<"1.0.0">>,
+        <<"description">> => BigValue
+    },
+    Contents = [{"src/foo.erl", <<"-module(foo).">>}],
+    {error, {tarball, {file_too_big, "metadata.config"}}} =
+        hex_tarball:create(Metadata, Contents),
     ok.
 
 %%====================================================================
