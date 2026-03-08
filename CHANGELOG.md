@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## v0.13.0 (2026-03-08)
+
+* Add file-based unpack via `hex_tarball:unpack({file, Path}, Output)` to avoid loading entire tarball into memory.
+* Add size validations for outer tarball entries (VERSION, CHECKSUM, metadata.config) during creation and extraction.
+
 ## v0.12.2 (2026-02-27)
 
 * Exclude `src/safe_erl_term.erl` from package.
