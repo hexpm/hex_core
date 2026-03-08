@@ -30,7 +30,10 @@ all() ->
         file_unpack_oversized_inner_files_test,
         oversized_outer_files_test,
         too_big_metadata_to_create_test,
-        streamed_extract_test
+        streamed_extract_test,
+        file_unpack_docs_memory_test,
+        file_unpack_docs_disk_test,
+        file_unpack_docs_too_big_test
     ].
 
 too_big_to_create_test(_Config) ->
@@ -658,6 +661,45 @@ streamed_extract_test(Config) ->
     SmallData = maps:get("small", MemMap),
     BoundaryData = maps:get("boundary", MemMap),
     LargeData = maps:get("large", MemMap),
+
+    ok.
+
+file_unpack_docs_memory_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+
+    Files = [{"index.html", <<"Docs">>}],
+    {ok, Tarball} = hex_tarball:create_docs(Files),
+    TarballPath = filename:join(BaseDir, "docs.tar.gz"),
+    ok = file:write_file(TarballPath, Tarball),
+
+    {ok, Files} = hex_tarball:unpack_docs({file, TarballPath}, memory),
+
+    ok.
+
+file_unpack_docs_disk_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+
+    Files = [{"index.html", <<"Docs">>}],
+    {ok, Tarball} = hex_tarball:create_docs(Files),
+    TarballPath = filename:join(BaseDir, "docs_disk.tar.gz"),
+    ok = file:write_file(TarballPath, Tarball),
+
+    UnpackDir = filename:join(BaseDir, "unpack_file_docs"),
+    ok = hex_tarball:unpack_docs({file, TarballPath}, UnpackDir),
+    {ok, <<"Docs">>} = file:read_file(filename:join(UnpackDir, "index.html")),
+
+    ok.
+
+file_unpack_docs_too_big_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+
+    Files = [{"index.html", <<"Docs">>}],
+    {ok, Tarball} = hex_tarball:create_docs(Files),
+    TarballPath = filename:join(BaseDir, "docs_big.tar.gz"),
+    ok = file:write_file(TarballPath, Tarball),
+
+    SmallConfig = maps:put(docs_tarball_max_size, 10, hex_core:default_config()),
+    {error, {tarball, too_big}} = hex_tarball:unpack_docs({file, TarballPath}, memory, SmallConfig),
 
     ok.
 
