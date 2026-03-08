@@ -7,6 +7,7 @@
 %% 5. When extracting to disk (cwd option), stream file entries in chunks
 %%    instead of loading them fully into memory
 %% 6. Default chunk_size to 65536 in add_opts instead of 0 with special case
+%% 7. Use compressed instead of compressed_one for file:open for OTP 24 compat
 %%
 %% OTP commit: 013041bd68c2547848e88963739edea7f0a1a90f
 %%
@@ -464,13 +465,7 @@ open1({file, Fd}=Handle, read, [raw], Opts) ->
     end;
 open1({file, _Fd}=Handle, read, [], _Opts) ->
     {error, {Handle, {incompatible_option, cooked}}};
-open1(Name, Access, Raw, Opts0) when is_list(Name); is_binary(Name) ->
-    Opts = case lists:member(compressed, Opts0) andalso Access == read of
-               true ->
-                   [compressed_one | (Opts0 -- [compressed])];
-               false ->
-                   Opts0
-           end,
+open1(Name, Access, Raw, Opts) when is_list(Name); is_binary(Name) ->
     case file:open(Name, Raw ++ [binary, Access|Opts]) of
         {ok, File} ->
             {ok, #reader{handle=File,access=Access,func=fun file_op/2}};
