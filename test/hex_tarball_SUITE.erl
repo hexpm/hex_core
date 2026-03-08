@@ -22,7 +22,9 @@ all() ->
         too_big_to_unpack_test,
         docs_too_big_to_create_test,
         docs_too_big_to_unpack_test,
+        none_test,
         file_unpack_memory_test,
+        file_unpack_none_test,
         file_unpack_disk_test,
         file_unpack_too_big_test,
         file_unpack_oversized_inner_files_test,
@@ -440,6 +442,26 @@ docs_test(Config) ->
 
     ok.
 
+none_test(_Config) ->
+    Metadata = #{
+        <<"name">> => <<"foo">>,
+        <<"version">> => <<"1.0.0">>,
+        <<"build_tool">> => <<"rebar3">>
+    },
+    Contents = [{"src/foo.erl", <<"-module(foo).">>}],
+    {ok, #{tarball := Tarball, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} =
+        hex_tarball:create(Metadata, Contents),
+
+    %% Unpack with none output - should return metadata and checksums but no contents
+    {ok,
+        #{
+            inner_checksum := InnerChecksum,
+            outer_checksum := OuterChecksum,
+            metadata := Metadata
+        } = Result} = hex_tarball:unpack(Tarball, none),
+    false = maps:is_key(contents, Result),
+    ok.
+
 file_unpack_memory_test(Config) ->
     BaseDir = ?config(priv_dir, Config),
     Metadata = #{
@@ -455,13 +477,37 @@ file_unpack_memory_test(Config) ->
     TarballPath = filename:join(BaseDir, "test_file_unpack.tar"),
     ok = file:write_file(TarballPath, Tarball),
 
-    %% Unpack from file to memory - should return metadata and checksums but no contents
+    %% Unpack from file to memory - should return metadata, checksums, and contents
+    {ok, #{
+        inner_checksum := InnerChecksum,
+        outer_checksum := OuterChecksum,
+        metadata := Metadata,
+        contents := Contents
+    }} = hex_tarball:unpack({file, TarballPath}, memory),
+    ok.
+
+file_unpack_none_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    Metadata = #{
+        <<"name">> => <<"foo">>,
+        <<"version">> => <<"1.0.0">>,
+        <<"build_tool">> => <<"rebar3">>
+    },
+    Contents = [{"src/foo.erl", <<"-module(foo).">>}],
+    {ok, #{tarball := Tarball, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} =
+        hex_tarball:create(Metadata, Contents),
+
+    %% Write tarball to file
+    TarballPath = filename:join(BaseDir, "test_file_unpack_none.tar"),
+    ok = file:write_file(TarballPath, Tarball),
+
+    %% Unpack from file with none output - should return metadata and checksums but no contents
     {ok,
         #{
             inner_checksum := InnerChecksum,
             outer_checksum := OuterChecksum,
             metadata := Metadata
-        } = Result} = hex_tarball:unpack({file, TarballPath}, memory),
+        } = Result} = hex_tarball:unpack({file, TarballPath}, none),
     false = maps:is_key(contents, Result),
     ok.
 
