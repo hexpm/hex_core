@@ -808,7 +808,7 @@ read_outer_files(Dir, [Name | Rest], Acc) ->
     case file:read_file(Path) of
         {ok, Data} ->
             read_outer_files(Dir, Rest, Acc#{Name => Data});
-        {error, enoent} ->
+        {error, _} ->
             {error, {tarball, {missing_files, [Name]}}}
     end.
 
