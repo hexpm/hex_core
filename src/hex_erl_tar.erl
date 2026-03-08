@@ -190,14 +190,14 @@ extract_to_file(#tar_header{name=Name0}=Header, Reader0, Opts) ->
             case stream_to_file(Name1, Reader0, Opts) of
                 {ok, Reader1} ->
                     read_verbose(Opts, "x ~ts~n", [Name0]),
-                    set_extracted_file_info(Name1, Header),
+                    _ = set_extracted_file_info(Name1, Header),
                     Reader1;
                 {error, _} = Err ->
                     throw(Err)
             end;
         _ ->
             Reader1 = skip_file(Reader0),
-            write_extracted_element(Header, <<>>, Opts),
+            _ = write_extracted_element(Header, <<>>, Opts),
             Reader1
     end.
 
