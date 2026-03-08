@@ -1,4 +1,7 @@
-%% This file is a copy of erl_tar.hrl from OTP with no modifications.
+%% This file is a copy of erl_tar.hrl from OTP with the following modifications:
+%% 1. Added chunk_size field to #read_opts{} for streaming extraction to disk
+%% 2. Added {chunks, pos_integer()} to extract_opt() type
+%% 3. Default chunk_size to 65536 in #add_opts{} instead of 0
 %%
 %% OTP commit: 013041bd68c2547848e88963739edea7f0a1a90f
 %%
