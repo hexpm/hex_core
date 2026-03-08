@@ -29,7 +29,8 @@ all() ->
         file_unpack_too_big_test,
         file_unpack_oversized_inner_files_test,
         oversized_outer_files_test,
-        too_big_metadata_to_create_test
+        too_big_metadata_to_create_test,
+        streamed_extract_test
     ].
 
 too_big_to_create_test(_Config) ->
@@ -599,6 +600,65 @@ too_big_metadata_to_create_test(_Config) ->
     Contents = [{"src/foo.erl", <<"-module(foo).">>}],
     {error, {tarball, {file_too_big, "metadata.config"}}} =
         hex_tarball:create(Metadata, Contents),
+    ok.
+
+%% Test that extracting to disk streams file entries in chunks
+%% instead of loading them fully into memory.
+streamed_extract_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+
+    Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+
+    %% Create test files of various sizes
+    EmptyData = <<>>,
+    SmallData = <<"hello">>,
+
+    %% A file exactly equal to the default chunk size (65536 bytes)
+    ChunkSize = 65536,
+    BoundaryData = crypto:strong_rand_bytes(ChunkSize),
+
+    %% A file larger than the default chunk size
+    LargeSize = 200000,
+    LargeData = crypto:strong_rand_bytes(LargeSize),
+
+    Contents = [
+        {"empty", EmptyData},
+        {"small", SmallData},
+        {"boundary", BoundaryData},
+        {"large", LargeData}
+    ],
+
+    {ok, #{tarball := Tarball, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} =
+        hex_tarball:create(Metadata, Contents),
+
+    %% Extract from binary to disk and verify contents
+    UnpackDir1 = filename:join(BaseDir, "streamed_extract_binary"),
+    {ok, #{inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} =
+        hex_tarball:unpack(Tarball, UnpackDir1),
+    {ok, EmptyData} = file:read_file(filename:join(UnpackDir1, "empty")),
+    {ok, SmallData} = file:read_file(filename:join(UnpackDir1, "small")),
+    {ok, BoundaryData} = file:read_file(filename:join(UnpackDir1, "boundary")),
+    {ok, LargeData} = file:read_file(filename:join(UnpackDir1, "large")),
+
+    %% Extract from file to disk and verify contents
+    TarballPath = filename:join(BaseDir, "streamed_extract.tar"),
+    ok = file:write_file(TarballPath, Tarball),
+    UnpackDir2 = filename:join(BaseDir, "streamed_extract_file"),
+    {ok, #{inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} =
+        hex_tarball:unpack({file, TarballPath}, UnpackDir2),
+    {ok, EmptyData} = file:read_file(filename:join(UnpackDir2, "empty")),
+    {ok, SmallData} = file:read_file(filename:join(UnpackDir2, "small")),
+    {ok, BoundaryData} = file:read_file(filename:join(UnpackDir2, "boundary")),
+    {ok, LargeData} = file:read_file(filename:join(UnpackDir2, "large")),
+
+    %% Verify that memory extraction still works (not affected by streaming)
+    {ok, #{contents := MemContents}} = hex_tarball:unpack(Tarball, memory),
+    MemMap = maps:from_list(MemContents),
+    EmptyData = maps:get("empty", MemMap),
+    SmallData = maps:get("small", MemMap),
+    BoundaryData = maps:get("boundary", MemMap),
+    LargeData = maps:get("large", MemMap),
+
     ok.
 
 %%====================================================================
