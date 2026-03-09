@@ -1,6 +1,6 @@
 -module(hex_http_test).
 -behaviour(hex_http).
--export([request/5]).
+-export([request/5, request_to_file/6]).
 -define(TEST_REPO_URL, "https://repo.test").
 -define(TEST_API_URL, "https://api.test").
 -define(PRIVATE_KEY, ct:get_config({ssl_certs, test_priv})).
@@ -12,6 +12,17 @@
 
 request(Method, URI, Headers, Body, _Options) when is_binary(URI) and is_map(Headers) ->
     fixture(Method, URI, Headers, Body).
+
+request_to_file(Method, URI, Headers, Body, Filename, Options) ->
+    case request(Method, URI, Headers, Body, Options) of
+        {ok, {200, RespHeaders, RespBody}} ->
+            ok = file:write_file(Filename, RespBody),
+            {ok, {200, RespHeaders}};
+        {ok, {StatusCode, RespHeaders, _RespBody}} ->
+            {ok, {StatusCode, RespHeaders}};
+        {error, _} = Error ->
+            Error
+    end.
 
 %%====================================================================
 %% Internal functions
