@@ -219,7 +219,7 @@ unpack(Input, memory, Config) ->
                 {ok, FileList} ->
                     case validate_outer_file_sizes(maps:from_list(FileList)) of
                         {ok, Files} ->
-                            do_unpack(Files, OuterChecksum, memory);
+                            do_unpack(Files, OuterChecksum, memory, Config);
                         {error, _} = Error ->
                             Error
                     end;
@@ -241,7 +241,7 @@ unpack(Input, Output, Config) ->
                     ok ->
                         case read_outer_files(TmpDir) of
                             {ok, Files} ->
-                                do_unpack(Files, OuterChecksum, Output);
+                                do_unpack(Files, OuterChecksum, Output, Config);
                             {error, _} = Error ->
                                 Error
                         end;
@@ -308,7 +308,8 @@ unpack(Tarball, Output) ->
 unpack_docs(Input, Output, Config) ->
     case check_docs_input_size(Input, Config) of
         true ->
-            unpack_tarball(tar_source(Input), Output);
+            MaxSize = maps:get(docs_tarball_max_uncompressed_size, Config),
+            unpack_tarball(tar_source(Input), Output, MaxSize);
         false ->
             {error, {tarball, too_big}}
     end.
@@ -414,14 +415,15 @@ encode_metadata(Meta) ->
     iolist_to_binary(Data).
 
 %% @private
-do_unpack(Files, OuterChecksum, Output) ->
+do_unpack(Files, OuterChecksum, Output, Config) ->
     State = #{
         inner_checksum => undefined,
         outer_checksum => OuterChecksum,
         contents => undefined,
         files => Files,
         metadata => undefined,
-        output => Output
+        output => Output,
+        config => Config
     },
     State1 = check_files(State),
     State2 = check_version(State1),
@@ -437,10 +439,12 @@ finish_unpack(#{
     files := Files,
     inner_checksum := InnerChecksum,
     outer_checksum := OuterChecksum,
-    output := Output
+    output := Output,
+    config := Config
 }) ->
     _ = maps:get("VERSION", Files),
     Contents = maps:get("contents.tar.gz", Files),
+    MaxUncompressedSize = maps:get(tarball_max_uncompressed_size, Config),
 
     Result = #{
         inner_checksum => InnerChecksum,
@@ -452,7 +456,7 @@ finish_unpack(#{
         none ->
             {ok, Result};
         memory ->
-            case unpack_contents(Contents, memory) of
+            case unpack_contents(Contents, memory, MaxUncompressedSize) of
                 {ok, UnpackedContents} ->
                     {ok, Result#{contents => UnpackedContents}};
                 {error, Reason} ->
@@ -460,7 +464,7 @@ finish_unpack(#{
             end;
         _ ->
             filelib:ensure_dir(filename:join(Output, "*")),
-            case unpack_contents(Contents, Output) of
+            case unpack_contents(Contents, Output, MaxUncompressedSize) of
                 ok ->
                     [
                         try_updating_mtime(filename:join(Output, P))
@@ -474,14 +478,23 @@ finish_unpack(#{
     end.
 
 %% @private
-unpack_contents({path, ContentsPath}, memory) ->
-    hex_erl_tar:extract(ContentsPath, [memory, compressed]);
-unpack_contents({path, ContentsPath}, Output) ->
-    hex_erl_tar:extract(ContentsPath, [{cwd, Output}, compressed]);
-unpack_contents(ContentsBinary, memory) ->
-    hex_erl_tar:extract({binary, ContentsBinary}, [memory, compressed]);
-unpack_contents(ContentsBinary, Output) ->
-    hex_erl_tar:extract({binary, ContentsBinary}, [{cwd, Output}, compressed]).
+unpack_contents(Contents, Output, MaxSize) ->
+    Opts =
+        case Output of
+            memory -> [memory, compressed];
+            _ -> [{cwd, Output}, compressed]
+        end,
+    Source =
+        case Contents of
+            {path, ContentsPath} -> ContentsPath;
+            ContentsBinary -> {binary, ContentsBinary}
+        end,
+    case hex_erl_tar:extract(Source, [{max_size, MaxSize} | Opts]) of
+        {error, too_big} ->
+            {error, {too_big_uncompressed, MaxSize}};
+        Other ->
+            Other
+    end.
 
 %% @private
 copy_metadata_config(Output, MetadataBinary) ->
@@ -617,17 +630,24 @@ guess_build_tools(Metadata) ->
 %%====================================================================
 
 %% @private
-unpack_tarball(Source, memory) ->
-    hex_erl_tar:extract(Source, [memory, compressed]);
-unpack_tarball(Source, Output) ->
+unpack_tarball(Source, memory, MaxSize) ->
+    case hex_erl_tar:extract(Source, [memory, compressed, {max_size, MaxSize}]) of
+        {error, too_big} ->
+            {error, {tarball, {too_big_uncompressed, MaxSize}}};
+        Other ->
+            Other
+    end;
+unpack_tarball(Source, Output, MaxSize) ->
     filelib:ensure_dir(filename:join(Output, "*")),
-    case hex_erl_tar:extract(Source, [{cwd, Output}, compressed]) of
+    case hex_erl_tar:extract(Source, [{cwd, Output}, compressed, {max_size, MaxSize}]) of
         ok ->
             [
                 try_updating_mtime(filename:join(Output, Path))
              || Path <- filelib:wildcard("**", Output)
             ],
             ok;
+        {error, too_big} ->
+            {error, {tarball, {too_big_uncompressed, MaxSize}}};
         Other ->
             Other
     end.

@@ -33,7 +33,11 @@ all() ->
         streamed_extract_test,
         file_unpack_docs_memory_test,
         file_unpack_docs_disk_test,
-        file_unpack_docs_too_big_test
+        file_unpack_docs_too_big_test,
+        too_big_uncompressed_to_unpack_test,
+        docs_too_big_uncompressed_to_unpack_test,
+        file_unpack_too_big_uncompressed_test,
+        file_unpack_docs_too_big_uncompressed_test
     ].
 
 too_big_to_create_test(_Config) ->
@@ -701,6 +705,94 @@ file_unpack_docs_too_big_test(Config) ->
     SmallConfig = maps:put(docs_tarball_max_size, 10, hex_core:default_config()),
     {error, {tarball, too_big}} = hex_tarball:unpack_docs({file, TarballPath}, memory, SmallConfig),
 
+    ok.
+
+too_big_uncompressed_to_unpack_test(CtConfig) ->
+    BaseDir = ?config(priv_dir, CtConfig),
+    Metadata = #{
+        <<"name">> => <<"foo">>,
+        <<"version">> => <<"1.0.0">>
+    },
+    Contents = [{"src/foo.erl", <<"-module(foo).">>}],
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, Contents),
+
+    %% Uncompressed size limit too small - memory
+    Config = maps:put(tarball_max_uncompressed_size, 1, hex_core:default_config()),
+    {error, {inner_tarball, {too_big_uncompressed, 1}}} =
+        hex_tarball:unpack(Tarball, memory, Config),
+
+    %% Uncompressed size limit too small - disk
+    UnpackDir = filename:join(BaseDir, "too_big_uncompressed"),
+    {error, {inner_tarball, {too_big_uncompressed, 1}}} =
+        hex_tarball:unpack(Tarball, UnpackDir, Config),
+
+    %% Uncompressed size limit large enough
+    Config2 = maps:put(tarball_max_uncompressed_size, 10 * 1024 * 1024, hex_core:default_config()),
+    {ok, _} = hex_tarball:unpack(Tarball, memory, Config2),
+    ok.
+
+docs_too_big_uncompressed_to_unpack_test(CtConfig) ->
+    BaseDir = ?config(priv_dir, CtConfig),
+    Files = [{"index.html", <<"Docs">>}],
+    {ok, Tarball} = hex_tarball:create_docs(Files),
+
+    %% Uncompressed size limit too small - memory
+    Config = maps:put(docs_tarball_max_uncompressed_size, 1, hex_core:default_config()),
+    {error, {tarball, {too_big_uncompressed, 1}}} =
+        hex_tarball:unpack_docs(Tarball, memory, Config),
+
+    %% Uncompressed size limit too small - disk
+    UnpackDir = filename:join(BaseDir, "docs_too_big_uncompressed"),
+    {error, {tarball, {too_big_uncompressed, 1}}} =
+        hex_tarball:unpack_docs(Tarball, UnpackDir, Config),
+
+    %% Uncompressed size limit large enough
+    Config2 = maps:put(
+        docs_tarball_max_uncompressed_size, 10 * 1024 * 1024, hex_core:default_config()
+    ),
+    {ok, _} = hex_tarball:unpack_docs(Tarball, memory, Config2),
+    ok.
+
+file_unpack_too_big_uncompressed_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    Metadata = #{
+        <<"name">> => <<"foo">>,
+        <<"version">> => <<"1.0.0">>
+    },
+    Contents = [{"src/foo.erl", <<"-module(foo).">>}],
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, Contents),
+
+    TarballPath = filename:join(BaseDir, "test_file_too_big_uncompressed.tar"),
+    ok = file:write_file(TarballPath, Tarball),
+
+    %% Memory unpack from file
+    SmallConfig = maps:put(tarball_max_uncompressed_size, 1, hex_core:default_config()),
+    {error, {inner_tarball, {too_big_uncompressed, 1}}} =
+        hex_tarball:unpack({file, TarballPath}, memory, SmallConfig),
+
+    %% Disk unpack from file
+    UnpackDir = filename:join(BaseDir, "file_unpack_too_big_uncompressed"),
+    {error, {inner_tarball, {too_big_uncompressed, 1}}} =
+        hex_tarball:unpack({file, TarballPath}, UnpackDir, SmallConfig),
+    ok.
+
+file_unpack_docs_too_big_uncompressed_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+
+    Files = [{"index.html", <<"Docs">>}],
+    {ok, Tarball} = hex_tarball:create_docs(Files),
+    TarballPath = filename:join(BaseDir, "docs_big_uncompressed.tar.gz"),
+    ok = file:write_file(TarballPath, Tarball),
+
+    %% Memory unpack from file
+    SmallConfig = maps:put(docs_tarball_max_uncompressed_size, 1, hex_core:default_config()),
+    {error, {tarball, {too_big_uncompressed, 1}}} =
+        hex_tarball:unpack_docs({file, TarballPath}, memory, SmallConfig),
+
+    %% Disk unpack from file
+    UnpackDir = filename:join(BaseDir, "file_unpack_docs_too_big_uncompressed"),
+    {error, {tarball, {too_big_uncompressed, 1}}} =
+        hex_tarball:unpack_docs({file, TarballPath}, UnpackDir, SmallConfig),
     ok.
 
 %%====================================================================
