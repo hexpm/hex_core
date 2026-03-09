@@ -24,7 +24,9 @@ all() ->
         get_versions_test,
         get_package_test,
         get_tarball_test,
+        get_tarball_to_file_test,
         get_docs_test,
+        get_docs_to_file_test,
         get_hex_installs_test,
         get_public_key_test,
         repo_org_not_set
@@ -69,6 +71,18 @@ get_tarball_test(_Config) ->
     {ok, {403, _, _}} = hex_repo:get_tarball(?CONFIG, <<"ecto">>, <<"9.9.9">>),
     ok.
 
+get_tarball_to_file_test(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Filename = filename:join(PrivDir, "ecto-1.0.0.tar"),
+    {ok, {200, #{<<"etag">> := _}}} = hex_repo:get_tarball_to_file(
+        ?CONFIG, <<"ecto">>, <<"1.0.0">>, Filename
+    ),
+    {ok, Tarball} = file:read_file(Filename),
+    {ok, _} = hex_tarball:unpack(Tarball, memory),
+
+    {ok, {403, _}} = hex_repo:get_tarball_to_file(?CONFIG, <<"ecto">>, <<"9.9.9">>, Filename),
+    ok.
+
 get_docs_test(_Config) ->
     {ok, {200, #{<<"etag">> := ETag}, Docs}} = hex_repo:get_docs(?CONFIG, <<"ecto">>, <<"1.0.0">>),
     {ok, _} = hex_tarball:unpack_docs(Docs, memory),
@@ -78,6 +92,18 @@ get_docs_test(_Config) ->
     ),
 
     {ok, {403, _, _}} = hex_repo:get_docs(?CONFIG, <<"ecto">>, <<"9.9.9">>),
+    ok.
+
+get_docs_to_file_test(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Filename = filename:join(PrivDir, "ecto-1.0.0-docs.tar.gz"),
+    {ok, {200, #{<<"etag">> := _}}} = hex_repo:get_docs_to_file(
+        ?CONFIG, <<"ecto">>, <<"1.0.0">>, Filename
+    ),
+    {ok, Docs} = file:read_file(Filename),
+    {ok, _} = hex_tarball:unpack_docs(Docs, memory),
+
+    {ok, {403, _}} = hex_repo:get_docs_to_file(?CONFIG, <<"ecto">>, <<"9.9.9">>, Filename),
     ok.
 
 get_hex_installs_test(_Config) ->

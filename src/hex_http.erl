@@ -1,7 +1,7 @@
 %% @doc
 %% HTTP contract.
 -module(hex_http).
--export([request/5]).
+-export([request/5, request_to_file/6]).
 -ifdef(TEST).
 -export([user_agent/1]).
 -endif.
@@ -21,25 +21,30 @@
     {ok, {status(), headers(), binary()}}
     | {error, term()}.
 
+-callback request_to_file(
+    method(), URI :: binary(), headers(), body(), file:name_all(), adapter_config()
+) ->
+    {ok, {status(), headers()}} | {error, term()}.
+
 -spec request(hex_core:config(), method(), URI :: binary(), headers(), body()) ->
     {ok, {status(), headers(), binary()}} | {error, term()}.
 request(Config, Method, URI, Headers, Body) when is_binary(URI) and is_map(Headers) ->
-    {Adapter, AdapterConfig} =
-        case maps:get(http_adapter, Config, {hex_http_httpc, #{}}) of
-            {Adapter0, AdapterConfig0} ->
-                {Adapter0, AdapterConfig0};
-            %% TODO: remove in v0.9
-            Adapter0 when is_atom(Adapter0) ->
-                AdapterConfig0 = maps:get(http_adapter_config, Config, #{}),
-                io:format(
-                    "[hex_http] setting #{http_adapter => Module, http_adapter_config => Map} "
-                    "is deprecated in favour of #{http_adapter => {Module, Map}}~n"
-                ),
-                {Adapter0, AdapterConfig0}
-        end,
+    {Adapter, AdapterConfig} = adapter(Config),
     UserAgentFragment = maps:get(http_user_agent_fragment, Config),
     Headers2 = put_new(<<"user-agent">>, user_agent(UserAgentFragment), Headers),
     Adapter:request(Method, URI, Headers2, Body, AdapterConfig).
+
+-spec request_to_file(
+    hex_core:config(), method(), URI :: binary(), headers(), body(), file:name_all()
+) ->
+    {ok, {status(), headers()}} | {error, term()}.
+request_to_file(Config, Method, URI, Headers, Body, Filename) when
+    is_binary(URI) and is_map(Headers)
+->
+    {Adapter, AdapterConfig} = adapter(Config),
+    UserAgentFragment = maps:get(http_user_agent_fragment, Config),
+    Headers2 = put_new(<<"user-agent">>, user_agent(UserAgentFragment), Headers),
+    Adapter:request_to_file(Method, URI, Headers2, Body, Filename, AdapterConfig).
 
 %% @private
 user_agent(UserAgentFragment) ->
@@ -51,6 +56,21 @@ user_agent(UserAgentFragment) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
+
+%% @private
+adapter(Config) ->
+    case maps:get(http_adapter, Config, {hex_http_httpc, #{}}) of
+        {Adapter, AdapterConfig} ->
+            {Adapter, AdapterConfig};
+        %% TODO: remove in v0.9
+        Adapter when is_atom(Adapter) ->
+            AdapterConfig = maps:get(http_adapter_config, Config, #{}),
+            io:format(
+                "[hex_http] setting #{http_adapter => Module, http_adapter_config => Map} "
+                "is deprecated in favour of #{http_adapter => {Module, Map}}~n"
+            ),
+            {Adapter, AdapterConfig}
+    end.
 
 %% @private
 put_new(Key, Value, Map) ->

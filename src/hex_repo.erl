@@ -6,7 +6,9 @@
     get_versions/1,
     get_package/2,
     get_tarball/3,
+    get_tarball_to_file/4,
     get_docs/3,
+    get_docs_to_file/4,
     get_public_key/1,
     get_hex_installs/1
 ]).
@@ -91,7 +93,7 @@ get_package(Config, Name) when is_binary(Name) and is_map(Config) ->
 %%
 %% ```
 %% > {ok, {200, _, Tarball}} = hex_repo:get_tarball(hex_core:default_config(), <<"package1">>, <<"1.0.0">>),
-%% > {ok, #{metadata := Metadata}} = hex_tarball:unpack(Tarball, memory).
+%% > {ok, #{metadata := Metadata}} = hex_tarball:unpack(Tarball, "/tmp/package").
 %% '''
 %% @end
 get_tarball(Config, Name, Version) ->
@@ -105,14 +107,34 @@ get_tarball(Config, Name, Version) ->
     end.
 
 %% @doc
+%% Gets tarball from the repository and writes it to a file.
+%%
+%% Examples:
+%%
+%% ```
+%% > {ok, {200, _}} = hex_repo:get_tarball_to_file(hex_core:default_config(), <<"package1">>, <<"1.0.0">>, "/tmp/package.tar"),
+%% > {ok, #{metadata := Metadata}} = hex_tarball:unpack({file, "/tmp/package.tar"}, "/tmp/package").
+%% '''
+%% @end
+get_tarball_to_file(Config, Name, Version, Filename) ->
+    ReqHeaders = make_headers(Config),
+
+    case get_to_file(Config, tarball_url(Config, Name, Version), ReqHeaders, Filename) of
+        {ok, {200, RespHeaders}} ->
+            {ok, {200, RespHeaders}};
+        Other ->
+            Other
+    end.
+
+%% @doc
 %% Gets docs tarball from the repository.
 %%
 %% Examples:
 %%
 %% ```
 %% > {ok, {200, _, Docs}} = hex_repo:get_docs(hex_core:default_config(), <<"package1">>, <<"1.0.0">>),
-%% > hex_tarball:unpack_docs(Docs, memory)
-%% {ok, [{"index.html", <<"<!doctype>">>}, ...]}
+%% > hex_tarball:unpack_docs(Docs, "/tmp/docs")
+%% ok
 %% '''
 get_docs(Config, Name, Version) ->
     ReqHeaders = make_headers(Config),
@@ -120,6 +142,25 @@ get_docs(Config, Name, Version) ->
     case get(Config, docs_url(Config, Name, Version), ReqHeaders) of
         {ok, {200, RespHeaders, Docs}} ->
             {ok, {200, RespHeaders, Docs}};
+        Other ->
+            Other
+    end.
+
+%% @doc
+%% Gets docs tarball from the repository and writes it to a file.
+%%
+%% Examples:
+%%
+%% ```
+%% > {ok, {200, _}} = hex_repo:get_docs_to_file(hex_core:default_config(), <<"package1">>, <<"1.0.0">>, "/tmp/docs.tar.gz"),
+%% > ok = hex_tarball:unpack_docs({file, "/tmp/docs.tar.gz"}, "/tmp/docs").
+%% '''
+get_docs_to_file(Config, Name, Version, Filename) ->
+    ReqHeaders = make_headers(Config),
+
+    case get_to_file(Config, docs_url(Config, Name, Version), ReqHeaders, Filename) of
+        {ok, {200, RespHeaders}} ->
+            {ok, {200, RespHeaders}};
         Other ->
             Other
     end.
@@ -172,6 +213,10 @@ get_hex_installs(Config) ->
 %% @private
 get(Config, URI, Headers) ->
     hex_http:request(Config, get, URI, Headers, undefined).
+
+%% @private
+get_to_file(Config, URI, Headers, Filename) ->
+    hex_http:request_to_file(Config, get, URI, Headers, undefined, Filename).
 
 %% @private
 get_protobuf(Config, Path, Decoder) ->
