@@ -8,6 +8,7 @@
 %%    instead of loading them fully into memory
 %% 6. Default chunk_size to 65536 in add_opts instead of 0 with special case
 %% 7. Use compressed instead of compressed_one for file:open for OTP 24 compat
+%% 8. Added {max_size, N} extraction option for zip bomb protection
 %%
 %% OTP commit: 013041bd68c2547848e88963739edea7f0a1a90f
 %%
