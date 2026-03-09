@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v0.15.0 (2026-03-09)
+
+* Add `request_to_file` callback to `hex_http` behaviour for streaming HTTP response body directly to a file.
+* Add `hex_repo:get_tarball_to_file/4` and `hex_repo:get_docs_to_file/4` for downloading tarballs and docs directly to disk.
+* Implement `request_to_file` in `hex_http_httpc` using httpc's `{stream, Filename}` option.
+
 ## v0.14.1 (2026-03-09)
 
 * Add `max_size` extraction limit to package inner tarball and docs tarball unpacking for zip bomb protection.
