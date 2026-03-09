@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v0.14.1 (2026-03-09)
+
+* Add `max_size` extraction limit to package inner tarball and docs tarball unpacking for zip bomb protection.
+
 ## v0.14.0 (2026-03-09)
 
 * Stream tar extraction to disk, writing file entries in chunks instead of loading into memory.
