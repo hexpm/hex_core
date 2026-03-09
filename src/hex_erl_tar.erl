@@ -8,6 +8,7 @@
 %%    instead of loading them fully into memory
 %% 6. Default chunk_size to 65536 in add_opts instead of 0 with special case
 %% 7. Use compressed instead of compressed_one for file:open for OTP 24 compat
+%% 8. Added {max_size, N} extraction option for zip bomb protection
 %%
 %% OTP commit: 013041bd68c2547848e88963739edea7f0a1a90f
 %%
@@ -87,6 +88,8 @@ format_error({invalid_gnu_0_1_sparsemap, Format}) ->
     lists:flatten(io_lib:format("Invalid GNU sparse map (version ~s)", [Format]));
 format_error(unsafe_path) ->
     "The path points above the current working directory";
+format_error(too_big) ->
+    "Extraction size exceeds the configured max_size limit";
 format_error({Name,Reason}) ->
     lists:flatten(io_lib:format("~ts: ~ts", [Name,format_error(Reason)]));
 format_error(Atom) when is_atom(Atom) ->
@@ -138,9 +141,80 @@ extract(Name, Opts) when is_list(Name); is_binary(Name), is_list(Opts) ->
 
 do_extract(Handle, Opts) when is_list(Opts) ->
     Opts2 = extract_opts(Opts),
-    Acc = if Opts2#read_opts.output =:= memory -> []; true -> ok end,
-    foldl_read(Handle, fun extract1/4, Acc, Opts2).
+    case maybe_inflate_with_limit(Handle, Opts2) of
+        {error, _} = Err ->
+            Err;
+        {ok, Handle2, Opts3} ->
+            Acc0 = if Opts3#read_opts.output =:= memory -> []; true -> ok end,
+            Acc = case Opts3#read_opts.max_size of
+                      infinity -> Acc0;
+                      _ -> {size_tracked, 0, Acc0}
+                  end,
+            foldl_read(Handle2, fun extract1/4, Acc, Opts3)
+    end.
 
+maybe_inflate_with_limit({binary, Bin}, #read_opts{max_size=MaxSize}=Opts)
+  when is_integer(MaxSize), is_binary(Bin) ->
+    case lists:member(compressed, Opts#read_opts.open_mode) of
+        true ->
+            case inflate_with_limit(Bin, MaxSize) of
+                {ok, Inflated} ->
+                    OpenMode = Opts#read_opts.open_mode -- [compressed],
+                    {ok, {binary, Inflated}, Opts#read_opts{open_mode=OpenMode}};
+                {error, too_big} ->
+                    {error, too_big}
+            end;
+        false ->
+            {ok, {binary, Bin}, Opts}
+    end;
+maybe_inflate_with_limit(Handle, Opts) ->
+    {ok, Handle, Opts}.
+
+inflate_with_limit(Bin, MaxSize) ->
+    Z = zlib:open(),
+    try
+        zlib:inflateInit(Z, 31, cut),
+        inflate_with_limit_loop(Z, Bin, MaxSize, 0, [])
+    catch
+        _:_ -> {ok, Bin}
+    after
+        zlib:close(Z)
+    end.
+
+inflate_with_limit_loop(Z, Bin, MaxSize, Total, Acc) ->
+    case zlib:safeInflate(Z, Bin) of
+        {finished, Chunks} ->
+            Size = iolist_size(Chunks),
+            NewTotal = Total + Size,
+            if NewTotal > MaxSize -> {error, too_big};
+               true -> {ok, iolist_to_binary(lists:reverse(Acc, Chunks))}
+            end;
+        {continue, Chunks} ->
+            Size = iolist_size(Chunks),
+            NewTotal = Total + Size,
+            if NewTotal > MaxSize -> {error, too_big};
+               true -> inflate_with_limit_loop(Z, <<>>, MaxSize, NewTotal, [Chunks|Acc])
+            end
+    end.
+
+extract1(eof, Reader, _, {size_tracked, _, Acc}) when is_list(Acc) ->
+    {ok, {ok, lists:reverse(Acc)}, Reader};
+extract1(eof, Reader, _, {size_tracked, _, leading_slash}) ->
+    error_logger:info_msg("erl_tar: removed leading '/' from member names\n"),
+    {ok, ok, Reader};
+extract1(eof, Reader, _, {size_tracked, _, Acc}) ->
+    {ok, Acc, Reader};
+extract1(#tar_header{size=Size}=Header, Reader0, Opts,
+         {size_tracked, Total, InnerAcc}) ->
+    NewTotal = Total + Size,
+    case NewTotal > Opts#read_opts.max_size of
+        true -> throw({error, too_big});
+        false -> ok
+    end,
+    case extract1(Header, Reader0, Opts, InnerAcc) of
+        {ok, NewInnerAcc, Reader1} ->
+            {ok, {size_tracked, NewTotal, NewInnerAcc}, Reader1}
+    end;
 extract1(eof, Reader, _, Acc) when is_list(Acc) ->
     {ok, {ok, lists:reverse(Acc)}, Reader};
 extract1(eof, Reader, _, leading_slash) ->
@@ -2085,6 +2159,8 @@ extract_opts([verbose|Rest], Opts) ->
     extract_opts(Rest, Opts#read_opts{verbose=true});
 extract_opts([{chunks,N}|Rest], Opts) ->
     extract_opts(Rest, Opts#read_opts{chunk_size=N});
+extract_opts([{max_size,N}|Rest], Opts) ->
+    extract_opts(Rest, Opts#read_opts{max_size=N});
 extract_opts([Other|Rest], Opts) ->
     extract_opts(Rest, read_opts([Other], Opts));
 extract_opts([], Opts) ->

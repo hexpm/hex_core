@@ -2,6 +2,8 @@
 %% 1. Added chunk_size field to #read_opts{} for streaming extraction to disk
 %% 2. Added {chunks, pos_integer()} to extract_opt() type
 %% 3. Default chunk_size to 65536 in #add_opts{} instead of 0
+%% 4. Added max_size field to #read_opts{} for zip bomb protection
+%% 5. Added {max_size, pos_integer() | infinity} to extract_opt() type
 %%
 %% OTP commit: 013041bd68c2547848e88963739edea7f0a1a90f
 %%
@@ -46,7 +48,8 @@
           output = file :: 'file' | 'memory',
           open_mode = [],                      %% Open mode options.
           verbose = false :: boolean(),        %% Verbose on/off.
-          chunk_size = 65536}).                 %% Chunk size for streaming to disk.
+          chunk_size = 65536,                  %% Chunk size for streaming to disk.
+          max_size = infinity :: pos_integer() | 'infinity'}).
 -type read_opts() :: #read_opts{}.
 
 -type add_opt() :: dereference |
@@ -64,6 +67,7 @@
 -type extract_opt() :: {cwd, string()} |
                        {files, [name_in_archive()]} |
                        {chunks, pos_integer()} |
+                       {max_size, pos_integer() | infinity} |
                        compressed |
                        cooked |
                        memory |
