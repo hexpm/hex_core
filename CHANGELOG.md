@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v0.14.0 (2026-03-09)
+
+* Stream tar extraction to disk, writing file entries in chunks instead of loading into memory.
+* Add `{file, Path}` support to `hex_tarball:unpack_docs/2,3` to read doc tarballs from disk.
+* Add `none` output mode to `hex_tarball:unpack/2,3` to extract only metadata and checksums, skipping contents.
+
 ## v0.13.0 (2026-03-08)
 
 * Add file-based unpack via `hex_tarball:unpack({file, Path}, Output)` to avoid loading entire tarball into memory.
