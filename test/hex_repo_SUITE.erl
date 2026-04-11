@@ -29,7 +29,9 @@ all() ->
         get_docs_to_file_test,
         get_hex_installs_test,
         get_public_key_test,
-        repo_org_not_set
+        repo_org_not_set,
+        fingerprint_test,
+        fingerprint_equal_test
     ].
 
 get_names_test(_Config) ->
@@ -132,4 +134,38 @@ repo_org_not_set(_Config) ->
         lists:filter(fun(#{version := Version}) -> Version == <<"1.0.0">> end, Releases),
 
     {ok, {403, _, _}} = hex_repo:get_package(Config, <<"nonexisting">>),
+    ok.
+
+fingerprint_test(_Config) ->
+    PublicKeyPem = <<
+        "-----BEGIN PUBLIC KEY-----\n"
+        "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApqREcFDt5vV21JVe2QNB\n"
+        "Edvzk6w36aNFhVGWN5toNJRjRJ6m4hIuG4KaXtDWVLjnvct6MYMfqhC79HAGwyF+\n"
+        "IqR6Q6a5bbFSsImgBJwz1oadoVKD6ZNetAuCIK84cjMrEFRkELtEIPNHblCzUkkM\n"
+        "3rS9+DPlnfG8hBvGi6tvQIuZmXGCxF/73hU0/MyGhbmEjIKRtG6b0sJYKelRLTPW\n"
+        "XgK7s5pESgiwf2YC/2MGDXjAJfpfCd0RpLdvd4eRiXtVlE9qO9bND94E7PgQ/xqZ\n"
+        "J1i2xWFndWa6nfFnRxZmCStCOZWYYPlaxr+FZceFbpMwzTNs4g3d4tLNUcbKAIH4\n"
+        "0wIDAQAB\n"
+        "-----END PUBLIC KEY-----\n"
+    >>,
+    ExpectedFingerprint = "SHA256:O1LOYhHFW4kcrblKAxROaDEzLD8bn1seWbe5tq8TRsk",
+    ?assertEqual(ExpectedFingerprint, hex_repo:fingerprint(PublicKeyPem)),
+    ok.
+
+fingerprint_equal_test(_Config) ->
+    PublicKeyPem = <<
+        "-----BEGIN PUBLIC KEY-----\n"
+        "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApqREcFDt5vV21JVe2QNB\n"
+        "Edvzk6w36aNFhVGWN5toNJRjRJ6m4hIuG4KaXtDWVLjnvct6MYMfqhC79HAGwyF+\n"
+        "IqR6Q6a5bbFSsImgBJwz1oadoVKD6ZNetAuCIK84cjMrEFRkELtEIPNHblCzUkkM\n"
+        "3rS9+DPlnfG8hBvGi6tvQIuZmXGCxF/73hU0/MyGhbmEjIKRtG6b0sJYKelRLTPW\n"
+        "XgK7s5pESgiwf2YC/2MGDXjAJfpfCd0RpLdvd4eRiXtVlE9qO9bND94E7PgQ/xqZ\n"
+        "J1i2xWFndWa6nfFnRxZmCStCOZWYYPlaxr+FZceFbpMwzTNs4g3d4tLNUcbKAIH4\n"
+        "0wIDAQAB\n"
+        "-----END PUBLIC KEY-----\n"
+    >>,
+    CorrectFingerprint = "SHA256:O1LOYhHFW4kcrblKAxROaDEzLD8bn1seWbe5tq8TRsk",
+    WrongFingerprint = "SHA256:WrongFingerprint123456789012345678901234567",
+    ?assert(hex_repo:fingerprint_equal(PublicKeyPem, CorrectFingerprint)),
+    ?assertNot(hex_repo:fingerprint_equal(PublicKeyPem, WrongFingerprint)),
     ok.
