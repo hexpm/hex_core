@@ -240,18 +240,20 @@ fingerprint(PublicKeyPem) when is_binary(PublicKeyPem) ->
 %% true
 %% '''
 %% @end
--spec fingerprint_equal(binary(), string()) -> boolean().
+-spec fingerprint_equal(binary(), iodata()) -> boolean().
 fingerprint_equal(PublicKeyPem, ExpectedFingerprint) when is_binary(PublicKeyPem) ->
     ActualFingerprint = fingerprint(PublicKeyPem),
     constant_time_compare(
         list_to_binary(ActualFingerprint),
-        list_to_binary(ExpectedFingerprint)
+        iolist_to_binary(ExpectedFingerprint)
     ).
 
 %% @private
 %% Constant-time comparison to prevent timing attacks.
 %% Uses crypto:hash_equals/2 on OTP 25+, falls back to manual comparison on older versions.
 -if(?OTP_RELEASE >= 25).
+constant_time_compare(A, B) when byte_size(A) =/= byte_size(B) ->
+    false;
 constant_time_compare(A, B) ->
     crypto:hash_equals(A, B).
 -else.
