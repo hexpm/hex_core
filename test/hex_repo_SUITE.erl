@@ -165,7 +165,9 @@ fingerprint_equal_test(_Config) ->
         "-----END PUBLIC KEY-----\n"
     >>,
     CorrectFingerprint = "SHA256:O1LOYhHFW4kcrblKAxROaDEzLD8bn1seWbe5tq8TRsk",
-    WrongFingerprint = "SHA256:WrongFingerprint123456789012345678901234567",
+    WrongFingerprint = <<"SHA256:WrongFingerprint123456789012345678901234567">>,
+    DifferentLengthFingerprint = "SHA256:TooShort",
     ?assert(hex_repo:fingerprint_equal(PublicKeyPem, CorrectFingerprint)),
     ?assertNot(hex_repo:fingerprint_equal(PublicKeyPem, WrongFingerprint)),
+    ?assertNot(hex_repo:fingerprint_equal(PublicKeyPem, DifferentLengthFingerprint)),
     ok.
