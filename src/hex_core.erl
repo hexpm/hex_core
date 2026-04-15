@@ -111,7 +111,10 @@
     tarball_max_size => pos_integer() | infinity,
     tarball_max_uncompressed_size => pos_integer() | infinity,
     docs_tarball_max_size => pos_integer() | infinity,
-    docs_tarball_max_uncompressed_size => pos_integer() | infinity
+    docs_tarball_max_uncompressed_size => pos_integer() | infinity,
+    trusted => boolean(),
+    oauth_exchange => boolean(),
+    oauth_exchange_url => binary() | undefined
 }.
 
 -spec default_config() -> config().
@@ -137,5 +140,8 @@ default_config() ->
         tarball_max_size => 16 * 1024 * 1024,
         tarball_max_uncompressed_size => 128 * 1024 * 1024,
         docs_tarball_max_size => 16 * 1024 * 1024,
-        docs_tarball_max_uncompressed_size => 128 * 1024 * 1024
+        docs_tarball_max_uncompressed_size => 128 * 1024 * 1024,
+        trusted => true,
+        oauth_exchange => true,
+        oauth_exchange_url => undefined
     }.
