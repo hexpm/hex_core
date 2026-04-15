@@ -146,7 +146,7 @@ device_auth_flow(Config, ClientId, Scope, PromptUser, Opts) ->
                 <<"user_code">> := UserCode,
                 <<"verification_uri_complete">> := VerificationUri,
                 <<"expires_in">> := ExpiresIn,
-                <<"interval">> := Interval
+                <<"interval">> := IntervalSeconds
             } = DeviceResponse,
             ok = PromptUser(VerificationUri, UserCode),
             OpenBrowser = proplists:get_value(open_browser, Opts, false),
@@ -154,8 +154,8 @@ device_auth_flow(Config, ClientId, Scope, PromptUser, Opts) ->
                 true -> open_browser(VerificationUri);
                 false -> ok
             end,
-            Deadline = erlang:system_time(second) + ExpiresIn,
-            poll_for_token_loop(Config, ClientId, DeviceCode, Interval, Deadline);
+            ExpiresAt = erlang:system_time(second) + ExpiresIn,
+            poll_for_token_loop(Config, ClientId, DeviceCode, IntervalSeconds, ExpiresAt);
         {ok, {Status, _, Body}} ->
             {error, {device_auth_failed, Status, Body}};
         {error, Reason} ->
@@ -163,13 +163,13 @@ device_auth_flow(Config, ClientId, Scope, PromptUser, Opts) ->
     end.
 
 %% @private
-poll_for_token_loop(Config, ClientId, DeviceCode, Interval, Deadline) ->
+poll_for_token_loop(Config, ClientId, DeviceCode, IntervalSeconds, ExpiresAt) ->
     Now = erlang:system_time(second),
-    case Now >= Deadline of
+    case Now >= ExpiresAt of
         true ->
             {error, timeout};
         false ->
-            timer:sleep(Interval * 1000),
+            timer:sleep(IntervalSeconds * 1000),
             case poll_device_token(Config, ClientId, DeviceCode) of
                 {ok, {200, _, TokenResponse}} when is_map(TokenResponse) ->
                     #{
@@ -177,17 +177,19 @@ poll_for_token_loop(Config, ClientId, DeviceCode, Interval, Deadline) ->
                         <<"expires_in">> := ExpiresIn
                     } = TokenResponse,
                     RefreshToken = maps:get(<<"refresh_token">>, TokenResponse, undefined),
-                    ExpiresAt = erlang:system_time(second) + ExpiresIn,
+                    TokenExpiresAt = erlang:system_time(second) + ExpiresIn,
                     {ok, #{
                         access_token => AccessToken,
                         refresh_token => RefreshToken,
-                        expires_at => ExpiresAt
+                        expires_at => TokenExpiresAt
                     }};
                 {ok, {400, _, #{<<"error">> := <<"authorization_pending">>}}} ->
-                    poll_for_token_loop(Config, ClientId, DeviceCode, Interval, Deadline);
+                    poll_for_token_loop(Config, ClientId, DeviceCode, IntervalSeconds, ExpiresAt);
                 {ok, {400, _, #{<<"error">> := <<"slow_down">>}}} ->
                     %% Increase polling interval as requested by server
-                    poll_for_token_loop(Config, ClientId, DeviceCode, Interval + 5, Deadline);
+                    poll_for_token_loop(
+                        Config, ClientId, DeviceCode, IntervalSeconds + 5, ExpiresAt
+                    );
                 {ok, {400, _, #{<<"error">> := <<"expired_token">>}}} ->
                     {error, timeout};
                 {ok, {Status, _, #{<<"error">> := <<"access_denied">>} = Body}} ->
