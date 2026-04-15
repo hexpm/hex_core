@@ -306,7 +306,7 @@ fixture(post, <<?TEST_API_URL, "/oauth/device_authorization">>, _, {_, Body}) ->
         <<"verification_uri">> => <<"https://hex.pm/oauth/device">>,
         <<"verification_uri_complete">> => <<"https://hex.pm/oauth/device?user_code=", UserCode/binary>>,
         <<"expires_in">> => 600,
-        <<"interval">> => 5
+        <<"interval">> => 0
     },
     {ok, {200, api_headers(), term_to_binary(Payload)}};
 
@@ -314,12 +314,17 @@ fixture(post, <<?TEST_API_URL, "/oauth/token">>, _, {_, Body}) ->
     DecodedBody = binary_to_term(Body),
     case maps:get(<<"grant_type">>, DecodedBody) of
         <<"urn:ietf:params:oauth:grant-type:device_code">> ->
-            % Simulate pending authorization
-            ErrorPayload = #{
-                <<"error">> => <<"authorization_pending">>,
-                <<"error_description">> => <<"Authorization pending">>
-            },
-            {ok, {400, api_headers(), term_to_binary(ErrorPayload)}};
+            receive
+                {hex_http_test, oauth_device_response, Response} ->
+                    Response
+            after 0 ->
+                % Default: simulate pending authorization
+                ErrorPayload = #{
+                    <<"error">> => <<"authorization_pending">>,
+                    <<"error_description">> => <<"Authorization pending">>
+                },
+                {ok, {400, api_headers(), term_to_binary(ErrorPayload)}}
+            end;
         <<"urn:ietf:params:oauth:grant-type:token-exchange">> ->
             % Simulate successful token exchange
             AccessToken = base64:encode(crypto:strong_rand_bytes(32)),
