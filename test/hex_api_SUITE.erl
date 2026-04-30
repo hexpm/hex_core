@@ -29,6 +29,9 @@ all() ->
         auth_test,
         short_url_test,
         oauth_device_flow_test,
+        oauth_device_auth_flow_success_test,
+        oauth_device_auth_flow_denied_test,
+        oauth_device_auth_flow_timeout_test,
         oauth_refresh_token_test,
         oauth_revoke_test,
         oauth_client_credentials_test,
@@ -143,6 +146,82 @@ oauth_device_flow_test(_Config) ->
     % Test polling for token (should be pending initially)
     {ok, {400, _, PollResponse}} = hex_api_oauth:poll_device_token(?CONFIG, ClientId, DeviceCode),
     #{<<"error">> := <<"authorization_pending">>} = PollResponse,
+    ok.
+
+oauth_device_auth_flow_success_test(_Config) ->
+    ClientId = <<"cli">>,
+    Scope = <<"api:write">>,
+    Self = self(),
+    PromptUser = fun(VerificationUri, UserCode) ->
+        Self ! {prompt_called, VerificationUri, UserCode},
+        ok
+    end,
+
+    % Queue a success response for when polling happens
+    AccessToken = <<"test_access_token">>,
+    RefreshToken = <<"test_refresh_token">>,
+    SuccessPayload = #{
+        <<"access_token">> => AccessToken,
+        <<"refresh_token">> => RefreshToken,
+        <<"token_type">> => <<"Bearer">>,
+        <<"expires_in">> => 3600
+    },
+    Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+    Self !
+        {hex_http_test, oauth_device_response,
+            {ok, {200, Headers, term_to_binary(SuccessPayload)}}},
+
+    {ok, Tokens} = hex_api_oauth:device_auth_flow(?CONFIG, ClientId, Scope, PromptUser),
+
+    % Verify prompt was called
+    receive
+        {prompt_called, _Uri, _Code} -> ok
+    after 100 ->
+        error(prompt_not_called)
+    end,
+
+    % Verify tokens
+    #{access_token := AccessToken, refresh_token := RefreshToken, expires_at := ExpiresAt} = Tokens,
+    ?assert(is_integer(ExpiresAt)),
+    ?assert(ExpiresAt > erlang:system_time(second)),
+    ok.
+
+oauth_device_auth_flow_denied_test(_Config) ->
+    ClientId = <<"cli">>,
+    Scope = <<"api:write">>,
+    Self = self(),
+    PromptUser = fun(_VerificationUri, _UserCode) -> ok end,
+
+    % Queue an access denied response
+    ErrorPayload = #{
+        <<"error">> => <<"access_denied">>,
+        <<"error_description">> => <<"User denied access">>
+    },
+    Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+    Self !
+        {hex_http_test, oauth_device_response, {ok, {403, Headers, term_to_binary(ErrorPayload)}}},
+
+    {error, {access_denied, 403, _Body}} = hex_api_oauth:device_auth_flow(
+        ?CONFIG, ClientId, Scope, PromptUser
+    ),
+    ok.
+
+oauth_device_auth_flow_timeout_test(_Config) ->
+    ClientId = <<"cli">>,
+    Scope = <<"api:write">>,
+    Self = self(),
+    PromptUser = fun(_VerificationUri, _UserCode) -> ok end,
+
+    % Queue an expired token response
+    ErrorPayload = #{
+        <<"error">> => <<"expired_token">>,
+        <<"error_description">> => <<"Device code expired">>
+    },
+    Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+    Self !
+        {hex_http_test, oauth_device_response, {ok, {400, Headers, term_to_binary(ErrorPayload)}}},
+
+    {error, timeout} = hex_api_oauth:device_auth_flow(?CONFIG, ClientId, Scope, PromptUser),
     ok.
 
 oauth_refresh_token_test(_Config) ->
