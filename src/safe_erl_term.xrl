@@ -17,7 +17,7 @@ Rules.
 {D}+                : {token, {integer, TokenLine, list_to_integer(TokenChars)}}.
 [\#\[\]}{,+-]       : {token, {list_to_atom(TokenChars), TokenLine}}.
 (<<|>>|=>)          : {token, {list_to_atom(TokenChars), TokenLine}}.
-\.                  : {token, {dot, TokenLine}}.
+\.                  : {end_token, {dot, TokenLine}}.
 /                   : {token, {'/', TokenLine}}.
 {WS}+               : skip_token.
 

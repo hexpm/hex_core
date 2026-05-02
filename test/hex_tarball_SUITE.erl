@@ -591,14 +591,14 @@ oversized_outer_files_test(_Config) ->
     {error, {tarball, {file_too_big, "CHECKSUM"}}} =
         unpack_files(OuterFiles#{"CHECKSUM" => BigChecksum}),
 
-    BigMetadata = binary:copy(<<"{<<\"k\">>,<<\"v\">>}.\n">>, 10000),
+    BigMetadata = binary:copy(<<"{<<\"k\">>,<<\"v\">>}.\n">>, 60000),
     {error, {tarball, {file_too_big, "metadata.config"}}} =
         unpack_files(OuterFiles#{"metadata.config" => BigMetadata}),
 
     ok.
 
 too_big_metadata_to_create_test(_Config) ->
-    BigValue = binary:copy(<<"x">>, 128 * 1024),
+    BigValue = binary:copy(<<"x">>, 1024 * 1024),
     Metadata = #{
         <<"name">> => <<"foo">>,
         <<"version">> => <<"1.0.0">>,
