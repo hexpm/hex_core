@@ -16,7 +16,8 @@
 -define(HASH_CHUNK_SIZE, 65536).
 -define(MAX_VERSION_SIZE, 32).
 -define(MAX_CHECKSUM_SIZE, 128).
--define(MAX_METADATA_SIZE, 128 * 1024).
+-define(MAX_METADATA_SIZE, 1024 * 1024).
+-define(METADATA_CHUNK_SIZE, 4096).
 -define(BUILD_TOOL_FILES, [
     {<<"mix.exs">>, <<"mix">>},
     {<<"rebar.config">>, <<"rebar3">>},
@@ -554,34 +555,117 @@ decode_metadata(#{files := #{"metadata.config" := Binary}} = State) when is_bina
 
 %% @private
 do_decode_metadata(Binary) when is_binary(Binary) ->
-    {ok, String} = characters_to_list(Binary),
+    case decode_metadata_chunked(utf8, Binary, <<>>, [], "", []) of
+        latin1_fallback ->
+            decode_metadata_chunked(latin1, Binary, <<>>, [], "", []);
+        Other ->
+            Other
+    end.
 
-    case safe_erl_term:string(String) of
-        {ok, Tokens, _Line} ->
-            try
-                Terms = safe_erl_term:terms(Tokens),
-                maps:from_list(Terms)
-            catch
-                error:function_clause ->
-                    {error, {metadata, invalid_terms}};
-                error:badarg ->
-                    {error, {metadata, not_key_value}}
+%% @private
+%% Streams the metadata.config binary through safe_erl_term:tokens/2 in
+%% small chunks so we never materialize the whole binary as a char list.
+%% Each accepted dot-terminated form is parsed and accumulated immediately,
+%% keeping peak memory at roughly one chunk + one term's tokens + AST.
+decode_metadata_chunked(Encoding, Binary, IncTail, Cont, Chars, Acc) ->
+    case Chars of
+        [] when Binary =:= <<>>, IncTail =:= <<>> ->
+            flush_metadata_eof(Cont, Acc);
+        [] when Binary =:= <<>>, Encoding =:= utf8 ->
+            %% Trailing bytes that can never form a complete UTF-8 sequence —
+            %% restart the whole decode in latin1 mode rather than spin.
+            latin1_fallback;
+        [] ->
+            case decode_metadata_chunk(Encoding, Binary, IncTail) of
+                {ok, NewChars, NewBinary, NewTail} ->
+                    feed_metadata(Encoding, Cont, NewChars, NewBinary, NewTail, Acc);
+                latin1_fallback ->
+                    latin1_fallback
             end;
-        {error, {_Line, safe_erl_term, Reason}, _Line2} ->
+        _ ->
+            feed_metadata(Encoding, Cont, Chars, Binary, IncTail, Acc)
+    end.
+
+%% @private
+feed_metadata(Encoding, Cont, Chars, Binary, IncTail, Acc) ->
+    case safe_erl_term:tokens(Cont, Chars) of
+        {more, NewCont} ->
+            decode_metadata_chunked(Encoding, Binary, IncTail, NewCont, "", Acc);
+        {done, {ok, Tokens, _}, RestChars} ->
+            case parse_metadata_term(Tokens) of
+                {ok, Term} ->
+                    decode_metadata_chunked(
+                        Encoding, Binary, IncTail, [], normalize_rest_chars(RestChars), [Term | Acc]
+                    );
+                {error, _} = Err ->
+                    Err
+            end;
+        {done, {eof, _}, _} ->
+            finalize_metadata(Acc);
+        {done, {error, {_, safe_erl_term, Reason}, _}, _} ->
             {error, {metadata, Reason}}
     end.
 
 %% @private
-characters_to_list(Binary) ->
-    case unicode:characters_to_list(Binary) of
-        List when is_list(List) ->
-            {ok, List};
-        {error, _, _} ->
-            case unicode:characters_to_list(Binary, latin1) of
-                List when is_list(List) -> {ok, List};
-                Other -> Other
-            end
+flush_metadata_eof([], Acc) ->
+    finalize_metadata(Acc);
+flush_metadata_eof(Cont, Acc) ->
+    case safe_erl_term:tokens(Cont, eof) of
+        {done, {eof, _}, _} ->
+            finalize_metadata(Acc);
+        {done, {ok, _Tokens, _}, _} ->
+            {error, {metadata, invalid_terms}};
+        {done, {error, {_, safe_erl_term, Reason}, _}, _} ->
+            {error, {metadata, Reason}}
     end.
+
+%% @private
+finalize_metadata([]) ->
+    {error, {metadata, invalid_terms}};
+finalize_metadata(Acc) ->
+    try maps:from_list(lists:reverse(Acc)) of
+        Map -> Map
+    catch
+        error:badarg -> {error, {metadata, not_key_value}}
+    end.
+
+%% @private
+parse_metadata_term(Tokens) ->
+    case erl_parse:parse_term(Tokens) of
+        {ok, Term} -> {ok, Term};
+        {error, _} -> {error, {metadata, invalid_terms}}
+    end.
+
+%% @private
+decode_metadata_chunk(utf8, Binary, IncTail) ->
+    {Chunk, Rest} = take_metadata_chunk(Binary),
+    Combined =
+        case IncTail of
+            <<>> -> Chunk;
+            _ -> <<IncTail/binary, Chunk/binary>>
+        end,
+    case unicode:characters_to_list(Combined, utf8) of
+        L when is_list(L) ->
+            {ok, L, Rest, <<>>};
+        {incomplete, L, NewTail} ->
+            {ok, L, Rest, NewTail};
+        {error, _, _} ->
+            latin1_fallback
+    end;
+decode_metadata_chunk(latin1, Binary, _IncTail) ->
+    {Chunk, Rest} = take_metadata_chunk(Binary),
+    {ok, binary_to_list(Chunk), Rest, <<>>}.
+
+%% @private
+take_metadata_chunk(Binary) when byte_size(Binary) > ?METADATA_CHUNK_SIZE ->
+    <<Chunk:(?METADATA_CHUNK_SIZE)/binary, Rest/binary>> = Binary,
+    {Chunk, Rest};
+take_metadata_chunk(Binary) ->
+    {Binary, <<>>}.
+
+%% @private
+normalize_rest_chars(eof) -> "";
+normalize_rest_chars(L) when is_list(L) -> L.
 
 %% @private
 normalize_metadata(Metadata1) ->
