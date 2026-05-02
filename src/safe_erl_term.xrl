@@ -17,6 +17,8 @@ Rules.
 {D}+                : {token, {integer, TokenLine, list_to_integer(TokenChars)}}.
 [\#\[\]}{,+-]       : {token, {list_to_atom(TokenChars), TokenLine}}.
 (<<|>>|=>)          : {token, {list_to_atom(TokenChars), TokenLine}}.
+% end_token (not token) lets hex_tarball stream-decode metadata.config
+% one form at a time via safe_erl_term:tokens/2.
 \.                  : {end_token, {dot, TokenLine}}.
 /                   : {token, {'/', TokenLine}}.
 {WS}+               : skip_token.

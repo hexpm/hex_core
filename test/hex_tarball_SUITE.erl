@@ -366,6 +366,53 @@ decode_metadata_test(_Config) ->
 
     {error, {metadata, not_key_value}} = hex_tarball:do_decode_metadata(<<"ok.">>),
 
+    %% Large payload that forces the chunked decoder across many chunks.
+    %% 200 KB of distinct keys would have been rejected under the old 128 KB
+    %% limit, so this also exercises the bumped limit.
+    BigPad = binary:copy(<<"x">>, 200 * 1024),
+    BigInput = <<"{<<\"name\">>, <<\"", BigPad/binary, "\">>}.\n">>,
+    #{<<"name">> := BigPad} = hex_tarball:do_decode_metadata(BigInput),
+
+    %% UTF-8 multi-byte sequence straddling a chunk boundary (chunks are 4 KB).
+    %% Pad so the 3-byte UTF-8 char straddles position 4096; the chunked
+    %% decoder must buffer the partial bytes across the boundary and produce
+    %% the same parsed value as it would for a non-straddling input.
+    BoundaryPre = binary:copy(<<"a">>, 4095),
+    BoundaryShort = binary:copy(<<"a">>, 100),
+    Jp = unicode:characters_to_binary("日本語"),
+    Straddle = <<"{<<\"k\">>, <<\"", BoundaryPre/binary, Jp/binary, "\">>}.\n">>,
+    NoStraddle = <<"{<<\"k\">>, <<\"", BoundaryShort/binary, Jp/binary, "\">>}.\n">>,
+    #{<<"k">> := StraddleVal} = hex_tarball:do_decode_metadata(Straddle),
+    #{<<"k">> := NoStraddleVal} = hex_tarball:do_decode_metadata(NoStraddle),
+    %% Tail of both should be identical — chunk boundary must not corrupt the
+    %% multi-byte sequence.
+    TailLen = byte_size(NoStraddleVal) - 100,
+    binary:part(NoStraddleVal, 100, TailLen) =:=
+        binary:part(StraddleVal, byte_size(StraddleVal) - TailLen, TailLen) orelse
+        ct:fail(boundary_mismatch),
+
+    %% Trailing incomplete UTF-8 byte must terminate (regression: previously
+    %% looped forever). The post-dot stray byte is unlexable, so we just
+    %% require an error tuple — the point is that the call returns at all.
+    Truncated = <<"{<<\"k\">>, <<\"v\">>}.\n", 200>>,
+    {error, {metadata, _}} = hex_tarball:do_decode_metadata(Truncated),
+
+    %% Latin1 fallback for embedded invalid UTF-8 bytes mid-payload.
+    Latin = <<"{<<\"flag\">>, <<\"caf", 233, "\">>}.\n">>,
+    #{<<"flag">> := <<"caf", 233>>} = hex_tarball:do_decode_metadata(Latin),
+
+    %% Multiple terms across many chunks — the rest-chars after a dot must
+    %% feed forward correctly.
+    Multi = iolist_to_binary([
+        [<<"{<<\"k">>, integer_to_binary(N), <<"\">>, ">>, integer_to_binary(N), <<"}.\n">>]
+     || N <- lists:seq(1, 5000)
+    ]),
+    MultiResult = hex_tarball:do_decode_metadata(Multi),
+    true = is_map(MultiResult),
+    5000 = map_size(MultiResult),
+    1 = maps:get(<<"k1">>, MultiResult),
+    5000 = maps:get(<<"k5000">>, MultiResult),
+
     ok.
 
 unpack_error_handling_test(_Config) ->

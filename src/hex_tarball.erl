@@ -571,6 +571,10 @@ decode_metadata_chunked(Encoding, Binary, IncTail, Cont, Chars, Acc) ->
     case Chars of
         [] when Binary =:= <<>>, IncTail =:= <<>> ->
             flush_metadata_eof(Cont, Acc);
+        [] when Binary =:= <<>>, Encoding =:= utf8 ->
+            %% Trailing bytes that can never form a complete UTF-8 sequence —
+            %% restart the whole decode in latin1 mode rather than spin.
+            latin1_fallback;
         [] ->
             case decode_metadata_chunk(Encoding, Binary, IncTail) of
                 {ok, NewChars, NewBinary, NewTail} ->
@@ -627,11 +631,9 @@ finalize_metadata(Acc) ->
 
 %% @private
 parse_metadata_term(Tokens) ->
-    try erl_parse:parse_term(Tokens) of
+    case erl_parse:parse_term(Tokens) of
         {ok, Term} -> {ok, Term};
         {error, _} -> {error, {metadata, invalid_terms}}
-    catch
-        error:_ -> {error, {metadata, invalid_terms}}
     end.
 
 %% @private
