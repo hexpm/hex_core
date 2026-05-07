@@ -367,8 +367,6 @@ decode_metadata_test(_Config) ->
     {error, {metadata, not_key_value}} = hex_tarball:do_decode_metadata(<<"ok.">>),
 
     %% Large payload that forces the chunked decoder across many chunks.
-    %% 200 KB of distinct keys would have been rejected under the old 128 KB
-    %% limit, so this also exercises the bumped limit.
     BigPad = binary:copy(<<"x">>, 200 * 1024),
     BigInput = <<"{<<\"name\">>, <<\"", BigPad/binary, "\">>}.\n">>,
     #{<<"name">> := BigPad} = hex_tarball:do_decode_metadata(BigInput),
