@@ -16,4 +16,6 @@ message Package {
   repeated int32 retired = 3 [packed=true];
   // If set, the name of the package repository (NEVER USED, DEPRECATED)
   // string repository = 4;
+  // Zero-based indexes of versions with security advisories in the versions field, see package.proto
+  repeated int32 with_advisories = 5 [packed=true];
 }
