@@ -413,6 +413,52 @@ decode_metadata_test(_Config) ->
     1 = maps:get(<<"k1">>, MultiResult),
     5000 = maps:get(<<"k5000">>, MultiResult),
 
+    %% Field-selective decoding: only requested keys appear in the result.
+    Multi2 = <<"{<<\"name\">>, <<\"foo\">>}.\n{<<\"version\">>, <<\"1.0.0\">>}.\n">>,
+    #{<<"name">> := <<"foo">>} = Selected = hex_tarball:do_decode_metadata(Multi2, [<<"name">>]),
+    1 = map_size(Selected),
+    AllSelected = hex_tarball:do_decode_metadata(Multi2, [<<"name">>, <<"version">>]),
+    #{<<"name">> := <<"foo">>, <<"version">> := <<"1.0.0">>} = AllSelected,
+    2 = map_size(AllSelected),
+
+    %% all matches the no-arg form.
+    AllForm = hex_tarball:do_decode_metadata(Multi2, all),
+    AllForm = hex_tarball:do_decode_metadata(Multi2),
+
+    %% A huge unwanted form is streamed past without buffering its tokens. The
+    %% files list is big enough that buffering would dominate peak memory; the
+    %% decoder must skip it without parsing.
+    HugePaths = iolist_to_binary([
+        [<<"<<\"path/">>, integer_to_binary(N), <<".ex\">>, ">>]
+     || N <- lists:seq(1, 10000)
+    ]),
+    HugeFiles = <<"{<<\"files\">>, [", HugePaths/binary, "<<\"last.ex\">>]}.\n">>,
+    HugeMeta =
+        <<"{<<\"name\">>, <<\"foo\">>}.\n", HugeFiles/binary,
+            "{<<\"version\">>, <<\"1.0.0\">>}.\n">>,
+    Skipped = hex_tarball:do_decode_metadata(HugeMeta, [<<"name">>, <<"version">>]),
+    #{<<"name">> := <<"foo">>, <<"version">> := <<"1.0.0">>} = Skipped,
+    2 = map_size(Skipped),
+    false = maps:is_key(<<"files">>, Skipped),
+
+    %% Requesting a non-existent field on otherwise valid metadata returns an
+    %% empty map, not an error.
+    #{} = NoMatch = hex_tarball:do_decode_metadata(Multi2, [<<"missing">>]),
+    0 = map_size(NoMatch),
+
+    %% Field selection still propagates lex errors and malformed-form errors.
+    {error, {metadata, not_key_value}} =
+        hex_tarball:do_decode_metadata(<<"ok.">>, [<<"name">>]),
+    {error, {metadata, {user, "illegal atom asdf"}}} =
+        hex_tarball:do_decode_metadata(<<"asdf.">>, [<<"name">>]),
+
+    %% Field selection over chunk-straddling input still works correctly.
+    StraddleSelected = hex_tarball:do_decode_metadata(Straddle, [<<"k">>]),
+    #{<<"k">> := StraddleVal} = StraddleSelected,
+
+    %% Empty input still errors.
+    {error, {metadata, invalid_terms}} = hex_tarball:do_decode_metadata(<<>>, [<<"x">>]),
+
     ok.
 
 unpack_error_handling_test(_Config) ->
