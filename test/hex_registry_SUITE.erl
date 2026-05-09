@@ -38,12 +38,14 @@ versions_test(_Config) ->
         #{
             name => <<"foo">>,
             versions => [<<"1.0.0-rc.1">>, <<"1.1.0-rc.2">>, <<"1.1.0">>],
-            retired => [0, 1]
+            retired => [0, 1],
+            with_advisories => [0, 1]
         },
         #{
             name => <<"bar">>,
             versions => [<<"1.0.0">>],
-            retired => []
+            retired => [],
+            with_advisories => []
         }
     ],
     Versions = #{
@@ -86,13 +88,24 @@ package_test(_Config) ->
             retired => #{
                 reason => 'RETIRED_SECURITY',
                 message => <<"CVE-XXXX">>
-            }
+            },
+            advisory_indexes => [0]
         }
     ],
     Package = #{
         name => <<"foobar">>,
         repository => <<"hexpm">>,
-        releases => Releases
+        releases => Releases,
+        advisories => [
+            #{
+                id => <<"GHSA-abcd-1234-efgh">>,
+                summary => <<"Remote code execution via malformed input">>,
+                html_url => <<"https://github.com/advisories/GHSA-abcd-1234-efgh">>,
+                severity => 'SEVERITY_HIGH',
+                cvss_score => 8.0,
+                api_url => <<"https://api.osv.dev/v1/vulns/GHSA-abcd-1234-efgh">>
+            }
+        ]
     },
     Payload = hex_registry:build_package(Package, TestPrivateKey),
     ?assertMatch(

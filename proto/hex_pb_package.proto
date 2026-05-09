@@ -7,6 +7,8 @@ message Package {
   required string name = 2;
   // Name of repository
   required string repository = 3;
+  // All security advisories affecting any release of the package
+  repeated SecurityAdvisory advisories = 4;
 }
 
 message Release {
@@ -23,6 +25,8 @@ message Release {
   // sha256 checksum of outer package tarball
   // required when encoding but optional when decoding
   optional bytes outer_checksum = 5;
+  // Indexes into Package.advisories for advisories affecting this release
+  repeated uint32 advisory_indexes = 6;
 }
 
 message RetirementStatus {
@@ -36,6 +40,29 @@ enum RetirementReason {
   RETIRED_SECURITY = 2;
   RETIRED_DEPRECATED = 3;
   RETIRED_RENAMED = 4;
+}
+
+message SecurityAdvisory {
+  // Advisory identifier (e.g. GHSA-xxxx-xxxx-xxxx or CVE-xxxx-xxxxx)
+  required string id = 1;
+  // Short description of the advisory
+  required string summary = 2;
+  // OSV web URL for the advisory
+  required string html_url = 3;
+  // Severity of the advisory
+  optional AdvisorySeverity severity = 4;
+  // CVSS score (0.0–10.0)
+  optional float cvss_score = 5;
+  // OSV API URL for the advisory
+  required string api_url = 6;
+}
+
+enum AdvisorySeverity {
+  SEVERITY_NONE = 0;
+  SEVERITY_LOW = 1;
+  SEVERITY_MEDIUM = 2;
+  SEVERITY_HIGH = 3;
+  SEVERITY_CRITICAL = 4;
 }
 
 message Dependency {
