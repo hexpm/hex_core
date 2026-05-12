@@ -7,10 +7,18 @@
 -include_lib("common_test/include/ct.hrl").
 
 all() ->
-    [license_test, invalid_license_test].
+    [license_test, license_ref_test, invalid_license_test].
 
 license_test(_Config) ->
     true = hex_licenses:valid(<<"MIT">>),
+    ok.
+
+license_ref_test(_Config) ->
+    true = hex_licenses:valid(<<"LicenseRef-Journey">>),
+    true = hex_licenses:valid(<<"LicenseRef-acme.1-2">>),
+    false = hex_licenses:valid(<<"LicenseRef-">>),
+    false = hex_licenses:valid(<<"LicenseRef-Journey License">>),
+    false = hex_licenses:valid(<<"LicenseRef-Journey_License">>),
     ok.
 
 invalid_license_test(_Config) ->
