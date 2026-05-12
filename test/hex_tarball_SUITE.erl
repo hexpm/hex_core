@@ -282,10 +282,18 @@ unsafe_paths_to_create_test(Config) ->
         hex_tarball:create(Metadata, [{"../README.md", <<"README">>}]),
     {error, {tarball, {unsafe_path, "/README.md"}}} =
         hex_tarball:create(Metadata, [{"/README.md", <<"README">>}]),
+    {error, {tarball, {unsafe_path, "C:\\README.md"}}} =
+        hex_tarball:create(Metadata, [{"C:\\README.md", <<"README">>}]),
+    {error, {tarball, {unsafe_path, "..\\README.md"}}} =
+        hex_tarball:create(Metadata, [{"..\\README.md", <<"README">>}]),
     {error, {tarball, {unsafe_path, "../README.md"}}} =
         hex_tarball:create_docs([{"../README.md", <<"README">>}]),
     {error, {tarball, {unsafe_path, "/README.md"}}} =
         hex_tarball:create_docs([{"/README.md", <<"README">>}]),
+    {error, {tarball, {unsafe_path, "C:\\README.md"}}} =
+        hex_tarball:create_docs([{"C:\\README.md", <<"README">>}]),
+    {error, {tarball, {unsafe_path, "..\\README.md"}}} =
+        hex_tarball:create_docs([{"..\\README.md", <<"README">>}]),
 
     UnsafeLink = filename:join(BaseDir, "unsafe_link"),
     ok = file:make_symlink("../../README.md", UnsafeLink),
@@ -293,6 +301,25 @@ unsafe_paths_to_create_test(Config) ->
         hex_tarball:create(Metadata, [{"README.md", UnsafeLink}]),
     {error, {tarball, {unsafe_symlink, "README.md", "../../README.md"}}} =
         hex_tarball:create_docs([{"README.md", UnsafeLink}]),
+
+    RootDir = filename:join(BaseDir, "source_root"),
+    OutsideDir = filename:join(BaseDir, "outside"),
+    ok = file:make_dir(RootDir),
+    ok = file:make_dir(OutsideDir),
+    ok = file:write_file(filename:join(OutsideDir, "secret.txt"), <<"secret">>),
+    ok = file:make_symlink("../outside", filename:join(RootDir, "link")),
+    CreateConfig = maps:put(tarball_files_root, RootDir, hex_core:default_config()),
+    {error, {tarball, {unsafe_path, "link/secret.txt"}}} =
+        hex_tarball:create(
+            Metadata,
+            [{"link/secret.txt", filename:join([RootDir, "link", "secret.txt"])}],
+            CreateConfig
+        ),
+    {error, {tarball, {unsafe_path, "link/secret.txt"}}} =
+        hex_tarball:create_docs(
+            [{"link/secret.txt", filename:join([RootDir, "link", "secret.txt"])}],
+            CreateConfig
+        ),
 
     ok.
 
