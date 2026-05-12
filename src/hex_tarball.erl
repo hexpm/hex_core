@@ -74,35 +74,40 @@ create(Metadata, Files, Config) ->
         false ->
             {error, {tarball, {file_too_big, "metadata.config"}}};
         true ->
-            ContentsTarball = create_memory_tarball(Files),
-            ContentsTarballCompressed = gzip(ContentsTarball),
-            InnerChecksum = inner_checksum(?VERSION, MetadataBinary, ContentsTarballCompressed),
-            InnerChecksumBase16 = encode_base16(InnerChecksum),
+            case validate_create_files(Files) of
+                ok ->
+                    ContentsTarball = create_memory_tarball(Files),
+                    ContentsTarballCompressed = gzip(ContentsTarball),
+                    InnerChecksum = inner_checksum(?VERSION, MetadataBinary, ContentsTarballCompressed),
+                    InnerChecksumBase16 = encode_base16(InnerChecksum),
 
-            OuterFiles = [
-                {"VERSION", ?VERSION},
-                {"CHECKSUM", InnerChecksumBase16},
-                {"metadata.config", MetadataBinary},
-                {"contents.tar.gz", ContentsTarballCompressed}
-            ],
+                    OuterFiles = [
+                        {"VERSION", ?VERSION},
+                        {"CHECKSUM", InnerChecksumBase16},
+                        {"metadata.config", MetadataBinary},
+                        {"contents.tar.gz", ContentsTarballCompressed}
+                    ],
 
-            case valid_size(ContentsTarball, TarballMaxUncompressedSize) of
-                true ->
-                    Tarball = create_memory_tarball(OuterFiles),
-                    OuterChecksum = checksum(Tarball),
-
-                    case valid_size(Tarball, TarballMaxSize) of
+                    case valid_size(ContentsTarball, TarballMaxUncompressedSize) of
                         true ->
-                            {ok, #{
-                                tarball => Tarball,
-                                outer_checksum => OuterChecksum,
-                                inner_checksum => InnerChecksum
-                            }};
+                            Tarball = create_memory_tarball(OuterFiles),
+                            OuterChecksum = checksum(Tarball),
+
+                            case valid_size(Tarball, TarballMaxSize) of
+                                true ->
+                                    {ok, #{
+                                        tarball => Tarball,
+                                        outer_checksum => OuterChecksum,
+                                        inner_checksum => InnerChecksum
+                                    }};
+                                false ->
+                                    {error, {tarball, {too_big_compressed, TarballMaxSize}}}
+                            end;
                         false ->
-                            {error, {tarball, {too_big_compressed, TarballMaxSize}}}
+                            {error, {tarball, {too_big_uncompressed, TarballMaxUncompressedSize}}}
                     end;
-                false ->
-                    {error, {tarball, {too_big_uncompressed, TarballMaxUncompressedSize}}}
+                {error, _} = Error ->
+                    Error
             end
     end.
 
@@ -344,6 +349,10 @@ format_error({tarball, {bad_version, Vsn}}) ->
     io_lib:format("unsupported version: ~p", [Vsn]);
 format_error({tarball, invalid_checksum}) ->
     "invalid tarball checksum";
+format_error({tarball, {unsafe_path, Name}}) ->
+    io_lib:format("unsafe path in tarball: ~s", [Name]);
+format_error({tarball, {unsafe_symlink, Name, LinkTarget}}) ->
+    io_lib:format("unsafe symlink in tarball: ~s -> ~s", [Name, LinkTarget]);
 format_error({tarball, Reason}) ->
     "tarball error, " ++ hex_erl_tar:format_error(Reason);
 format_error({inner_tarball, Reason}) ->
@@ -880,6 +889,63 @@ guess_build_tools(Metadata) ->
 %%====================================================================
 %% Tar Helpers
 %%====================================================================
+
+%% @private
+validate_create_files(Files) when is_list(Files) ->
+    validate_create_files(Files, ok).
+
+validate_create_files(_Files, {error, _} = Error) ->
+    Error;
+validate_create_files([], ok) ->
+    ok;
+validate_create_files([File | Rest], ok) ->
+    validate_create_files(Rest, validate_create_file(File)).
+
+validate_create_file({Filename, Contents}) when is_list(Filename), is_binary(Contents) ->
+    validate_archive_path(Filename);
+validate_create_file(Filename) when is_list(Filename) ->
+    validate_create_file({Filename, Filename});
+validate_create_file({Filename, AbsFilename}) when is_list(Filename), is_list(AbsFilename) ->
+    case validate_archive_path(Filename) of
+        ok -> validate_symlink_target(Filename, AbsFilename);
+        {error, _} = Error -> Error
+    end.
+
+validate_archive_path(Filename) ->
+    case safe_relative_archive_path(Filename) of
+        false -> {error, {tarball, {unsafe_path, Filename}}};
+        true -> ok
+    end.
+
+validate_symlink_target(ArchiveName, SourcePath) ->
+    case file:read_link_info(SourcePath, []) of
+        {ok, #file_info{type = symlink}} ->
+            {ok, LinkTarget} = file:read_link(SourcePath),
+            ResolvedTarget = filename:join(filename:dirname(ArchiveName), LinkTarget),
+            case safe_relative_archive_path(ResolvedTarget) of
+                false -> {error, {tarball, {unsafe_symlink, ArchiveName, LinkTarget}}};
+                true -> ok
+            end;
+        _ ->
+            ok
+    end.
+
+safe_relative_archive_path(Path) ->
+    case filename:pathtype(Path) of
+        relative -> safe_relative_archive_path(filename:split(Path), []);
+        _ -> false
+    end.
+
+safe_relative_archive_path([], _Acc) ->
+    true;
+safe_relative_archive_path(["." | Rest], Acc) ->
+    safe_relative_archive_path(Rest, Acc);
+safe_relative_archive_path([".." | _Rest], []) ->
+    false;
+safe_relative_archive_path([".." | Rest], [_ | Acc]) ->
+    safe_relative_archive_path(Rest, Acc);
+safe_relative_archive_path([_Part | Rest], Acc) ->
+    safe_relative_archive_path(Rest, [ok | Acc]).
 
 %% @private
 unpack_tarball(Source, memory, MaxSize) ->

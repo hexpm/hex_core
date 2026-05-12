@@ -12,6 +12,7 @@ all() ->
         timestamps_and_permissions_test,
         symlinks_test,
         symlinks_parent_dir_test,
+        unsafe_paths_to_create_test,
         memory_test,
         build_tools_test,
         requirements_test,
@@ -267,10 +268,24 @@ symlinks_parent_dir_test(Config) ->
     ok = file:make_symlink("../../escape", UnsafeLink),
 
     UnsafeFiles = [{"dir/link.sh", UnsafeLink}],
-    {ok, #{tarball := UnsafeTarball}} = hex_tarball:create(Metadata, UnsafeFiles),
-    UnpackDir3 = filename:join(BaseDir, "symlinks_parent_dir3"),
-    {error, {inner_tarball, {"../../escape", unsafe_symlink}}} =
-        hex_tarball:unpack(UnsafeTarball, UnpackDir3),
+    {error, {tarball, {unsafe_symlink, "dir/link.sh", "../../escape"}}} =
+        hex_tarball:create(Metadata, UnsafeFiles),
+
+    ok.
+
+unsafe_paths_to_create_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+
+    {error, {tarball, {unsafe_path, "../README.md"}}} =
+        hex_tarball:create(Metadata, [{"../README.md", <<"README">>}]),
+    {error, {tarball, {unsafe_path, "/README.md"}}} =
+        hex_tarball:create(Metadata, [{"/README.md", <<"README">>}]),
+
+    UnsafeLink = filename:join(BaseDir, "unsafe_link"),
+    ok = file:make_symlink("../../README.md", UnsafeLink),
+    {error, {tarball, {unsafe_symlink, "README.md", "../../README.md"}}} =
+        hex_tarball:create(Metadata, [{"README.md", UnsafeLink}]),
 
     ok.
 
