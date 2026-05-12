@@ -139,20 +139,25 @@ create_docs(Files, Config) ->
         docs_tarball_max_uncompressed_size := TarballMaxUncompressedSize
     } = Config,
 
-    UncompressedTarball = create_memory_tarball(Files),
+    case validate_create_files(Files) of
+        ok ->
+            UncompressedTarball = create_memory_tarball(Files),
 
-    case valid_size(UncompressedTarball, TarballMaxUncompressedSize) of
-        true ->
-            Tarball = gzip(UncompressedTarball),
-
-            case valid_size(Tarball, TarballMaxSize) of
+            case valid_size(UncompressedTarball, TarballMaxUncompressedSize) of
                 true ->
-                    {ok, Tarball};
+                    Tarball = gzip(UncompressedTarball),
+
+                    case valid_size(Tarball, TarballMaxSize) of
+                        true ->
+                            {ok, Tarball};
+                        false ->
+                            {error, {tarball, {too_big_compressed, TarballMaxSize}}}
+                    end;
                 false ->
-                    {error, {tarball, {too_big_compressed, TarballMaxSize}}}
+                    {error, {tarball, {too_big_uncompressed, TarballMaxUncompressedSize}}}
             end;
-        false ->
-            {error, {tarball, {too_big_uncompressed, TarballMaxUncompressedSize}}}
+        {error, _} = Error ->
+            Error
     end.
 
 -spec create_docs(files()) -> {ok, tarball()} | {error, term()}.
@@ -353,6 +358,8 @@ format_error({tarball, {unsafe_path, Name}}) ->
     io_lib:format("unsafe path in tarball: ~s", [Name]);
 format_error({tarball, {unsafe_symlink, Name, LinkTarget}}) ->
     io_lib:format("unsafe symlink in tarball: ~s -> ~s", [Name, LinkTarget]);
+format_error({tarball, {unsupported_file_type, Name, Type}}) ->
+    io_lib:format("unsupported file type in tarball: ~s (~p)", [Name, Type]);
 format_error({tarball, Reason}) ->
     "tarball error, " ++ hex_erl_tar:format_error(Reason);
 format_error({inner_tarball, Reason}) ->
@@ -907,7 +914,7 @@ validate_create_file(Filename) when is_list(Filename) ->
     validate_create_file({Filename, Filename});
 validate_create_file({Filename, AbsFilename}) when is_list(Filename), is_list(AbsFilename) ->
     case validate_archive_path(Filename) of
-        ok -> validate_symlink_target(Filename, AbsFilename);
+        ok -> validate_source_file(Filename, AbsFilename);
         {error, _} = Error -> Error
     end.
 
@@ -917,8 +924,10 @@ validate_archive_path(Filename) ->
         true -> ok
     end.
 
-validate_symlink_target(ArchiveName, SourcePath) ->
+validate_source_file(ArchiveName, SourcePath) ->
     case file:read_link_info(SourcePath, []) of
+        {ok, #file_info{type = Type}} when Type =:= regular; Type =:= directory ->
+            ok;
         {ok, #file_info{type = symlink}} ->
             {ok, LinkTarget} = file:read_link(SourcePath),
             ResolvedTarget = filename:join(filename:dirname(ArchiveName), LinkTarget),
@@ -926,6 +935,8 @@ validate_symlink_target(ArchiveName, SourcePath) ->
                 false -> {error, {tarball, {unsafe_symlink, ArchiveName, LinkTarget}}};
                 true -> ok
             end;
+        {ok, #file_info{type = Type}} ->
+            {error, {tarball, {unsupported_file_type, ArchiveName, Type}}};
         _ ->
             ok
     end.

@@ -13,6 +13,7 @@ all() ->
         symlinks_test,
         symlinks_parent_dir_test,
         unsafe_paths_to_create_test,
+        unsupported_file_types_to_create_test,
         memory_test,
         build_tools_test,
         requirements_test,
@@ -281,13 +282,38 @@ unsafe_paths_to_create_test(Config) ->
         hex_tarball:create(Metadata, [{"../README.md", <<"README">>}]),
     {error, {tarball, {unsafe_path, "/README.md"}}} =
         hex_tarball:create(Metadata, [{"/README.md", <<"README">>}]),
+    {error, {tarball, {unsafe_path, "../README.md"}}} =
+        hex_tarball:create_docs([{"../README.md", <<"README">>}]),
+    {error, {tarball, {unsafe_path, "/README.md"}}} =
+        hex_tarball:create_docs([{"/README.md", <<"README">>}]),
 
     UnsafeLink = filename:join(BaseDir, "unsafe_link"),
     ok = file:make_symlink("../../README.md", UnsafeLink),
     {error, {tarball, {unsafe_symlink, "README.md", "../../README.md"}}} =
         hex_tarball:create(Metadata, [{"README.md", UnsafeLink}]),
+    {error, {tarball, {unsafe_symlink, "README.md", "../../README.md"}}} =
+        hex_tarball:create_docs([{"README.md", UnsafeLink}]),
 
     ok.
+
+unsupported_file_types_to_create_test(Config) ->
+    case os:find_executable("mkfifo") of
+        false ->
+            {skip, "mkfifo not available"};
+        Mkfifo ->
+            BaseDir = ?config(priv_dir, Config),
+            Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+            Fifo = filename:join(BaseDir, "fifo"),
+
+            _ = file:delete(Fifo),
+            [] = os:cmd(Mkfifo ++ " " ++ shell_quote(Fifo)),
+            {error, {tarball, {unsupported_file_type, "fifo", other}}} =
+                hex_tarball:create(Metadata, [{"fifo", Fifo}]),
+            {error, {tarball, {unsupported_file_type, "fifo", other}}} =
+                hex_tarball:create_docs([{"fifo", Fifo}]),
+
+            ok
+    end.
 
 build_tools_test(_Config) ->
     Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
@@ -909,6 +935,9 @@ epoch() ->
     NixEpoch = calendar:datetime_to_gregorian_seconds({{1970, 1, 1}, {0, 0, 0}}),
     Y2kEpoch = calendar:datetime_to_gregorian_seconds({{2000, 1, 1}, {0, 0, 0}}),
     Y2kEpoch - NixEpoch.
+
+shell_quote(String) ->
+    "'" ++ lists:flatten(string:replace(String, "'", "'\\''", all)) ++ "'".
 
 unpack_files(Files) ->
     FileList = maps:to_list(Files),
