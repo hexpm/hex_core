@@ -78,7 +78,9 @@ create(Metadata, Files, Config) ->
                 ok ->
                     ContentsTarball = create_memory_tarball(Files),
                     ContentsTarballCompressed = gzip(ContentsTarball),
-                    InnerChecksum = inner_checksum(?VERSION, MetadataBinary, ContentsTarballCompressed),
+                    InnerChecksum = inner_checksum(
+                        ?VERSION, MetadataBinary, ContentsTarballCompressed
+                    ),
                     InnerChecksumBase16 = encode_base16(InnerChecksum),
 
                     OuterFiles = [
