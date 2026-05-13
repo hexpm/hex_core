@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## v0.16.0 (2026-05-13)
+
+* Validate tarball file paths and symlink targets when creating package and docs tarballs.
+* Add `tarball_files_root` config for tarball source paths, defaulting to the current directory and allowing absolute paths only inside that root.
+* Add streaming `metadata.config` decoding and increase max metadata size to 1024KB.
+* Add `metadata_fields` config to decode only selected package metadata fields.
+* Add security advisory fields to package and versions registry resources.
+* Add `hex_repo:fingerprint/1` and `hex_repo:fingerprint_equal/2` for repository public key verification.
+* Return response headers from `hex_http_httpc:request_to_file/6`.
+* Accept SPDX `LicenseRef-*` license identifiers.
+
 ## v0.15.0 (2026-03-09)
 
 * Add `request_to_file` callback to `hex_http` behaviour for streaming HTTP response body directly to a file.

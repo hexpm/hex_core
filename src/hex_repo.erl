@@ -211,7 +211,7 @@ get_hex_installs(Config) ->
 %% @doc
 %% Computes a SHA256 fingerprint of a PEM-encoded public key.
 %%
-%% Returns a string in the format "SHA256:<base64>" which can be used
+%% Returns a string in the format "SHA256:" followed by base64, which can be used
 %% to verify public keys out-of-band.
 %%
 %% Examples:

@@ -577,7 +577,6 @@ decode_metadata(#{files := #{"metadata.config" := Binary}, config := Config} = S
     end.
 
 -ifdef(TEST).
-%% @private
 do_decode_metadata(Binary) ->
     do_decode_metadata(Binary, all).
 -endif.
