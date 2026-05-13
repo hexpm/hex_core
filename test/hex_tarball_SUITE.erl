@@ -12,6 +12,8 @@ all() ->
         timestamps_and_permissions_test,
         symlinks_test,
         symlinks_parent_dir_test,
+        unsafe_paths_to_create_test,
+        unsupported_file_types_to_create_test,
         memory_test,
         build_tools_test,
         requirements_test,
@@ -104,12 +106,13 @@ disk_test(Config) ->
     ok = file:change_mode(Foo, 8#100644),
     ok = file:write_file(filename:join(SrcDir, "not_whitelisted.erl"), <<"">>),
 
-    Files = [{"empty", EmptyDir}, {"src", SrcDir}, {"src/foo.erl", Foo}],
+    Files = [{"empty", "empty"}, {"src", "src"}, {"src/foo.erl", filename:join("src", "foo.erl")}],
     Metadata = #{
         <<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>, <<"build_tool">> => <<"rebar3">>
     },
+    CreateConfig = maps:put(tarball_files_root, BaseDir, hex_core:default_config()),
     {ok, #{tarball := Tarball, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:create(
-        Metadata, Files
+        Metadata, Files, CreateConfig
     ),
     ?assertEqual(
         <<"3DED88F7BAC738294907ACEED89FE63C9914713F988E608F2B17D7AE6EAC8446">>,
@@ -142,13 +145,14 @@ timestamps_and_permissions_test(Config) ->
     ok = file:make_dir(EmptyDir),
     ok = file:change_mode(EmptyDir, 8#100755),
     Files = [
-        {"empty", EmptyDir},
+        {"empty", "timestamps_empty"},
         {"foo.erl", <<"">>},
-        {"foo.sh", Foo}
+        {"foo.sh", "foo.sh"}
     ],
+    CreateConfig = maps:put(tarball_files_root, BaseDir, hex_core:default_config()),
 
     {ok, #{tarball := Tarball, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:create(
-        Metadata, Files
+        Metadata, Files, CreateConfig
     ),
 
     %% inside tarball
@@ -189,12 +193,13 @@ symlinks_test(Config) ->
     ok = file:make_symlink("foo.sh", BarSh),
 
     Files = [
-        {"dir/foo.sh", FooSh},
-        {"dir/bar.sh", BarSh}
+        {"dir/foo.sh", filename:join("dir", "foo.sh")},
+        {"dir/bar.sh", filename:join("dir", "bar.sh")}
     ],
+    CreateConfig = maps:put(tarball_files_root, BaseDir, hex_core:default_config()),
 
     {ok, #{tarball := Tarball, inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:create(
-        Metadata, Files
+        Metadata, Files, CreateConfig
     ),
     UnpackDir = filename:join(BaseDir, "symlinks"),
     {ok, #{inner_checksum := InnerChecksum, outer_checksum := OuterChecksum}} = hex_tarball:unpack(
@@ -227,11 +232,12 @@ symlinks_parent_dir_test(Config) ->
     ok = file:make_symlink("../foo2.sh", LinkSh),
 
     Files = [
-        {"foo.sh", FooSh},
-        {"dir/link.sh", LinkSh}
+        {"foo.sh", "foo2.sh"},
+        {"dir/link.sh", filename:join("dir2", "link.sh")}
     ],
+    CreateConfig = maps:put(tarball_files_root, BaseDir, hex_core:default_config()),
 
-    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, Files),
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, Files, CreateConfig),
     {ok, _} = hex_tarball:unpack(Tarball, memory),
 
     UnpackDir = filename:join(BaseDir, "symlinks_parent_dir"),
@@ -249,11 +255,11 @@ symlinks_parent_dir_test(Config) ->
     ok = file:make_symlink("../../foo3.sh", LinkSh2),
 
     Files2 = [
-        {"foo.sh", FooSh2},
-        {"a/b/link.sh", LinkSh2}
+        {"foo.sh", "foo3.sh"},
+        {"a/b/link.sh", filename:join(["a2", "b2", "link.sh"])}
     ],
 
-    {ok, #{tarball := Tarball2}} = hex_tarball:create(Metadata, Files2),
+    {ok, #{tarball := Tarball2}} = hex_tarball:create(Metadata, Files2, CreateConfig),
     UnpackDir2 = filename:join(BaseDir, "symlinks_parent_dir2"),
     {ok, _} = hex_tarball:unpack(Tarball2, UnpackDir2),
     {ok, #file_info{type = symlink}} =
@@ -266,13 +272,114 @@ symlinks_parent_dir_test(Config) ->
     ok = file:make_dir(UnsafeDir),
     ok = file:make_symlink("../../escape", UnsafeLink),
 
-    UnsafeFiles = [{"dir/link.sh", UnsafeLink}],
-    {ok, #{tarball := UnsafeTarball}} = hex_tarball:create(Metadata, UnsafeFiles),
-    UnpackDir3 = filename:join(BaseDir, "symlinks_parent_dir3"),
-    {error, {inner_tarball, {"../../escape", unsafe_symlink}}} =
-        hex_tarball:unpack(UnsafeTarball, UnpackDir3),
+    UnsafeFiles = [{"dir/link.sh", filename:join("unsafe_dir", "link.sh")}],
+    {error, {tarball, {unsafe_symlink, "dir/link.sh", "../../escape"}}} =
+        hex_tarball:create(Metadata, UnsafeFiles, CreateConfig),
 
     ok.
+
+unsafe_paths_to_create_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+
+    {error, {tarball, {unsafe_path, "../README.md"}}} =
+        hex_tarball:create(Metadata, [{"../README.md", <<"README">>}]),
+    {error, {tarball, {unsafe_path, "/README.md"}}} =
+        hex_tarball:create(Metadata, [{"/README.md", <<"README">>}]),
+    {error, {tarball, {unsafe_path, "C:\\README.md"}}} =
+        hex_tarball:create(Metadata, [{"C:\\README.md", <<"README">>}]),
+    {error, {tarball, {unsafe_path, "..\\README.md"}}} =
+        hex_tarball:create(Metadata, [{"..\\README.md", <<"README">>}]),
+    {error, {tarball, {unsafe_path, "../README.md"}}} =
+        hex_tarball:create_docs([{"../README.md", <<"README">>}]),
+    {error, {tarball, {unsafe_path, "/README.md"}}} =
+        hex_tarball:create_docs([{"/README.md", <<"README">>}]),
+    {error, {tarball, {unsafe_path, "C:\\README.md"}}} =
+        hex_tarball:create_docs([{"C:\\README.md", <<"README">>}]),
+    {error, {tarball, {unsafe_path, "..\\README.md"}}} =
+        hex_tarball:create_docs([{"..\\README.md", <<"README">>}]),
+
+    UnsafeLink = filename:join(BaseDir, "unsafe_link"),
+    ok = file:make_symlink("../../README.md", UnsafeLink),
+    BaseConfig = maps:put(tarball_files_root, BaseDir, hex_core:default_config()),
+    {error, {tarball, {unsafe_symlink, "README.md", "../../README.md"}}} =
+        hex_tarball:create(Metadata, [{"README.md", "unsafe_link"}], BaseConfig),
+    {error, {tarball, {unsafe_symlink, "README.md", "../../README.md"}}} =
+        hex_tarball:create_docs([{"README.md", "unsafe_link"}], BaseConfig),
+
+    RootDir = filename:join(BaseDir, "source_root"),
+    OutsideDir = filename:join(BaseDir, "outside"),
+    ok = file:make_dir(RootDir),
+    ok = file:make_dir(OutsideDir),
+    ok = file:write_file(filename:join(RootDir, "README.md"), <<"README">>),
+    ok = file:write_file(filename:join(OutsideDir, "secret.txt"), <<"secret">>),
+    ok = file:make_symlink("../outside", filename:join(RootDir, "link")),
+    CreateConfig = maps:put(tarball_files_root, RootDir, hex_core:default_config()),
+    RootReadme = filename:join(RootDir, "README.md"),
+    {error, {tarball, missing_files_root}} =
+        hex_tarball:create(Metadata, [{"README.md", "README.md"}]),
+    {error, {tarball, missing_files_root}} =
+        hex_tarball:create_docs([{"README.md", "README.md"}]),
+    {error, {tarball, {unsafe_path, RootReadme}}} =
+        hex_tarball:create(
+            Metadata,
+            [{"README.md", RootReadme}],
+            CreateConfig
+        ),
+    {error, {tarball, {unsafe_path, RootReadme}}} =
+        hex_tarball:create_docs(
+            [{"README.md", RootReadme}],
+            CreateConfig
+        ),
+    {ok, _} =
+        hex_tarball:create(Metadata, [{"README.md", "README.md"}], CreateConfig),
+    {ok, _} =
+        hex_tarball:create_docs([{"README.md", "README.md"}], CreateConfig),
+    ok = file:make_symlink("../outside/secret.txt", filename:join(RootDir, "mismatch_link")),
+    {error, {tarball, {unsafe_path, "nested/mismatch_link"}}} =
+        hex_tarball:create(
+            Metadata,
+            [{"nested/mismatch_link", "mismatch_link"}],
+            CreateConfig
+        ),
+    {error, {tarball, {unsafe_path, "nested/mismatch_link"}}} =
+        hex_tarball:create_docs(
+            [{"nested/mismatch_link", "mismatch_link"}],
+            CreateConfig
+        ),
+    {error, {tarball, {unsafe_path, "link/secret.txt"}}} =
+        hex_tarball:create(
+            Metadata,
+            [{"link/secret.txt", "link/secret.txt"}],
+            CreateConfig
+        ),
+    {error, {tarball, {unsafe_path, "link/secret.txt"}}} =
+        hex_tarball:create_docs(
+            [{"link/secret.txt", "link/secret.txt"}],
+            CreateConfig
+        ),
+
+    ok.
+
+unsupported_file_types_to_create_test(Config) ->
+    case os:find_executable("mkfifo") of
+        false ->
+            {skip, "mkfifo not available"};
+        Mkfifo ->
+            BaseDir = ?config(priv_dir, Config),
+            Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+            Fifo = filename:join(BaseDir, "fifo"),
+            CreateConfig = maps:put(tarball_files_root, BaseDir, hex_core:default_config()),
+
+            _ = file:delete(Fifo),
+            [] = os:cmd(Mkfifo ++ " " ++ shell_quote(Fifo)),
+            {error, {tarball, {unsupported_file_type, "fifo", other}}} =
+                hex_tarball:create(Metadata, [{"fifo", "fifo"}], CreateConfig),
+            {error, {tarball, {unsupported_file_type, "fifo", other}}} =
+                hex_tarball:create_docs([{"fifo", "fifo"}], CreateConfig),
+
+            ok
+    end.
 
 build_tools_test(_Config) ->
     Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
@@ -894,6 +1001,9 @@ epoch() ->
     NixEpoch = calendar:datetime_to_gregorian_seconds({{1970, 1, 1}, {0, 0, 0}}),
     Y2kEpoch = calendar:datetime_to_gregorian_seconds({{2000, 1, 1}, {0, 0, 0}}),
     Y2kEpoch - NixEpoch.
+
+shell_quote(String) ->
+    "'" ++ lists:flatten(string:replace(String, "'", "'\\''", all)) ++ "'".
 
 unpack_files(Files) ->
     FileList = maps:to_list(Files),
