@@ -315,20 +315,53 @@ unsafe_paths_to_create_test(Config) ->
     ok = file:write_file(filename:join(OutsideDir, "secret.txt"), <<"secret">>),
     ok = file:make_symlink("../outside", filename:join(RootDir, "link")),
     CreateConfig = maps:put(tarball_files_root, RootDir, hex_core:default_config()),
-    RootReadme = filename:join(RootDir, "README.md"),
-    {error, {tarball, missing_files_root}} =
-        hex_tarball:create(Metadata, [{"README.md", "README.md"}]),
-    {error, {tarball, missing_files_root}} =
-        hex_tarball:create_docs([{"README.md", "README.md"}]),
-    {error, {tarball, {unsafe_path, RootReadme}}} =
+    RootReadme = filename:absname(filename:join(RootDir, "README.md")),
+    OutsideSecret = filename:absname(filename:join(OutsideDir, "secret.txt")),
+    {ok, Cwd} = file:get_cwd(),
+    try
+        ok = file:set_cwd(RootDir),
+        {ok, _} = hex_tarball:create(Metadata, [{"README.md", "README.md"}]),
+        {ok, _} = hex_tarball:create_docs([{"README.md", "README.md"}]),
+        {ok, _} = hex_tarball:create(Metadata, [{"README.md", RootReadme}]),
+        {ok, _} = hex_tarball:create_docs([{"README.md", RootReadme}]),
+        {error, {tarball, {unsafe_path, "secret.txt"}}} =
+            hex_tarball:create(Metadata, [{"secret.txt", OutsideSecret}]),
+        {error, {tarball, {unsafe_path, "secret.txt"}}} =
+            hex_tarball:create_docs([{"secret.txt", OutsideSecret}])
+    after
+        ok = file:set_cwd(Cwd)
+    end,
+    {ok, _} =
         hex_tarball:create(
             Metadata,
             [{"README.md", RootReadme}],
             CreateConfig
         ),
-    {error, {tarball, {unsafe_path, RootReadme}}} =
+    {ok, _} =
         hex_tarball:create_docs(
             [{"README.md", RootReadme}],
+            CreateConfig
+        ),
+    {error, {tarball, {unsafe_path, "secret.txt"}}} =
+        hex_tarball:create(
+            Metadata,
+            [{"secret.txt", OutsideSecret}],
+            CreateConfig
+        ),
+    {error, {tarball, {unsafe_path, "secret.txt"}}} =
+        hex_tarball:create_docs(
+            [{"secret.txt", OutsideSecret}],
+            CreateConfig
+        ),
+    {error, {tarball, {unsafe_path, "missing.txt"}}} =
+        hex_tarball:create(
+            Metadata,
+            [{"missing.txt", "../outside/missing.txt"}],
+            CreateConfig
+        ),
+    {error, {tarball, {unsafe_path, "missing.txt"}}} =
+        hex_tarball:create_docs(
+            [{"missing.txt", "../outside/missing.txt"}],
             CreateConfig
         ),
     {ok, _} =

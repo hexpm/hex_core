@@ -67,9 +67,9 @@
 %%   `134_217_728' (128 MiB). Set to `infinity' to not enforce the limit.
 %%
 %% * `tarball_files_root' - Root directory for source files when creating tarballs.
-%%   Required for filesystem source paths, which must be relative and must resolve inside
-%%   this root after following symlinks. Set to `undefined' when all tarball contents are
-%%   provided as binaries and no filesystem source paths are used (default: `undefined').
+%%   Filesystem source paths must resolve inside this root after following symlinks.
+%%   Relative source paths are resolved from this root and absolute source paths must be
+%%   inside it (default: `"."').
 %%
 %% * `docs_tarball_max_size' - Maximum size of docs tarball, defaults to
 %%   `16_777_216' (16 MiB). Set to `infinity' to not enforce the limit.
@@ -118,7 +118,7 @@
     repo_verify => boolean(),
     repo_verify_origin => boolean(),
     send_100_continue => boolean(),
-    tarball_files_root => file:filename() | undefined,
+    tarball_files_root => file:filename(),
     tarball_max_size => pos_integer() | infinity,
     tarball_max_uncompressed_size => pos_integer() | infinity,
     docs_tarball_max_size => pos_integer() | infinity,
@@ -146,7 +146,7 @@ default_config() ->
         repo_verify => true,
         repo_verify_origin => true,
         send_100_continue => true,
-        tarball_files_root => undefined,
+        tarball_files_root => ".",
         tarball_max_size => 16 * 1024 * 1024,
         tarball_max_uncompressed_size => 128 * 1024 * 1024,
         docs_tarball_max_size => 16 * 1024 * 1024,
