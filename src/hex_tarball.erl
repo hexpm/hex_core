@@ -960,8 +960,20 @@ normalize_root_parts([], Acc) ->
     lists:reverse(Acc);
 normalize_root_parts(["." | Parts], Acc) ->
     normalize_root_parts(Parts, Acc);
+normalize_root_parts([".." | Parts], Acc) ->
+    normalize_root_parent(Parts, Acc);
 normalize_root_parts([Part | Parts], Acc) ->
     normalize_root_parts(Parts, [Part | Acc]).
+
+normalize_root_parent(Parts, [Root] = Acc) ->
+    case filename:pathtype(Root) of
+        relative -> normalize_root_parts(Parts, []);
+        _ -> normalize_root_parts(Parts, Acc)
+    end;
+normalize_root_parent(Parts, [_Part | Acc]) ->
+    normalize_root_parts(Parts, Acc);
+normalize_root_parent(Parts, []) ->
+    normalize_root_parts(Parts, []).
 
 source_disk_path(SourcePath, Root) ->
     case filename:pathtype(SourcePath) of
