@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v0.16.1 (2026-05-19)
+
+* Add `published_at` timestamp field to release registry resource.
+
 ## v0.16.0 (2026-05-13)
 
 * Validate tarball file paths and symlink targets when creating package and docs tarballs.
