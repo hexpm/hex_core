@@ -27,6 +27,8 @@ message Release {
   optional bytes outer_checksum = 5;
   // Indexes into Package.advisories for advisories affecting this release
   repeated uint32 advisory_indexes = 6;
+  // Release published timestamp
+  optional Timestamp published_at = 7;
 }
 
 message RetirementStatus {
@@ -77,4 +79,11 @@ message Dependency {
   optional string app = 4;
   // If set, the repository where the dependency is located
   optional string repository = 5;
+}
+
+// Based on google.protobuf.Timestamp
+// https://github.com/protocolbuffers/protobuf/blob/v3.15.8/src/google/protobuf/timestamp.proto#L136:L147
+message Timestamp {
+  required int64 seconds = 1;
+  required int32 nanos = 2;
 }
