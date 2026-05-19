@@ -11,10 +11,7 @@ all() ->
         groups_advisories_sharing_cve_alias,
         prefers_eef_over_ghsa_over_nvd,
         breaks_same_source_ties_by_id_ascending,
-        attaches_osv_url_only_to_alias_ids_that_are_group_members,
-        merges_references_by_url_accumulating_types,
-        min_published_at_max_modified_at,
-        missing_timestamps_yield_undefined
+        attaches_osv_url_only_to_alias_ids_that_are_group_members
     ].
 
 identity_when_no_aliases(_Config) ->
@@ -68,49 +65,6 @@ attaches_osv_url_only_to_alias_ids_that_are_group_members(_Config) ->
     ?assertEqual(undefined, maps:get(url, Cve)),
     ok.
 
-merges_references_by_url_accumulating_types(_Config) ->
-    RefsA = [
-        #{type => <<"WEB">>, url => <<"https://example.com/advisory">>},
-        #{type => <<"ADVISORY">>, url => <<"https://shared.example.com/1">>}
-    ],
-    RefsB = [
-        #{type => <<"FIX">>, url => <<"https://shared.example.com/1">>},
-        #{type => <<"WEB">>, url => <<"https://other.example.com/2">>}
-    ],
-    A = (base_advisory(<<"GHSA-a">>, <<"A">>, [<<"CVE-2026-0001">>]))#{references => RefsA},
-    B = (base_advisory(<<"GHSA-b">>, <<"B">>, [<<"CVE-2026-0001">>]))#{references => RefsB},
-    [Result] = hex_advisory:group_for_display([A, B]),
-    ByUrl = maps:from_list(
-        [{maps:get(url, R), maps:get(types, R)} || R <- maps:get(references, Result)]
-    ),
-    ?assertEqual(3, maps:size(ByUrl)),
-    ?assertEqual([<<"WEB">>], maps:get(<<"https://example.com/advisory">>, ByUrl)),
-    Shared = maps:get(<<"https://shared.example.com/1">>, ByUrl),
-    ?assertEqual(lists:sort([<<"ADVISORY">>, <<"FIX">>]), lists:sort(Shared)),
-    ?assertEqual([<<"WEB">>], maps:get(<<"https://other.example.com/2">>, ByUrl)),
-    ok.
-
-min_published_at_max_modified_at(_Config) ->
-    A = (base_advisory(<<"GHSA-a">>, <<"A">>, [<<"CVE-2026-0001">>]))#{
-        published_at => #{seconds => 100, nanos => 0},
-        modified_at => #{seconds => 150, nanos => 0}
-    },
-    B = (base_advisory(<<"GHSA-b">>, <<"B">>, [<<"CVE-2026-0001">>]))#{
-        published_at => #{seconds => 90, nanos => 0},
-        modified_at => #{seconds => 200, nanos => 0}
-    },
-    [Result] = hex_advisory:group_for_display([A, B]),
-    ?assertEqual(#{seconds => 90, nanos => 0}, maps:get(published_at, Result)),
-    ?assertEqual(#{seconds => 200, nanos => 0}, maps:get(modified_at, Result)),
-    ok.
-
-missing_timestamps_yield_undefined(_Config) ->
-    A = base_advisory(<<"GHSA-a">>, <<"A">>, []),
-    [Result] = hex_advisory:group_for_display([A]),
-    ?assertEqual(undefined, maps:get(published_at, Result)),
-    ?assertEqual(undefined, maps:get(modified_at, Result)),
-    ok.
-
 %%====================================================================
 %% Helpers
 %%====================================================================
@@ -121,6 +75,5 @@ base_advisory(Id, Summary, Aliases) ->
         summary => Summary,
         html_url => <<"https://osv.dev/vulnerability/", Id/binary>>,
         api_url => <<"https://api.osv.dev/v1/vulns/", Id/binary>>,
-        aliases => Aliases,
-        references => []
+        aliases => Aliases
     }.

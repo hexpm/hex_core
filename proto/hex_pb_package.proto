@@ -61,15 +61,6 @@ message SecurityAdvisory {
   // Other identifiers for the same vulnerability (e.g. a CVE id when the
   // primary id is a GHSA id, or vice versa).
   repeated string aliases = 7;
-  // First publication timestamp from the advisory source. Optional for
-  // backwards compatibility — clients treat absence as "no information".
-  optional Timestamp published_at = 8;
-  // Last modification timestamp from the advisory source. Optional for
-  // backwards compatibility — clients treat absence as "no information".
-  optional Timestamp modified_at = 9;
-  // External references describing the advisory (links to vendor fix PRs,
-  // CVE write-ups, blog posts, etc.).
-  repeated AdvisoryReference references = 10;
 }
 
 enum AdvisorySeverity {
@@ -78,13 +69,6 @@ enum AdvisorySeverity {
   SEVERITY_MEDIUM = 2;
   SEVERITY_HIGH = 3;
   SEVERITY_CRITICAL = 4;
-}
-
-message AdvisoryReference {
-  // OSV reference type, e.g. "WEB", "ADVISORY", "FIX", "REPORT"
-  required string type = 1;
-  // Reference URL
-  required string url = 2;
 }
 
 message Dependency {

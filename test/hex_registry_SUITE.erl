@@ -104,13 +104,7 @@ package_test(_Config) ->
                 severity => 'SEVERITY_HIGH',
                 cvss_score => 8.0,
                 api_url => <<"https://api.osv.dev/v1/vulns/GHSA-abcd-1234-efgh">>,
-                aliases => [<<"CVE-2026-0001">>, <<"NVD-CVE-2026-0001">>],
-                published_at => #{seconds => 1700000000, nanos => 0},
-                modified_at => #{seconds => 1700100000, nanos => 0},
-                references => [
-                    #{type => <<"WEB">>, url => <<"https://example.com/a">>},
-                    #{type => <<"FIX">>, url => <<"https://example.com/fix">>}
-                ]
+                aliases => [<<"CVE-2026-0001">>, <<"NVD-CVE-2026-0001">>]
             }
         ]
     },
