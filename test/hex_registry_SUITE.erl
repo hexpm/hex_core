@@ -103,7 +103,8 @@ package_test(_Config) ->
                 html_url => <<"https://github.com/advisories/GHSA-abcd-1234-efgh">>,
                 severity => 'SEVERITY_HIGH',
                 cvss_score => 8.0,
-                api_url => <<"https://api.osv.dev/v1/vulns/GHSA-abcd-1234-efgh">>
+                api_url => <<"https://api.osv.dev/v1/vulns/GHSA-abcd-1234-efgh">>,
+                aliases => [<<"CVE-2026-0001">>, <<"NVD-CVE-2026-0001">>]
             }
         ]
     },

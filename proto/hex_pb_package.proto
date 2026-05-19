@@ -27,7 +27,8 @@ message Release {
   optional bytes outer_checksum = 5;
   // Indexes into Package.advisories for advisories affecting this release
   repeated uint32 advisory_indexes = 6;
-  // Release published timestamp
+  // Release published timestamp. Optional for backwards compatibility —
+  // clients treat absence as "no information".
   optional Timestamp published_at = 7;
 }
 
@@ -57,6 +58,9 @@ message SecurityAdvisory {
   optional float cvss_score = 5;
   // OSV API URL for the advisory
   required string api_url = 6;
+  // Other identifiers for the same vulnerability (e.g. a CVE id when the
+  // primary id is a GHSA id, or vice versa).
+  repeated string aliases = 7;
 }
 
 enum AdvisorySeverity {
