@@ -92,11 +92,8 @@ identifiers(Advisory) ->
 
 alias_url(Id, AdvisoryIds) ->
     case sets:is_element(Id, AdvisoryIds) of
-        true ->
-            Encoded = uri_string:quote(Id),
-            <<"https://osv.dev/vulnerability/", Encoded/binary>>;
-        false ->
-            undefined
+        true -> <<"https://osv.dev/vulnerability/", Id/binary>>;
+        false -> undefined
     end.
 
 uniq(List) ->
