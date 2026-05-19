@@ -107,8 +107,8 @@ min_published_at_max_modified_at(_Config) ->
 missing_timestamps_yield_undefined(_Config) ->
     A = base_advisory(<<"GHSA-a">>, <<"A">>, []),
     [Result] = hex_advisory:group_for_display([A]),
-    ?assertEqual(undefined, maps:get(published_at, Result, undefined)),
-    ?assertEqual(undefined, maps:get(modified_at, Result, undefined)),
+    ?assertEqual(undefined, maps:get(published_at, Result)),
+    ?assertEqual(undefined, maps:get(modified_at, Result)),
     ok.
 
 %%====================================================================
