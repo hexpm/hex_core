@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## v0.17.0 (2026-05-20)
+
+* Add `aliases` field to `SecurityAdvisory` proto for cross-referencing advisories (e.g. GHSA/CVE pairs).
+* Add `hex_advisory:group_for_display/1` to deduplicate advisories that share aliases.
+
 ## v0.16.1 (2026-05-19)
 
 * Add `published_at` timestamp field to release registry resource.
