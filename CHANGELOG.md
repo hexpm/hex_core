@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## v0.17.0 (2026-05-19)
+
+* Add `aliases`, `published_at`, `modified_at`, and `references` fields to `SecurityAdvisory` proto
+* Add `hex_advisory:group_for_display/1` for deduplicating advisories that share aliases
+
 ## v0.16.0 (2026-05-13)
 
 * Validate tarball file paths and symlink targets when creating package and docs tarballs.
