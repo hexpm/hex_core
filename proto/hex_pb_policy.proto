@@ -1,0 +1,47 @@
+syntax = "proto2";
+
+message Policy {
+  // Name of repository
+  required string repository = 1;
+
+  // Policy name within the repository
+  // (matches ^[a-z0-9][a-z0-9_\-\.]*[a-z0-9]$, length 3..64)
+  required string name = 2;
+
+  // Optional, free-form description (admin-set, surfaced in CLI/UI)
+  optional string description = 3;
+
+  // Resource generation timestamp, seconds since unix epoch.
+  // Clients use this to compute staleness when a fetch fails and the
+  // last-known-good cached payload is loaded instead.
+  required int64 published_at = 4;
+
+  // Whether the policy is publicly readable or restricted to org members.
+  // Read at the edge to decide whether to enforce auth on the fetch.
+  // Adding new Visibility values is a breaking change — old clients will
+  // treat unknown values as PRIVATE per the fail-closed rule.
+  required Visibility visibility = 5;
+
+  // Categorical advisory rule. If set, deny any release whose maximum
+  // advisory severity is at least this value. Values map to AdvisorySeverity
+  // in package.proto (SEVERITY_NONE..SEVERITY_CRITICAL = 0..4).
+  // Unset = rule disabled.
+  optional uint32 advisory_min_severity = 6;
+
+  // Categorical retirement rule. If non-empty, deny any release retired with
+  // a reason in this set. Values map to RetirementReason in package.proto
+  // (RETIRED_OTHER..RETIRED_RENAMED = 0..4). Empty = rule disabled.
+  repeated uint32 retirement_reasons = 7 [packed=true];
+
+  // Optional minimum release age for every package version governed by this
+  // policy. Same duration grammar as the Hex cooldown config ("7d", "2w",
+  // "1mo", "0"). Unset or "0" means no policy cooldown. If multiple active
+  // policies declare cooldowns, the effective cooldown is the strictest one.
+  optional string cooldown = 8;
+}
+
+enum Visibility {
+  // PRIVATE is the safe default; unknown enum values must be treated as PRIVATE.
+  VISIBILITY_PRIVATE = 0;
+  VISIBILITY_PUBLIC = 1;
+}

@@ -10,7 +10,7 @@ suite() ->
     [{require, {ssl_certs, [test_pub, test_priv, hexpm_pub]}}].
 
 all() ->
-    [names_test, versions_test, package_test, signed_test].
+    [names_test, versions_test, package_test, policy_test, signed_test].
 
 names_test(_Config) ->
     TestPublicKey = ct:get_config({ssl_certs, test_pub}),
@@ -124,6 +124,36 @@ package_test(_Config) ->
         {error, bad_repo_name},
         hex_registry:unpack_package(Payload, <<"hexpm">>, <<"other_package">>, TestPublicKey)
     ),
+    ok.
+
+policy_test(_Config) ->
+    TestPublicKey = ct:get_config({ssl_certs, test_pub}),
+    TestPrivateKey = ct:get_config({ssl_certs, test_priv}),
+    Policy = #{
+        repository => <<"myorg">>,
+        name => <<"strict-prod">>,
+        description => <<"Production policy">>,
+        published_at => 1716253200,
+        visibility => 'VISIBILITY_PUBLIC',
+        advisory_min_severity => 3,
+        retirement_reasons => [1, 2],
+        cooldown => <<"14d">>
+    },
+    Payload = hex_registry:build_policy(Policy, TestPrivateKey),
+    ?assertMatch(
+        {ok, Policy},
+        hex_registry:unpack_policy(Payload, <<"myorg">>, <<"strict-prod">>, TestPublicKey)
+    ),
+    ?assertMatch(
+        {error, bad_repo_name},
+        hex_registry:unpack_policy(Payload, <<"other">>, <<"strict-prod">>, TestPublicKey)
+    ),
+    ?assertMatch(
+        {error, bad_repo_name},
+        hex_registry:unpack_policy(Payload, <<"myorg">>, <<"other">>, TestPublicKey)
+    ),
+    EncodedPayload = hex_registry:encode_policy(Policy),
+    ?assertMatch({ok, Policy}, hex_registry:decode_policy(EncodedPayload, no_verify, no_verify)),
     ok.
 
 signed_test(_Config) ->

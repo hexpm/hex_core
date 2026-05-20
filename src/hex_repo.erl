@@ -5,6 +5,7 @@
     get_names/1,
     get_versions/1,
     get_package/2,
+    get_policy/2,
     get_tarball/3,
     get_tarball_to_file/4,
     get_docs/3,
@@ -87,6 +88,36 @@ get_package(Config, Name) when is_binary(Name) and is_map(Config) ->
         end
     end,
     get_protobuf(Config, <<"packages/", Name/binary>>, Decoder).
+
+%% @doc
+%% Gets policy resource from the repository.
+%%
+%% Requires `repo_organization' to be set in the config; policies are
+%% always served from the per-organization namespace
+%% (`/repos/<organization>/policies/<name>').
+%%
+%% Examples:
+%%
+%% ```
+%% > Config = (hex_core:default_config())#{repo_organization => <<"myorg">>},
+%% > hex_repo:get_policy(Config, <<"strict-prod">>).
+%% {ok, {200, ...,
+%%       #{repository => <<"myorg">>,
+%%         name => <<"strict-prod">>,
+%%         visibility => 'VISIBILITY_PUBLIC',
+%%         advisory_min_severity => 3,
+%%         ...}}}
+%% '''
+%% @end
+get_policy(Config, Name) when is_binary(Name) and is_map(Config) ->
+    Verify = maps:get(repo_verify_origin, Config, true),
+    Decoder = fun(Data) ->
+        case Verify of
+            true -> hex_registry:decode_policy(Data, repo_name(Config), Name);
+            false -> hex_registry:decode_policy(Data, no_verify, no_verify)
+        end
+    end,
+    get_protobuf(Config, <<"policies/", Name/binary>>, Decoder).
 
 %% @doc
 %% Gets tarball from the repository.
