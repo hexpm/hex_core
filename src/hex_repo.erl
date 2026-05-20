@@ -104,20 +104,26 @@ get_package(Config, Name) when is_binary(Name) and is_map(Config) ->
 %% {ok, {200, ...,
 %%       #{repository => <<"myorg">>,
 %%         name => <<"strict-prod">>,
-%%         visibility => 'VISIBILITY_PUBLIC',
-%%         advisory_min_severity => 3,
-%%         ...}}}
+%%         visibility => 'VISIBILITY_PUBLIC'}}}
 %% '''
 %% @end
 get_policy(Config, Name) when is_binary(Name) and is_map(Config) ->
-    Verify = maps:get(repo_verify_origin, Config, true),
-    Decoder = fun(Data) ->
-        case Verify of
-            true -> hex_registry:decode_policy(Data, repo_name(Config), Name);
-            false -> hex_registry:decode_policy(Data, no_verify, no_verify)
-        end
-    end,
-    get_protobuf(Config, <<"policies/", Name/binary>>, Decoder).
+    case maps:get(repo_organization, Config, undefined) of
+        undefined ->
+            error(
+                {missing_repo_organization,
+                    "hex_repo:get_policy/2 requires repo_organization to be set"}
+            );
+        Org when is_binary(Org) ->
+            Verify = maps:get(repo_verify_origin, Config, true),
+            Decoder = fun(Data) ->
+                case Verify of
+                    true -> hex_registry:decode_policy(Data, repo_name(Config), Name);
+                    false -> hex_registry:decode_policy(Data, no_verify, no_verify)
+                end
+            end,
+            get_protobuf(Config, <<"policies/", Name/binary>>, Decoder)
+    end.
 
 %% @doc
 %% Gets tarball from the repository.

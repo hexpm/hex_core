@@ -24,6 +24,7 @@ all() ->
         get_versions_test,
         get_package_test,
         get_policy_test,
+        get_policy_missing_org_test,
         get_tarball_test,
         get_tarball_to_file_test,
         get_docs_test,
@@ -75,6 +76,14 @@ get_policy_test(_Config) ->
         }}} = hex_repo:get_policy(Config, <<"strict-prod">>),
 
     {ok, {403, _, _}} = hex_repo:get_policy(Config, <<"nonexisting">>),
+    ok.
+
+get_policy_missing_org_test(_Config) ->
+    Config = maps:remove(repo_organization, ?CONFIG),
+    ?assertError(
+        {missing_repo_organization, _},
+        hex_repo:get_policy(Config, <<"strict-prod">>)
+    ),
     ok.
 
 get_tarball_test(_Config) ->

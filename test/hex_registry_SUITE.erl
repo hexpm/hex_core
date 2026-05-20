@@ -154,6 +154,9 @@ policy_test(_Config) ->
     ),
     EncodedPayload = hex_registry:encode_policy(Policy),
     ?assertMatch({ok, Policy}, hex_registry:decode_policy(EncodedPayload, no_verify, no_verify)),
+    %% unpack with no_verify identity (still verifies signature)
+    {ok, _} =
+        hex_registry:unpack_policy(Payload, no_verify, no_verify, TestPublicKey),
     ok.
 
 signed_test(_Config) ->
