@@ -94,7 +94,8 @@ get_package(Config, Name) when is_binary(Name) and is_map(Config) ->
 %%
 %% Requires `repo_organization' to be set in the config; policies are
 %% always served from the per-organization namespace
-%% (`/repos/<organization>/policies/<name>').
+%% (`/repos/<organization>/policies/<name>'). Returns
+%% `{error, missing_repo_organization}' when it is not set.
 %%
 %% Examples:
 %%
