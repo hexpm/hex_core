@@ -79,8 +79,7 @@ get_policy_test(_Config) ->
     ok.
 
 get_policy_missing_org_test(_Config) ->
-    Config = maps:remove(repo_organization, ?CONFIG),
-    {error, missing_repo_organization} = hex_repo:get_policy(Config, <<"strict-prod">>),
+    {error, missing_repo_organization} = hex_repo:get_policy(?CONFIG, <<"strict-prod">>),
     ok.
 
 get_tarball_test(_Config) ->
