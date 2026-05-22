@@ -115,7 +115,7 @@ get_policy(Config, Name) when is_binary(Name) and is_map(Config) ->
             Verify = maps:get(repo_verify_origin, Config, true),
             Decoder = fun(Data) ->
                 case Verify of
-                    true -> hex_registry:decode_policy(Data, repo_name(Config), Name);
+                    true -> hex_registry:decode_policy(Data, Org, Name);
                     false -> hex_registry:decode_policy(Data, no_verify, no_verify)
                 end
             end,
