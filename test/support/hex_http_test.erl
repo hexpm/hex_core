@@ -97,7 +97,6 @@ fixture(get, <<?TEST_REPO_URL, "/repos/myorg/policies/strict-prod">>, _, _) ->
         repository => <<"myorg">>,
         name => <<"strict-prod">>,
         description => <<"Production policy">>,
-        published_at => 1716253200,
         visibility => 'VISIBILITY_PUBLIC',
         advisory_min_severity => 3,
         retirement_reasons => [1, 2],

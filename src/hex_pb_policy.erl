@@ -58,7 +58,6 @@
       #{repository              => unicode:chardata(), % = 1, required
         name                    => unicode:chardata(), % = 2, required
         description             => unicode:chardata(), % = 3, optional
-        published_at            => integer(),       % = 4, required, 64 bits
         visibility              => 'VISIBILITY_PRIVATE' | 'VISIBILITY_PUBLIC' | integer(), % = 5, required, enum Visibility
         advisory_min_severity   => non_neg_integer(), % = 6, optional, 32 bits
         retirement_reasons      => [non_neg_integer()], % = 7, repeated, 32 bits
@@ -83,30 +82,29 @@ encode_msg(Msg, MsgName, Opts) ->
 encode_msg_Policy(Msg, TrUserData) -> encode_msg_Policy(Msg, <<>>, TrUserData).
 
 
-encode_msg_Policy(#{repository := F1, name := F2, published_at := F4, visibility := F5} = M, Bin, TrUserData) ->
+encode_msg_Policy(#{repository := F1, name := F2, visibility := F4} = M, Bin, TrUserData) ->
     B1 = begin TrF1 = id(F1, TrUserData), e_type_string(TrF1, <<Bin/binary, 10>>, TrUserData) end,
     B2 = begin TrF2 = id(F2, TrUserData), e_type_string(TrF2, <<B1/binary, 18>>, TrUserData) end,
     B3 = case M of
              #{description := F3} -> begin TrF3 = id(F3, TrUserData), e_type_string(TrF3, <<B2/binary, 26>>, TrUserData) end;
              _ -> B2
          end,
-    B4 = begin TrF4 = id(F4, TrUserData), e_type_int64(TrF4, <<B3/binary, 32>>, TrUserData) end,
-    B5 = begin TrF5 = id(F5, TrUserData), e_enum_Visibility(TrF5, <<B4/binary, 40>>, TrUserData) end,
+    B4 = begin TrF4 = id(F4, TrUserData), e_enum_Visibility(TrF4, <<B3/binary, 40>>, TrUserData) end,
+    B5 = case M of
+             #{advisory_min_severity := F5} -> begin TrF5 = id(F5, TrUserData), e_varint(TrF5, <<B4/binary, 48>>, TrUserData) end;
+             _ -> B4
+         end,
     B6 = case M of
-             #{advisory_min_severity := F6} -> begin TrF6 = id(F6, TrUserData), e_varint(TrF6, <<B5/binary, 48>>, TrUserData) end;
+             #{retirement_reasons := F6} ->
+                 TrF6 = id(F6, TrUserData),
+                 if TrF6 == [] -> B5;
+                    true -> e_field_Policy_retirement_reasons(TrF6, B5, TrUserData)
+                 end;
              _ -> B5
          end,
-    B7 = case M of
-             #{retirement_reasons := F7} ->
-                 TrF7 = id(F7, TrUserData),
-                 if TrF7 == [] -> B6;
-                    true -> e_field_Policy_retirement_reasons(TrF7, B6, TrUserData)
-                 end;
-             _ -> B6
-         end,
     case M of
-        #{cooldown := F8} -> begin TrF8 = id(F8, TrUserData), e_type_string(TrF8, <<B7/binary, 66>>, TrUserData) end;
-        _ -> B7
+        #{cooldown := F7} -> begin TrF7 = id(F7, TrUserData), e_type_string(TrF7, <<B6/binary, 66>>, TrUserData) end;
+        _ -> B6
     end.
 
 e_field_Policy_retirement_reasons(Elems, Bin, TrUserData) when Elems =/= [] ->
@@ -252,125 +250,101 @@ decode_msg_2_doit('Policy', Bin, TrUserData) -> id(decode_msg_Policy(Bin, TrUser
 
 
 decode_msg_Policy(Bin, TrUserData) ->
-    dfp_read_field_def_Policy(Bin,
-                              0,
-                              0,
-                              0,
-                              id('$undef', TrUserData),
-                              id('$undef', TrUserData),
-                              id('$undef', TrUserData),
-                              id('$undef', TrUserData),
-                              id('$undef', TrUserData),
-                              id('$undef', TrUserData),
-                              id([], TrUserData),
-                              id('$undef', TrUserData),
-                              TrUserData).
+    dfp_read_field_def_Policy(Bin, 0, 0, 0, id('$undef', TrUserData), id('$undef', TrUserData), id('$undef', TrUserData), id('$undef', TrUserData), id('$undef', TrUserData), id([], TrUserData), id('$undef', TrUserData), TrUserData).
 
-dfp_read_field_def_Policy(<<10, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) -> d_field_Policy_repository(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-dfp_read_field_def_Policy(<<18, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) -> d_field_Policy_name(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-dfp_read_field_def_Policy(<<26, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) -> d_field_Policy_description(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-dfp_read_field_def_Policy(<<32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) -> d_field_Policy_published_at(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-dfp_read_field_def_Policy(<<40, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) -> d_field_Policy_visibility(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-dfp_read_field_def_Policy(<<48, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) -> d_field_Policy_advisory_min_severity(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-dfp_read_field_def_Policy(<<58, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) -> d_pfield_Policy_retirement_reasons(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-dfp_read_field_def_Policy(<<56, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) -> d_field_Policy_retirement_reasons(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-dfp_read_field_def_Policy(<<66, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) -> d_field_Policy_cooldown(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-dfp_read_field_def_Policy(<<>>, 0, 0, _, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, R1, F@_8, TrUserData) ->
-    S1 = #{repository => F@_1, name => F@_2, published_at => F@_4, visibility => F@_5, retirement_reasons => lists_reverse(R1, TrUserData)},
+dfp_read_field_def_Policy(<<10, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> d_field_Policy_repository(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+dfp_read_field_def_Policy(<<18, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> d_field_Policy_name(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+dfp_read_field_def_Policy(<<26, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> d_field_Policy_description(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+dfp_read_field_def_Policy(<<40, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> d_field_Policy_visibility(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+dfp_read_field_def_Policy(<<48, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> d_field_Policy_advisory_min_severity(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+dfp_read_field_def_Policy(<<58, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> d_pfield_Policy_retirement_reasons(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+dfp_read_field_def_Policy(<<56, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> d_field_Policy_retirement_reasons(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+dfp_read_field_def_Policy(<<66, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> d_field_Policy_cooldown(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+dfp_read_field_def_Policy(<<>>, 0, 0, _, F@_1, F@_2, F@_3, F@_4, F@_5, R1, F@_7, TrUserData) ->
+    S1 = #{repository => F@_1, name => F@_2, visibility => F@_4, retirement_reasons => lists_reverse(R1, TrUserData)},
     S2 = if F@_3 == '$undef' -> S1;
             true -> S1#{description => F@_3}
          end,
-    S3 = if F@_6 == '$undef' -> S2;
-            true -> S2#{advisory_min_severity => F@_6}
+    S3 = if F@_5 == '$undef' -> S2;
+            true -> S2#{advisory_min_severity => F@_5}
          end,
-    if F@_8 == '$undef' -> S3;
-       true -> S3#{cooldown => F@_8}
+    if F@_7 == '$undef' -> S3;
+       true -> S3#{cooldown => F@_7}
     end;
-dfp_read_field_def_Policy(Other, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) -> dg_read_field_def_Policy(Other, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData).
+dfp_read_field_def_Policy(Other, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> dg_read_field_def_Policy(Other, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData).
 
-dg_read_field_def_Policy(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) when N < 32 - 7 ->
-    dg_read_field_def_Policy(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-dg_read_field_def_Policy(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) ->
+dg_read_field_def_Policy(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) when N < 32 - 7 -> dg_read_field_def_Policy(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+dg_read_field_def_Policy(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) ->
     Key = X bsl N + Acc,
     case Key of
-        10 -> d_field_Policy_repository(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-        18 -> d_field_Policy_name(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-        26 -> d_field_Policy_description(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-        32 -> d_field_Policy_published_at(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-        40 -> d_field_Policy_visibility(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-        48 -> d_field_Policy_advisory_min_severity(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-        58 -> d_pfield_Policy_retirement_reasons(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-        56 -> d_field_Policy_retirement_reasons(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-        66 -> d_field_Policy_cooldown(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
+        10 -> d_field_Policy_repository(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+        18 -> d_field_Policy_name(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+        26 -> d_field_Policy_description(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+        40 -> d_field_Policy_visibility(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+        48 -> d_field_Policy_advisory_min_severity(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+        58 -> d_pfield_Policy_retirement_reasons(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+        56 -> d_field_Policy_retirement_reasons(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+        66 -> d_field_Policy_cooldown(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
         _ ->
             case Key band 7 of
-                0 -> skip_varint_Policy(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-                1 -> skip_64_Policy(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-                2 -> skip_length_delimited_Policy(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-                3 -> skip_group_Policy(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-                5 -> skip_32_Policy(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData)
+                0 -> skip_varint_Policy(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+                1 -> skip_64_Policy(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+                2 -> skip_length_delimited_Policy(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+                3 -> skip_group_Policy(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+                5 -> skip_32_Policy(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData)
             end
     end;
-dg_read_field_def_Policy(<<>>, 0, 0, _, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, R1, F@_8, TrUserData) ->
-    S1 = #{repository => F@_1, name => F@_2, published_at => F@_4, visibility => F@_5, retirement_reasons => lists_reverse(R1, TrUserData)},
+dg_read_field_def_Policy(<<>>, 0, 0, _, F@_1, F@_2, F@_3, F@_4, F@_5, R1, F@_7, TrUserData) ->
+    S1 = #{repository => F@_1, name => F@_2, visibility => F@_4, retirement_reasons => lists_reverse(R1, TrUserData)},
     S2 = if F@_3 == '$undef' -> S1;
             true -> S1#{description => F@_3}
          end,
-    S3 = if F@_6 == '$undef' -> S2;
-            true -> S2#{advisory_min_severity => F@_6}
+    S3 = if F@_5 == '$undef' -> S2;
+            true -> S2#{advisory_min_severity => F@_5}
          end,
-    if F@_8 == '$undef' -> S3;
-       true -> S3#{cooldown => F@_8}
+    if F@_7 == '$undef' -> S3;
+       true -> S3#{cooldown => F@_7}
     end.
 
-d_field_Policy_repository(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) when N < 57 ->
-    d_field_Policy_repository(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-d_field_Policy_repository(<<0:1, X:7, Rest/binary>>, N, Acc, F, _, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) ->
+d_field_Policy_repository(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) when N < 57 -> d_field_Policy_repository(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+d_field_Policy_repository(<<0:1, X:7, Rest/binary>>, N, Acc, F, _, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, Bytes2 = binary:copy(Bytes), {id(Bytes2, TrUserData), Rest2} end,
-    dfp_read_field_def_Policy(RestF, 0, 0, F, NewFValue, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData).
+    dfp_read_field_def_Policy(RestF, 0, 0, F, NewFValue, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData).
 
-d_field_Policy_name(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) when N < 57 -> d_field_Policy_name(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-d_field_Policy_name(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, _, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) ->
+d_field_Policy_name(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) when N < 57 -> d_field_Policy_name(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+d_field_Policy_name(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, _, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, Bytes2 = binary:copy(Bytes), {id(Bytes2, TrUserData), Rest2} end,
-    dfp_read_field_def_Policy(RestF, 0, 0, F, F@_1, NewFValue, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData).
+    dfp_read_field_def_Policy(RestF, 0, 0, F, F@_1, NewFValue, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData).
 
-d_field_Policy_description(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) when N < 57 ->
-    d_field_Policy_description(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-d_field_Policy_description(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, _, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) ->
+d_field_Policy_description(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) when N < 57 -> d_field_Policy_description(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+d_field_Policy_description(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, _, F@_4, F@_5, F@_6, F@_7, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, Bytes2 = binary:copy(Bytes), {id(Bytes2, TrUserData), Rest2} end,
-    dfp_read_field_def_Policy(RestF, 0, 0, F, F@_1, F@_2, NewFValue, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData).
+    dfp_read_field_def_Policy(RestF, 0, 0, F, F@_1, F@_2, NewFValue, F@_4, F@_5, F@_6, F@_7, TrUserData).
 
-d_field_Policy_published_at(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) when N < 57 ->
-    d_field_Policy_published_at(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-d_field_Policy_published_at(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, _, F@_5, F@_6, F@_7, F@_8, TrUserData) ->
-    {NewFValue, RestF} = {begin <<Res:64/signed-native>> = <<(X bsl N + Acc):64/unsigned-native>>, id(Res, TrUserData) end, Rest},
-    dfp_read_field_def_Policy(RestF, 0, 0, F, F@_1, F@_2, F@_3, NewFValue, F@_5, F@_6, F@_7, F@_8, TrUserData).
-
-d_field_Policy_visibility(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) when N < 57 ->
-    d_field_Policy_visibility(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-d_field_Policy_visibility(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, _, F@_6, F@_7, F@_8, TrUserData) ->
+d_field_Policy_visibility(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) when N < 57 -> d_field_Policy_visibility(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+d_field_Policy_visibility(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, _, F@_5, F@_6, F@_7, TrUserData) ->
     {NewFValue, RestF} = {id(d_enum_Visibility(begin <<Res:32/signed-native>> = <<(X bsl N + Acc):32/unsigned-native>>, id(Res, TrUserData) end), TrUserData), Rest},
-    dfp_read_field_def_Policy(RestF, 0, 0, F, F@_1, F@_2, F@_3, F@_4, NewFValue, F@_6, F@_7, F@_8, TrUserData).
+    dfp_read_field_def_Policy(RestF, 0, 0, F, F@_1, F@_2, F@_3, NewFValue, F@_5, F@_6, F@_7, TrUserData).
 
-d_field_Policy_advisory_min_severity(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) when N < 57 ->
-    d_field_Policy_advisory_min_severity(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-d_field_Policy_advisory_min_severity(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, _, F@_7, F@_8, TrUserData) ->
+d_field_Policy_advisory_min_severity(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) when N < 57 ->
+    d_field_Policy_advisory_min_severity(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+d_field_Policy_advisory_min_severity(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, _, F@_6, F@_7, TrUserData) ->
     {NewFValue, RestF} = {id((X bsl N + Acc) band 4294967295, TrUserData), Rest},
-    dfp_read_field_def_Policy(RestF, 0, 0, F, F@_1, F@_2, F@_3, F@_4, F@_5, NewFValue, F@_7, F@_8, TrUserData).
+    dfp_read_field_def_Policy(RestF, 0, 0, F, F@_1, F@_2, F@_3, F@_4, NewFValue, F@_6, F@_7, TrUserData).
 
-d_field_Policy_retirement_reasons(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) when N < 57 ->
-    d_field_Policy_retirement_reasons(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-d_field_Policy_retirement_reasons(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, Prev, F@_8, TrUserData) ->
+d_field_Policy_retirement_reasons(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) when N < 57 ->
+    d_field_Policy_retirement_reasons(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+d_field_Policy_retirement_reasons(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, Prev, F@_7, TrUserData) ->
     {NewFValue, RestF} = {id((X bsl N + Acc) band 4294967295, TrUserData), Rest},
-    dfp_read_field_def_Policy(RestF, 0, 0, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, cons(NewFValue, Prev, TrUserData), F@_8, TrUserData).
+    dfp_read_field_def_Policy(RestF, 0, 0, F, F@_1, F@_2, F@_3, F@_4, F@_5, cons(NewFValue, Prev, TrUserData), F@_7, TrUserData).
 
-d_pfield_Policy_retirement_reasons(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) when N < 57 ->
-    d_pfield_Policy_retirement_reasons(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-d_pfield_Policy_retirement_reasons(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, E, F@_8, TrUserData) ->
+d_pfield_Policy_retirement_reasons(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) when N < 57 ->
+    d_pfield_Policy_retirement_reasons(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+d_pfield_Policy_retirement_reasons(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, E, F@_7, TrUserData) ->
     Len = X bsl N + Acc,
     <<PackedBytes:Len/binary, Rest2/binary>> = Rest,
     NewSeq = d_packed_field_Policy_retirement_reasons(PackedBytes, 0, 0, F, E, TrUserData),
-    dfp_read_field_def_Policy(Rest2, 0, 0, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, NewSeq, F@_8, TrUserData).
+    dfp_read_field_def_Policy(Rest2, 0, 0, F, F@_1, F@_2, F@_3, F@_4, F@_5, NewSeq, F@_7, TrUserData).
 
 d_packed_field_Policy_retirement_reasons(<<1:1, X:7, Rest/binary>>, N, Acc, F, AccSeq, TrUserData) when N < 57 -> d_packed_field_Policy_retirement_reasons(Rest, N + 7, X bsl N + Acc, F, AccSeq, TrUserData);
 d_packed_field_Policy_retirement_reasons(<<0:1, X:7, Rest/binary>>, N, Acc, F, AccSeq, TrUserData) ->
@@ -378,29 +352,27 @@ d_packed_field_Policy_retirement_reasons(<<0:1, X:7, Rest/binary>>, N, Acc, F, A
     d_packed_field_Policy_retirement_reasons(RestF, 0, 0, F, [NewFValue | AccSeq], TrUserData);
 d_packed_field_Policy_retirement_reasons(<<>>, 0, 0, _, AccSeq, _) -> AccSeq.
 
-d_field_Policy_cooldown(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) when N < 57 ->
-    d_field_Policy_cooldown(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-d_field_Policy_cooldown(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, _, TrUserData) ->
+d_field_Policy_cooldown(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) when N < 57 -> d_field_Policy_cooldown(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+d_field_Policy_cooldown(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, _, TrUserData) ->
     {NewFValue, RestF} = begin Len = X bsl N + Acc, <<Bytes:Len/binary, Rest2/binary>> = Rest, Bytes2 = binary:copy(Bytes), {id(Bytes2, TrUserData), Rest2} end,
-    dfp_read_field_def_Policy(RestF, 0, 0, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, NewFValue, TrUserData).
+    dfp_read_field_def_Policy(RestF, 0, 0, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, NewFValue, TrUserData).
 
-skip_varint_Policy(<<1:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) -> skip_varint_Policy(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-skip_varint_Policy(<<0:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) -> dfp_read_field_def_Policy(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData).
+skip_varint_Policy(<<1:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> skip_varint_Policy(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+skip_varint_Policy(<<0:1, _:7, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> dfp_read_field_def_Policy(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData).
 
-skip_length_delimited_Policy(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) when N < 57 ->
-    skip_length_delimited_Policy(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData);
-skip_length_delimited_Policy(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) ->
+skip_length_delimited_Policy(<<1:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) when N < 57 -> skip_length_delimited_Policy(Rest, N + 7, X bsl N + Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+skip_length_delimited_Policy(<<0:1, X:7, Rest/binary>>, N, Acc, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) ->
     Length = X bsl N + Acc,
     <<_:Length/binary, Rest2/binary>> = Rest,
-    dfp_read_field_def_Policy(Rest2, 0, 0, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData).
+    dfp_read_field_def_Policy(Rest2, 0, 0, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData).
 
-skip_group_Policy(Bin, _, Z2, FNum, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) ->
+skip_group_Policy(Bin, _, Z2, FNum, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) ->
     {_, Rest} = read_group(Bin, FNum),
-    dfp_read_field_def_Policy(Rest, 0, Z2, FNum, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData).
+    dfp_read_field_def_Policy(Rest, 0, Z2, FNum, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData).
 
-skip_32_Policy(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) -> dfp_read_field_def_Policy(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData).
+skip_32_Policy(<<_:32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> dfp_read_field_def_Policy(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData).
 
-skip_64_Policy(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData) -> dfp_read_field_def_Policy(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, F@_8, TrUserData).
+skip_64_Policy(<<_:64, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> dfp_read_field_def_Policy(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData).
 
 d_enum_Visibility(0) -> 'VISIBILITY_PRIVATE';
 d_enum_Visibility(1) -> 'VISIBILITY_PUBLIC';
@@ -471,8 +443,8 @@ merge_msgs(Prev, New, MsgName, Opts) ->
     case MsgName of 'Policy' -> merge_msg_Policy(Prev, New, TrUserData) end.
 
 -compile({nowarn_unused_function,merge_msg_Policy/3}).
-merge_msg_Policy(#{} = PMsg, #{repository := NFrepository, name := NFname, published_at := NFpublished_at, visibility := NFvisibility} = NMsg, TrUserData) ->
-    S1 = #{repository => NFrepository, name => NFname, published_at => NFpublished_at, visibility => NFvisibility},
+merge_msg_Policy(#{} = PMsg, #{repository := NFrepository, name := NFname, visibility := NFvisibility} = NMsg, TrUserData) ->
+    S1 = #{repository => NFrepository, name => NFname, visibility => NFvisibility},
     S2 = case {PMsg, NMsg} of
              {_, #{description := NFdescription}} -> S1#{description => NFdescription};
              {#{description := PFdescription}, _} -> S1#{description => PFdescription};
@@ -507,36 +479,34 @@ verify_msg(Msg, MsgName, Opts) ->
 
 
 -compile({nowarn_unused_function,v_msg_Policy/3}).
-v_msg_Policy(#{repository := F1, name := F2, published_at := F4, visibility := F5} = M, Path, TrUserData) ->
+v_msg_Policy(#{repository := F1, name := F2, visibility := F4} = M, Path, TrUserData) ->
     v_type_string(F1, [repository | Path], TrUserData),
     v_type_string(F2, [name | Path], TrUserData),
     case M of
         #{description := F3} -> v_type_string(F3, [description | Path], TrUserData);
         _ -> ok
     end,
-    v_type_int64(F4, [published_at | Path], TrUserData),
-    v_enum_Visibility(F5, [visibility | Path], TrUserData),
+    v_enum_Visibility(F4, [visibility | Path], TrUserData),
     case M of
-        #{advisory_min_severity := F6} -> v_type_uint32(F6, [advisory_min_severity | Path], TrUserData);
+        #{advisory_min_severity := F5} -> v_type_uint32(F5, [advisory_min_severity | Path], TrUserData);
         _ -> ok
     end,
     case M of
-        #{retirement_reasons := F7} ->
-            if is_list(F7) ->
-                   _ = [v_type_uint32(Elem, [retirement_reasons | Path], TrUserData) || Elem <- F7],
+        #{retirement_reasons := F6} ->
+            if is_list(F6) ->
+                   _ = [v_type_uint32(Elem, [retirement_reasons | Path], TrUserData) || Elem <- F6],
                    ok;
-               true -> mk_type_error({invalid_list_of, uint32}, F7, [retirement_reasons | Path])
+               true -> mk_type_error({invalid_list_of, uint32}, F6, [retirement_reasons | Path])
             end;
         _ -> ok
     end,
     case M of
-        #{cooldown := F8} -> v_type_string(F8, [cooldown | Path], TrUserData);
+        #{cooldown := F7} -> v_type_string(F7, [cooldown | Path], TrUserData);
         _ -> ok
     end,
     lists:foreach(fun (repository) -> ok;
                       (name) -> ok;
                       (description) -> ok;
-                      (published_at) -> ok;
                       (visibility) -> ok;
                       (advisory_min_severity) -> ok;
                       (retirement_reasons) -> ok;
@@ -545,7 +515,7 @@ v_msg_Policy(#{repository := F1, name := F2, published_at := F4, visibility := F
                   end,
                   maps:keys(M)),
     ok;
-v_msg_Policy(M, Path, _TrUserData) when is_map(M) -> mk_type_error({missing_fields, [repository, name, published_at, visibility] -- maps:keys(M), 'Policy'}, M, Path);
+v_msg_Policy(M, Path, _TrUserData) when is_map(M) -> mk_type_error({missing_fields, [repository, name, visibility] -- maps:keys(M), 'Policy'}, M, Path);
 v_msg_Policy(X, Path, _TrUserData) -> mk_type_error({expected_msg, 'Policy'}, X, Path).
 
 -compile({nowarn_unused_function,v_enum_Visibility/3}).
@@ -553,11 +523,6 @@ v_enum_Visibility('VISIBILITY_PRIVATE', _Path, _TrUserData) -> ok;
 v_enum_Visibility('VISIBILITY_PUBLIC', _Path, _TrUserData) -> ok;
 v_enum_Visibility(V, _Path, _TrUserData) when -2147483648 =< V, V =< 2147483647, is_integer(V) -> ok;
 v_enum_Visibility(X, Path, _TrUserData) -> mk_type_error({invalid_enum, 'Visibility'}, X, Path).
-
--compile({nowarn_unused_function,v_type_int64/3}).
-v_type_int64(N, _Path, _TrUserData) when is_integer(N), -9223372036854775808 =< N, N =< 9223372036854775807 -> ok;
-v_type_int64(N, Path, _TrUserData) when is_integer(N) -> mk_type_error({value_out_of_range, int64, signed, 64}, N, Path);
-v_type_int64(X, Path, _TrUserData) -> mk_type_error({bad_integer, int64, signed, 64}, X, Path).
 
 -compile({nowarn_unused_function,v_type_uint32/3}).
 v_type_uint32(N, _Path, _TrUserData) when is_integer(N), 0 =< N, N =< 4294967295 -> ok;
@@ -616,11 +581,10 @@ get_msg_defs() ->
       [#{name => repository, fnum => 1, rnum => 2, type => string, occurrence => required, opts => []},
        #{name => name, fnum => 2, rnum => 3, type => string, occurrence => required, opts => []},
        #{name => description, fnum => 3, rnum => 4, type => string, occurrence => optional, opts => []},
-       #{name => published_at, fnum => 4, rnum => 5, type => int64, occurrence => required, opts => []},
-       #{name => visibility, fnum => 5, rnum => 6, type => {enum, 'Visibility'}, occurrence => required, opts => []},
-       #{name => advisory_min_severity, fnum => 6, rnum => 7, type => uint32, occurrence => optional, opts => []},
-       #{name => retirement_reasons, fnum => 7, rnum => 8, type => uint32, occurrence => repeated, opts => [packed]},
-       #{name => cooldown, fnum => 8, rnum => 9, type => string, occurrence => optional, opts => []}]}].
+       #{name => visibility, fnum => 5, rnum => 5, type => {enum, 'Visibility'}, occurrence => required, opts => []},
+       #{name => advisory_min_severity, fnum => 6, rnum => 6, type => uint32, occurrence => optional, opts => []},
+       #{name => retirement_reasons, fnum => 7, rnum => 7, type => uint32, occurrence => repeated, opts => [packed]},
+       #{name => cooldown, fnum => 8, rnum => 8, type => string, occurrence => optional, opts => []}]}].
 
 
 get_msg_names() -> ['Policy'].
@@ -653,11 +617,10 @@ find_msg_def('Policy') ->
     [#{name => repository, fnum => 1, rnum => 2, type => string, occurrence => required, opts => []},
      #{name => name, fnum => 2, rnum => 3, type => string, occurrence => required, opts => []},
      #{name => description, fnum => 3, rnum => 4, type => string, occurrence => optional, opts => []},
-     #{name => published_at, fnum => 4, rnum => 5, type => int64, occurrence => required, opts => []},
-     #{name => visibility, fnum => 5, rnum => 6, type => {enum, 'Visibility'}, occurrence => required, opts => []},
-     #{name => advisory_min_severity, fnum => 6, rnum => 7, type => uint32, occurrence => optional, opts => []},
-     #{name => retirement_reasons, fnum => 7, rnum => 8, type => uint32, occurrence => repeated, opts => [packed]},
-     #{name => cooldown, fnum => 8, rnum => 9, type => string, occurrence => optional, opts => []}];
+     #{name => visibility, fnum => 5, rnum => 5, type => {enum, 'Visibility'}, occurrence => required, opts => []},
+     #{name => advisory_min_severity, fnum => 6, rnum => 6, type => uint32, occurrence => optional, opts => []},
+     #{name => retirement_reasons, fnum => 7, rnum => 7, type => uint32, occurrence => repeated, opts => [packed]},
+     #{name => cooldown, fnum => 8, rnum => 8, type => string, occurrence => optional, opts => []}];
 find_msg_def(_) -> error.
 
 

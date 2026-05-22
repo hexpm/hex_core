@@ -143,7 +143,7 @@ decode_policy(Payload, no_verify, no_verify) ->
     {ok, hex_pb_policy:decode_msg(Payload, 'Policy')};
 decode_policy(Payload, Repository, Name) ->
     case hex_pb_policy:decode_msg(Payload, 'Policy') of
-        #{repository := Repository, name := Name, published_at := _} = Result ->
+        #{repository := Repository, name := Name, visibility := _} = Result ->
             {ok, Result};
         _ ->
             {error, bad_repo_name}

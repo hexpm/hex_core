@@ -11,10 +11,9 @@ message Policy {
   // Optional, free-form description (admin-set, surfaced in CLI/UI)
   optional string description = 3;
 
-  // Resource generation timestamp, seconds since unix epoch.
-  // Clients use this to compute staleness when a fetch fails and the
-  // last-known-good cached payload is loaded instead.
-  required int64 published_at = 4;
+  // Field 4 was Policy.published_at — removed before release.
+  reserved 4;
+  reserved "published_at";
 
   // Whether the policy is publicly readable or restricted to org members.
   // Read at the edge to decide whether to enforce auth on the fetch.
