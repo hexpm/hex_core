@@ -58,10 +58,10 @@
       #{repository              => unicode:chardata(), % = 1, required
         name                    => unicode:chardata(), % = 2, required
         description             => unicode:chardata(), % = 3, optional
-        visibility              => 'VISIBILITY_PRIVATE' | 'VISIBILITY_PUBLIC' | integer(), % = 5, required, enum Visibility
-        advisory_min_severity   => non_neg_integer(), % = 6, optional, 32 bits
-        retirement_reasons      => [non_neg_integer()], % = 7, repeated, 32 bits
-        cooldown                => unicode:chardata() % = 8, optional
+        visibility              => 'VISIBILITY_PRIVATE' | 'VISIBILITY_PUBLIC' | integer(), % = 4, required, enum Visibility
+        advisory_min_severity   => non_neg_integer(), % = 5, optional, 32 bits
+        retirement_reasons      => [non_neg_integer()], % = 6, repeated, 32 bits
+        cooldown                => unicode:chardata() % = 7, optional
        }.
 
 -export_type(['Policy'/0]).
@@ -89,9 +89,9 @@ encode_msg_Policy(#{repository := F1, name := F2, visibility := F4} = M, Bin, Tr
              #{description := F3} -> begin TrF3 = id(F3, TrUserData), e_type_string(TrF3, <<B2/binary, 26>>, TrUserData) end;
              _ -> B2
          end,
-    B4 = begin TrF4 = id(F4, TrUserData), e_enum_Visibility(TrF4, <<B3/binary, 40>>, TrUserData) end,
+    B4 = begin TrF4 = id(F4, TrUserData), e_enum_Visibility(TrF4, <<B3/binary, 32>>, TrUserData) end,
     B5 = case M of
-             #{advisory_min_severity := F5} -> begin TrF5 = id(F5, TrUserData), e_varint(TrF5, <<B4/binary, 48>>, TrUserData) end;
+             #{advisory_min_severity := F5} -> begin TrF5 = id(F5, TrUserData), e_varint(TrF5, <<B4/binary, 40>>, TrUserData) end;
              _ -> B4
          end,
     B6 = case M of
@@ -103,13 +103,13 @@ encode_msg_Policy(#{repository := F1, name := F2, visibility := F4} = M, Bin, Tr
              _ -> B5
          end,
     case M of
-        #{cooldown := F7} -> begin TrF7 = id(F7, TrUserData), e_type_string(TrF7, <<B6/binary, 66>>, TrUserData) end;
+        #{cooldown := F7} -> begin TrF7 = id(F7, TrUserData), e_type_string(TrF7, <<B6/binary, 58>>, TrUserData) end;
         _ -> B6
     end.
 
 e_field_Policy_retirement_reasons(Elems, Bin, TrUserData) when Elems =/= [] ->
     SubBin = e_pfield_Policy_retirement_reasons(Elems, <<>>, TrUserData),
-    Bin2 = <<Bin/binary, 58>>,
+    Bin2 = <<Bin/binary, 50>>,
     Bin3 = e_varint(byte_size(SubBin), Bin2),
     <<Bin3/binary, SubBin/binary>>;
 e_field_Policy_retirement_reasons([], Bin, _TrUserData) -> Bin.
@@ -255,11 +255,11 @@ decode_msg_Policy(Bin, TrUserData) ->
 dfp_read_field_def_Policy(<<10, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> d_field_Policy_repository(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
 dfp_read_field_def_Policy(<<18, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> d_field_Policy_name(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
 dfp_read_field_def_Policy(<<26, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> d_field_Policy_description(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
-dfp_read_field_def_Policy(<<40, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> d_field_Policy_visibility(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
-dfp_read_field_def_Policy(<<48, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> d_field_Policy_advisory_min_severity(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
-dfp_read_field_def_Policy(<<58, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> d_pfield_Policy_retirement_reasons(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
-dfp_read_field_def_Policy(<<56, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> d_field_Policy_retirement_reasons(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
-dfp_read_field_def_Policy(<<66, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> d_field_Policy_cooldown(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+dfp_read_field_def_Policy(<<32, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> d_field_Policy_visibility(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+dfp_read_field_def_Policy(<<40, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> d_field_Policy_advisory_min_severity(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+dfp_read_field_def_Policy(<<50, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> d_pfield_Policy_retirement_reasons(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+dfp_read_field_def_Policy(<<48, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> d_field_Policy_retirement_reasons(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+dfp_read_field_def_Policy(<<58, Rest/binary>>, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData) -> d_field_Policy_cooldown(Rest, Z1, Z2, F, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
 dfp_read_field_def_Policy(<<>>, 0, 0, _, F@_1, F@_2, F@_3, F@_4, F@_5, R1, F@_7, TrUserData) ->
     S1 = #{repository => F@_1, name => F@_2, visibility => F@_4, retirement_reasons => lists_reverse(R1, TrUserData)},
     S2 = if F@_3 == '$undef' -> S1;
@@ -280,11 +280,11 @@ dg_read_field_def_Policy(<<0:1, X:7, Rest/binary>>, N, Acc, _, F@_1, F@_2, F@_3,
         10 -> d_field_Policy_repository(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
         18 -> d_field_Policy_name(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
         26 -> d_field_Policy_description(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
-        40 -> d_field_Policy_visibility(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
-        48 -> d_field_Policy_advisory_min_severity(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
-        58 -> d_pfield_Policy_retirement_reasons(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
-        56 -> d_field_Policy_retirement_reasons(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
-        66 -> d_field_Policy_cooldown(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+        32 -> d_field_Policy_visibility(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+        40 -> d_field_Policy_advisory_min_severity(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+        50 -> d_pfield_Policy_retirement_reasons(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+        48 -> d_field_Policy_retirement_reasons(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
+        58 -> d_field_Policy_cooldown(Rest, 0, 0, 0, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
         _ ->
             case Key band 7 of
                 0 -> skip_varint_Policy(Rest, 0, 0, Key bsr 3, F@_1, F@_2, F@_3, F@_4, F@_5, F@_6, F@_7, TrUserData);
@@ -581,10 +581,10 @@ get_msg_defs() ->
       [#{name => repository, fnum => 1, rnum => 2, type => string, occurrence => required, opts => []},
        #{name => name, fnum => 2, rnum => 3, type => string, occurrence => required, opts => []},
        #{name => description, fnum => 3, rnum => 4, type => string, occurrence => optional, opts => []},
-       #{name => visibility, fnum => 5, rnum => 5, type => {enum, 'Visibility'}, occurrence => required, opts => []},
-       #{name => advisory_min_severity, fnum => 6, rnum => 6, type => uint32, occurrence => optional, opts => []},
-       #{name => retirement_reasons, fnum => 7, rnum => 7, type => uint32, occurrence => repeated, opts => [packed]},
-       #{name => cooldown, fnum => 8, rnum => 8, type => string, occurrence => optional, opts => []}]}].
+       #{name => visibility, fnum => 4, rnum => 5, type => {enum, 'Visibility'}, occurrence => required, opts => []},
+       #{name => advisory_min_severity, fnum => 5, rnum => 6, type => uint32, occurrence => optional, opts => []},
+       #{name => retirement_reasons, fnum => 6, rnum => 7, type => uint32, occurrence => repeated, opts => [packed]},
+       #{name => cooldown, fnum => 7, rnum => 8, type => string, occurrence => optional, opts => []}]}].
 
 
 get_msg_names() -> ['Policy'].
@@ -617,10 +617,10 @@ find_msg_def('Policy') ->
     [#{name => repository, fnum => 1, rnum => 2, type => string, occurrence => required, opts => []},
      #{name => name, fnum => 2, rnum => 3, type => string, occurrence => required, opts => []},
      #{name => description, fnum => 3, rnum => 4, type => string, occurrence => optional, opts => []},
-     #{name => visibility, fnum => 5, rnum => 5, type => {enum, 'Visibility'}, occurrence => required, opts => []},
-     #{name => advisory_min_severity, fnum => 6, rnum => 6, type => uint32, occurrence => optional, opts => []},
-     #{name => retirement_reasons, fnum => 7, rnum => 7, type => uint32, occurrence => repeated, opts => [packed]},
-     #{name => cooldown, fnum => 8, rnum => 8, type => string, occurrence => optional, opts => []}];
+     #{name => visibility, fnum => 4, rnum => 5, type => {enum, 'Visibility'}, occurrence => required, opts => []},
+     #{name => advisory_min_severity, fnum => 5, rnum => 6, type => uint32, occurrence => optional, opts => []},
+     #{name => retirement_reasons, fnum => 6, rnum => 7, type => uint32, occurrence => repeated, opts => [packed]},
+     #{name => cooldown, fnum => 7, rnum => 8, type => string, occurrence => optional, opts => []}];
 find_msg_def(_) -> error.
 
 

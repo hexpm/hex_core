@@ -11,32 +11,28 @@ message Policy {
   // Optional, free-form description (admin-set, surfaced in CLI/UI)
   optional string description = 3;
 
-  // Field 4 was Policy.published_at — removed before release.
-  reserved 4;
-  reserved "published_at";
-
   // Whether the policy is publicly readable or restricted to org members.
   // Read at the edge to decide whether to enforce auth on the fetch.
   // Adding new Visibility values is a breaking change — old clients will
   // treat unknown values as PRIVATE per the fail-closed rule.
-  required Visibility visibility = 5;
+  required Visibility visibility = 4;
 
   // Categorical advisory rule. If set, deny any release whose maximum
   // advisory severity is at least this value. Values map to AdvisorySeverity
   // in package.proto (SEVERITY_NONE..SEVERITY_CRITICAL = 0..4).
   // Unset = rule disabled.
-  optional uint32 advisory_min_severity = 6;
+  optional uint32 advisory_min_severity = 5;
 
   // Categorical retirement rule. If non-empty, deny any release retired with
   // a reason in this set. Values map to RetirementReason in package.proto
   // (RETIRED_OTHER..RETIRED_RENAMED = 0..4). Empty = rule disabled.
-  repeated uint32 retirement_reasons = 7 [packed=true];
+  repeated uint32 retirement_reasons = 6 [packed=true];
 
   // Optional minimum release age for every package version governed by this
   // policy. Same duration grammar as the Hex cooldown config ("7d", "2w",
   // "1mo", "0"). Unset or "0" means no policy cooldown. If multiple active
   // policies declare cooldowns, the effective cooldown is the strictest one.
-  optional string cooldown = 8;
+  optional string cooldown = 7;
 }
 
 enum Visibility {
