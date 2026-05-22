@@ -110,10 +110,7 @@ get_package(Config, Name) when is_binary(Name) and is_map(Config) ->
 get_policy(Config, Name) when is_binary(Name) and is_map(Config) ->
     case maps:get(repo_organization, Config, undefined) of
         undefined ->
-            error(
-                {missing_repo_organization,
-                    "hex_repo:get_policy/2 requires repo_organization to be set"}
-            );
+            {error, missing_repo_organization};
         Org when is_binary(Org) ->
             Verify = maps:get(repo_verify_origin, Config, true),
             Decoder = fun(Data) ->
