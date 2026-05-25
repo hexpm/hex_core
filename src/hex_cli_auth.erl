@@ -301,6 +301,9 @@ with_repo(Callbacks, BaseConfig, Fun, Opts) ->
         no_auth ->
             %% auth_inline is false, return error
             {error, {auth_error, no_credentials}};
+        {error, {auth_error, token_refresh_failed}} when Optional =:= true ->
+            %% Token refresh failed but auth is optional, fall back to no credentials
+            execute_optional_with_retry(Callbacks, BaseConfig, Fun, Opts);
         {error, _} = Error ->
             Error
     end.
@@ -436,11 +439,11 @@ resolve_repo_auth(_Callbacks, #{repo_key := RepoKey}) when is_binary(RepoKey) ->
 resolve_repo_auth(Callbacks, Config) ->
     RepoName = repo_name(Config),
     global:trans(
-        {{?MODULE, repo}, RepoName},
+        {{?MODULE, repo, RepoName}, self()},
         fun() ->
             do_resolve_repo_auth(Callbacks, RepoName, RepoName, Config)
         end,
-        [],
+        [node()],
         infinity
     ).
 
@@ -548,7 +551,7 @@ resolve_oauth_token_with_context(Callbacks, Config) ->
         fun() ->
             do_resolve_oauth_token_with_context(Callbacks, Config)
         end,
-        [],
+        [node()],
         infinity
     ).
 

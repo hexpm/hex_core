@@ -348,7 +348,7 @@ revoke_token(Config, ClientId, Token) ->
 %% @private
 %% Open a URL in the default browser.
 %% Uses platform-specific commands: open (macOS), xdg-open (Linux), start (Windows).
--spec open_browser(binary()) -> ok.
+-spec open_browser(binary()) -> ok | {error, browser_not_found}.
 open_browser(Url) when is_binary(Url) ->
     ok = ensure_valid_http_url(Url),
     UrlStr = binary_to_list(Url),
@@ -361,9 +361,13 @@ open_browser(Url) when is_binary(Url) ->
             {win32, _} ->
                 {"cmd", ["/c", "start", "", UrlStr]}
         end,
-    Port = open_port({spawn_executable, os:find_executable(Cmd)}, [{args, Args}]),
-    port_close(Port),
-    ok.
+    case os:find_executable(Cmd) of
+        false ->
+            {error, browser_not_found};
+        Executable ->
+            open_port({spawn_executable, Executable}, [{args, Args}]),
+            ok
+    end.
 
 %% @private
 %% Validates that a URL uses http:// or https:// scheme.

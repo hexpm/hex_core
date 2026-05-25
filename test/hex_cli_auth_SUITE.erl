@@ -65,7 +65,11 @@ all() ->
 
         %% with_repo tests - wrapper behavior
         with_repo_optional_test,
-        with_repo_trusted_with_auth_test
+        with_repo_trusted_with_auth_test,
+        with_repo_optional_token_refresh_failed_test,
+
+        %% concurrency tests
+        resolve_oauth_token_concurrent_refresh_serialized_test
     ].
 
 %%====================================================================
@@ -818,6 +822,102 @@ with_repo_trusted_with_auth_test(_Config) ->
         fun(Config) -> maps:get(repo_key, Config) end
     ),
     ?assertEqual(<<"my_auth_key">>, Result),
+    ok.
+
+with_repo_optional_token_refresh_failed_test(_Config) ->
+    %% When resolve_repo_auth fails with token_refresh_failed and optional is true,
+    %% fall back to executing the request without credentials.
+    Now = erlang:system_time(second),
+    Callbacks = make_callbacks(#{
+        oauth_tokens =>
+            {ok, #{
+                access_token => <<"expired_token">>,
+                %% Expired with no refresh_token => token_refresh_failed immediately
+                expires_at => Now - 100
+            }}
+    }),
+
+    Result = hex_cli_auth:with_repo(
+        Callbacks,
+        ?CONFIG#{trusted => true},
+        fun(Config) -> maps:get(repo_key, Config, undefined) end
+    ),
+    ?assertEqual(undefined, Result),
+    ok.
+
+%%====================================================================
+%% Test Cases - Concurrency
+%%====================================================================
+
+resolve_oauth_token_concurrent_refresh_serialized_test(_Config) ->
+    %% Two concurrent calls to resolve_api_auth with an expired token should
+    %% serialize: only one refresh happens; the second waits and then re-reads
+    %% the (now-fresh) token rather than doing a second refresh.
+    Now = erlang:system_time(second),
+    Self = self(),
+    RefreshCount = counters:new(1, [atomics]),
+
+    %% get_oauth_tokens is called by each process; we simulate the token
+    %% being updated after the first refresh by tracking call count.
+    GetOAuthTokensFn = fun() ->
+        Count = counters:get(RefreshCount, 1),
+        case Count of
+            0 ->
+                %% Token is expired — both processes will see this initially
+                {ok, #{
+                    access_token => <<"expired_token">>,
+                    refresh_token => <<"refresh_token">>,
+                    expires_at => Now - 100
+                }};
+            _ ->
+                %% After the first refresh, return a fresh token
+                {ok, #{
+                    access_token => <<"new_token">>,
+                    refresh_token => <<"new_refresh_token">>,
+                    expires_at => Now + 3600
+                }}
+        end
+    end,
+
+    Callbacks = make_callbacks(#{
+        get_oauth_tokens => GetOAuthTokensFn,
+        persist_oauth_tokens => fun(_Scope, _Access, _Refresh, _Expires) ->
+            %% Simulate a slow refresh so the second process must wait
+            timer:sleep(100),
+            counters:add(RefreshCount, 1, 1),
+            Self ! refreshed,
+            ok
+        end
+    }),
+
+    %% Spawn two concurrent callers
+    spawn(fun() ->
+        Result = hex_cli_auth:resolve_api_auth(Callbacks, read, ?CONFIG),
+        Self ! {result1, Result}
+    end),
+    spawn(fun() ->
+        Result = hex_cli_auth:resolve_api_auth(Callbacks, read, ?CONFIG),
+        Self ! {result2, Result}
+    end),
+
+    receive
+        {result1, R1} -> ok
+    end,
+    receive
+        {result2, R2} -> ok
+    end,
+
+    %% Both should succeed with a bearer token
+    ?assertMatch({ok, <<"Bearer ", _/binary>>, _}, R1),
+    ?assertMatch({ok, <<"Bearer ", _/binary>>, _}, R2),
+
+    %% The token refresh should have happened exactly once
+    ?assertEqual(1, counters:get(RefreshCount, 1)),
+
+    receive
+        refreshed -> ok
+    after 0 -> ok
+    end,
     ok.
 
 %%====================================================================
