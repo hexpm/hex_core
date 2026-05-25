@@ -135,6 +135,7 @@
 
 -type auth_error() ::
     {auth_error, no_credentials}
+    | {auth_error, auth_declined}
     | {auth_error, otp_cancelled}
     | {auth_error, otp_max_retries}
     | {auth_error, token_refresh_failed}
@@ -221,7 +222,7 @@ with_api(Callbacks, Permission, BaseConfig, Fun, Opts) ->
     case resolve_api_auth(Callbacks, Permission, BaseConfig) of
         {ok, ApiKey, AuthContext} ->
             Config = BaseConfig#{api_key => ApiKey},
-            execute_with_retry(Callbacks, Config, Fun, AuthContext, 0, undefined);
+            execute_with_retry(Callbacks, Config, Fun, AuthContext, 0, undefined, Opts);
         {error, no_auth} when Optional =:= true ->
             %% Auth is optional, try without credentials first
             execute_optional_with_retry(Callbacks, BaseConfig, Fun, Opts);
@@ -323,12 +324,12 @@ maybe_authenticate_and_retry(Callbacks, BaseConfig, Fun, Reason, Opts) ->
                     BearerToken = <<"Bearer ", Token/binary>>,
                     Config = BaseConfig#{api_key => BearerToken},
                     AuthContext = #{source => oauth, has_refresh_token => true},
-                    execute_with_retry(Callbacks, Config, Fun, AuthContext, 0, undefined);
+                    execute_with_retry(Callbacks, Config, Fun, AuthContext, 0, undefined, Opts);
                 {error, _} = Error ->
                     Error
             end;
         false ->
-            {error, {auth_error, no_credentials}}
+            {error, {auth_error, auth_declined}}
     end.
 
 %% @private
@@ -601,11 +602,11 @@ maybe_refresh_token_with_context(_Callbacks, _Config, _Tokens) ->
 %%====================================================================
 
 %% @private
-execute_with_retry(Callbacks, Config, Fun, AuthContext, OtpRetries, LastOtpError) ->
+execute_with_retry(Callbacks, Config, Fun, AuthContext, OtpRetries, LastOtpError, Opts) ->
     case Fun(Config) of
         {error, otp_required} ->
             handle_otp_retry(
-                Callbacks, Config, Fun, AuthContext, OtpRetries, <<"Enter OTP code:">>
+                Callbacks, Config, Fun, AuthContext, OtpRetries, <<"Enter OTP code:">>, Opts
             );
         {error, invalid_totp} ->
             handle_otp_retry(
@@ -614,13 +615,14 @@ execute_with_retry(Callbacks, Config, Fun, AuthContext, OtpRetries, LastOtpError
                 Fun,
                 AuthContext,
                 OtpRetries,
-                <<"Invalid OTP code. Please try again:">>
+                <<"Invalid OTP code. Please try again:">>,
+                Opts
             );
         {ok, {401, Headers, _Body}} = Response ->
             case detect_auth_error(Headers) of
                 otp_required ->
                     handle_otp_retry(
-                        Callbacks, Config, Fun, AuthContext, OtpRetries, <<"Enter OTP code:">>
+                        Callbacks, Config, Fun, AuthContext, OtpRetries, <<"Enter OTP code:">>, Opts
                     );
                 invalid_totp ->
                     Msg =
@@ -628,9 +630,9 @@ execute_with_retry(Callbacks, Config, Fun, AuthContext, OtpRetries, LastOtpError
                             invalid_totp -> <<"Invalid OTP code. Please try again:">>;
                             _ -> <<"Enter OTP code:">>
                         end,
-                    handle_otp_retry(Callbacks, Config, Fun, AuthContext, OtpRetries, Msg);
+                    handle_otp_retry(Callbacks, Config, Fun, AuthContext, OtpRetries, Msg, Opts);
                 token_expired ->
-                    handle_token_refresh_retry(Callbacks, Config, Fun, AuthContext);
+                    handle_token_refresh_retry(Callbacks, Config, Fun, AuthContext, Opts);
                 none ->
                     Response
             end;
@@ -639,33 +641,47 @@ execute_with_retry(Callbacks, Config, Fun, AuthContext, OtpRetries, LastOtpError
     end.
 
 %% @private
-handle_otp_retry(_Callbacks, _Config, _Fun, _AuthContext, OtpRetries, _Message) when
+handle_otp_retry(_Callbacks, _Config, _Fun, _AuthContext, OtpRetries, _Message, _Opts) when
     OtpRetries >= ?MAX_OTP_RETRIES
 ->
     {error, {auth_error, otp_max_retries}};
-handle_otp_retry(Callbacks, Config, Fun, AuthContext, OtpRetries, Message) ->
+handle_otp_retry(Callbacks, Config, Fun, AuthContext, OtpRetries, Message, Opts) ->
     case call_callback(Callbacks, prompt_otp, [Message]) of
         {ok, OtpCode} ->
             NewConfig = Config#{api_otp => OtpCode},
             execute_with_retry(
-                Callbacks, NewConfig, Fun, AuthContext, OtpRetries + 1, invalid_totp
+                Callbacks, NewConfig, Fun, AuthContext, OtpRetries + 1, invalid_totp, Opts
             );
         cancelled ->
             {error, {auth_error, otp_cancelled}}
     end.
 
 %% @private
-handle_token_refresh_retry(Callbacks, Config, Fun, AuthContext) ->
+handle_token_refresh_retry(Callbacks, Config, Fun, AuthContext, Opts) ->
     %% Only attempt refresh if we have a refresh token
     case maps:get(has_refresh_token, AuthContext, false) of
         true ->
             case resolve_oauth_token_with_context(Callbacks, Config) of
                 {ok, NewBearerToken, NewAuthContext} ->
                     NewConfig = Config#{api_key => NewBearerToken},
-                    execute_with_retry(Callbacks, NewConfig, Fun, NewAuthContext, 0, undefined);
+                    execute_with_retry(
+                        Callbacks, NewConfig, Fun, NewAuthContext, 0, undefined, Opts
+                    );
                 {error, _} ->
-                    {error, {auth_error, token_refresh_failed}}
+                    maybe_reauthenticate(Callbacks, Config, Fun, Opts)
             end;
+        false ->
+            maybe_reauthenticate(Callbacks, Config, Fun, Opts)
+    end.
+
+%% @private
+%% After token refresh failure, prompt the user to re-authenticate via device auth
+%% (only when auth_inline is true). Mirrors Hex.OAuth.reauthenticate/1.
+maybe_reauthenticate(Callbacks, Config, Fun, Opts) ->
+    AuthInline = proplists:get_value(auth_inline, Opts, true),
+    case AuthInline of
+        true ->
+            maybe_authenticate_and_retry(Callbacks, Config, Fun, token_refresh_failed, Opts);
         false ->
             {error, {auth_error, token_refresh_failed}}
     end.

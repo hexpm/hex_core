@@ -53,6 +53,11 @@ all() ->
         %% with_api tests - token refresh on 401
         with_api_token_expired_refresh_test,
 
+        %% with_api tests - reauthentication after refresh failure
+        with_api_token_expired_reauth_yes_test,
+        with_api_token_expired_reauth_no_test,
+        with_api_token_expired_reauth_inline_false_test,
+
         %% with_api tests - wrapper behavior
         with_api_optional_test,
         with_api_auth_inline_test,
@@ -554,6 +559,159 @@ with_api_token_expired_refresh_test(_Config) ->
     after 100 ->
         error(token_not_persisted)
     end,
+    ok.
+
+%%====================================================================
+%% Test Cases - with_api reauthentication after refresh failure
+%%====================================================================
+
+with_api_token_expired_reauth_yes_test(_Config) ->
+    %% When token refresh fails and user agrees to re-authenticate,
+    %% device auth flow is triggered and the operation retried.
+    Self = self(),
+    Now = erlang:system_time(second),
+    Callbacks = make_callbacks(#{
+        oauth_tokens =>
+            {ok, #{
+                access_token => <<"initial_token">>,
+                %% No refresh_token; token is valid so it's used, but server
+                %% returns token_expired 401, triggering the reauth path
+                expires_at => Now + 3600
+            }},
+        should_authenticate => fun(token_refresh_failed) ->
+            Self ! prompted,
+            true
+        end,
+        persist_oauth_tokens => fun(Scope, Access, Refresh, Expires) ->
+            Self ! {persisted, Scope, Access, Refresh, Expires},
+            ok
+        end
+    }),
+
+    %% Queue token poll success response (device authorization response is handled
+    %% automatically by hex_http_test; only the poll response needs to be queued)
+    AccessToken = <<"new_device_token">>,
+    RefreshToken = <<"new_refresh_token">>,
+    SuccessPayload = #{
+        <<"access_token">> => AccessToken,
+        <<"refresh_token">> => RefreshToken,
+        <<"token_type">> => <<"Bearer">>,
+        <<"expires_in">> => 3600
+    },
+    Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+    Self !
+        {hex_http_test, oauth_device_response,
+            {ok, {200, Headers, term_to_binary(SuccessPayload)}}},
+
+    Result = hex_cli_auth:with_api(
+        Callbacks,
+        write,
+        ?CONFIG,
+        fun(Config) ->
+            ApiKey = maps:get(api_key, Config),
+            case ApiKey of
+                <<"Bearer initial_token">> ->
+                    {ok,
+                        {401,
+                            #{
+                                <<"www-authenticate">> =>
+                                    <<"Bearer realm=\"hex\", error=\"token_expired\"">>
+                            },
+                            <<>>}};
+                _ ->
+                    {ok, {200, #{}, ApiKey}}
+            end
+        end,
+        [{oauth_open_browser, false}]
+    ),
+    ?assertEqual({ok, {200, #{}, <<"Bearer new_device_token">>}}, Result),
+
+    receive
+        prompted -> ok
+    after 100 ->
+        error(should_authenticate_not_called)
+    end,
+
+    receive
+        {persisted, global, AccessToken, RefreshToken, _} -> ok
+    after 100 ->
+        error(token_not_persisted)
+    end,
+    ok.
+
+with_api_token_expired_reauth_no_test(_Config) ->
+    %% When token refresh fails and user declines to re-authenticate,
+    %% returns auth_declined error.
+    Self = self(),
+    Now = erlang:system_time(second),
+    Callbacks = make_callbacks(#{
+        oauth_tokens =>
+            {ok, #{
+                access_token => <<"initial_token">>,
+                %% No refresh_token; token is valid so it's used, but server
+                %% returns token_expired 401, triggering the reauth path
+                expires_at => Now + 3600
+            }},
+        should_authenticate => fun(token_refresh_failed) ->
+            Self ! prompted,
+            false
+        end
+    }),
+
+    Result = hex_cli_auth:with_api(
+        Callbacks,
+        write,
+        ?CONFIG,
+        fun(_) ->
+            {ok,
+                {401,
+                    #{
+                        <<"www-authenticate">> =>
+                            <<"Bearer realm=\"hex\", error=\"token_expired\"">>
+                    },
+                    <<>>}}
+        end
+    ),
+    ?assertEqual({error, {auth_error, auth_declined}}, Result),
+
+    receive
+        prompted -> ok
+    after 100 ->
+        error(should_authenticate_not_called)
+    end,
+    ok.
+
+with_api_token_expired_reauth_inline_false_test(_Config) ->
+    %% When auth_inline is false, token refresh failure returns error directly
+    %% without prompting the user.
+    Now = erlang:system_time(second),
+    Callbacks = make_callbacks(#{
+        oauth_tokens =>
+            {ok, #{
+                access_token => <<"initial_token">>,
+                %% No refresh_token; token is valid so it's used, but server
+                %% returns token_expired 401, triggering the reauth path
+                expires_at => Now + 3600
+            }},
+        should_authenticate => fun(_) -> error(should_not_be_called) end
+    }),
+
+    Result = hex_cli_auth:with_api(
+        Callbacks,
+        write,
+        ?CONFIG,
+        fun(_) ->
+            {ok,
+                {401,
+                    #{
+                        <<"www-authenticate">> =>
+                            <<"Bearer realm=\"hex\", error=\"token_expired\"">>
+                    },
+                    <<>>}}
+        end,
+        [{auth_inline, false}]
+    ),
+    ?assertEqual({error, {auth_error, token_refresh_failed}}, Result),
     ok.
 
 %%====================================================================
