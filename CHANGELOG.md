@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v0.18.0 (2026-06-02)
+
+* Add support for the `Policy` registry resource: signed organization dependency policies that opted-in clients honor at resolution time.
+* Add `hex_repo:get_policy/2` to fetch and verify a policy resource from a repository.
+* Add `hex_registry:build_policy/2`, `hex_registry:unpack_policy/4`, `hex_registry:encode_policy/1`, and `hex_registry:decode_policy/3`.
+
 ## v0.17.0 (2026-05-20)
 
 * Add `aliases` field to `SecurityAdvisory` proto for cross-referencing advisories (e.g. GHSA/CVE pairs).
