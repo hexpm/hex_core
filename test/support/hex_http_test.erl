@@ -92,6 +92,24 @@ fixture(get, <<?TEST_REPO_URL, "/packages/ecto">>, _, _) ->
     },
     {ok, {200, Headers, Compressed}};
 
+fixture(get, <<?TEST_REPO_URL, "/repos/myorg/policies/strict-prod">>, _, _) ->
+    Policy = #{
+        repository => <<"myorg">>,
+        name => <<"strict-prod">>,
+        description => <<"Production policy">>,
+        visibility => 'VISIBILITY_PUBLIC',
+        advisory_min_severity => 3,
+        retirement_reasons => [1, 2],
+        cooldown => <<"14d">>
+    },
+    Payload = hex_registry:encode_policy(Policy),
+    Signed = hex_registry:sign_protobuf(Payload, ?PRIVATE_KEY),
+    Compressed = zlib:gzip(Signed),
+    Headers = #{
+      <<"etag">> => <<"\"dummy\"">>
+    },
+    {ok, {200, Headers, Compressed}};
+
 fixture(get, <<?TEST_REPO_URL, "/tarballs/ecto-1.0.0.tar">>, _, _) ->
     Headers = #{
       <<"etag">> => <<"\"dummy\"">>

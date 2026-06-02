@@ -23,6 +23,8 @@ all() ->
         get_names_test,
         get_versions_test,
         get_package_test,
+        get_policy_test,
+        get_policy_missing_org_test,
         get_tarball_test,
         get_tarball_to_file_test,
         get_docs_test,
@@ -58,6 +60,26 @@ get_package_test(_Config) ->
         lists:filter(fun(#{version := Version}) -> Version == <<"1.0.0">> end, Releases),
 
     {ok, {403, _, _}} = hex_repo:get_package(?CONFIG, <<"nonexisting">>),
+    ok.
+
+get_policy_test(_Config) ->
+    Config = maps:put(repo_organization, <<"myorg">>, ?CONFIG),
+
+    {ok,
+        {200, _, #{
+            repository := <<"myorg">>,
+            name := <<"strict-prod">>,
+            visibility := 'VISIBILITY_PUBLIC',
+            advisory_min_severity := 3,
+            retirement_reasons := [1, 2],
+            cooldown := <<"14d">>
+        }}} = hex_repo:get_policy(Config, <<"strict-prod">>),
+
+    {ok, {403, _, _}} = hex_repo:get_policy(Config, <<"nonexisting">>),
+    ok.
+
+get_policy_missing_org_test(_Config) ->
+    {error, missing_repo_organization} = hex_repo:get_policy(?CONFIG, <<"strict-prod">>),
     ok.
 
 get_tarball_test(_Config) ->
