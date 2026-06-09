@@ -126,7 +126,8 @@
     metadata_fields => all | [binary()],
     trusted => boolean(),
     oauth_exchange => boolean(),
-    oauth_exchange_url => binary() | undefined
+    oauth_exchange_url => binary() | undefined,
+    cli_auth_callbacks => hex_cli_auth:callbacks() | undefined
 }.
 
 -spec default_config() -> config().
@@ -157,5 +158,6 @@ default_config() ->
         metadata_fields => all,
         trusted => true,
         oauth_exchange => true,
-        oauth_exchange_url => undefined
+        oauth_exchange_url => undefined,
+        cli_auth_callbacks => undefined
     }.

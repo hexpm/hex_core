@@ -78,33 +78,33 @@ all() ->
 
 resolve_api_auth_config_passthrough_test(_Config) ->
     %% When api_key is already in config, it should be used directly
-    Callbacks = make_callbacks(#{}),
-    ConfigWithKey = ?CONFIG#{api_key => <<"config_api_key">>},
+    Config = config_with_callbacks(#{}),
+    ConfigWithKey = Config#{api_key => <<"config_api_key">>},
 
-    {ok, ApiKey, AuthContext} = hex_cli_auth:resolve_api_auth(Callbacks, read, ConfigWithKey),
+    {ok, ApiKey, AuthContext} = hex_cli_auth:resolve_api_auth(read, ConfigWithKey),
     ?assertEqual(<<"config_api_key">>, ApiKey),
     ?assertEqual(#{source => config, has_refresh_token => false}, AuthContext),
     ok.
 
 resolve_api_auth_per_repo_test(_Config) ->
     %% Test per-repo api_key from callback
-    Callbacks = make_callbacks(#{
+    Config = config_with_callbacks(#{
         auth_config => #{<<"hexpm">> => #{api_key => <<"repo_api_key">>}}
     }),
 
-    {ok, ApiKey, AuthContext} = hex_cli_auth:resolve_api_auth(Callbacks, write, ?CONFIG),
+    {ok, ApiKey, AuthContext} = hex_cli_auth:resolve_api_auth(write, Config),
     ?assertEqual(<<"repo_api_key">>, ApiKey),
     ?assertEqual(#{source => config, has_refresh_token => false}, AuthContext),
     ok.
 
 resolve_api_auth_parent_repo_test(_Config) ->
     %% Test parent repo fallback for "hexpm:org" repos
-    Callbacks = make_callbacks(#{
+    Config = config_with_callbacks(#{
         auth_config => #{<<"hexpm">> => #{api_key => <<"parent_api_key">>}}
     }),
 
     {ok, ApiKey, _} = hex_cli_auth:resolve_api_auth(
-        Callbacks, write, ?CONFIG#{repo_name => <<"hexpm:myorg">>}
+        write, Config#{repo_name => <<"hexpm:myorg">>}
     ),
     ?assertEqual(<<"parent_api_key">>, ApiKey),
     ok.
@@ -112,7 +112,7 @@ resolve_api_auth_parent_repo_test(_Config) ->
 resolve_api_auth_oauth_test(_Config) ->
     %% Test OAuth token fallback with valid token
     Now = erlang:system_time(second),
-    Callbacks = make_callbacks(#{
+    Config = config_with_callbacks(#{
         oauth_tokens =>
             {ok, #{
                 access_token => <<"oauth_token">>,
@@ -121,7 +121,7 @@ resolve_api_auth_oauth_test(_Config) ->
             }}
     }),
 
-    {ok, ApiKey, AuthContext} = hex_cli_auth:resolve_api_auth(Callbacks, read, ?CONFIG),
+    {ok, ApiKey, AuthContext} = hex_cli_auth:resolve_api_auth(read, Config),
     ?assertEqual(<<"Bearer oauth_token">>, ApiKey),
     ?assertEqual(#{source => oauth, has_refresh_token => true}, AuthContext),
     ok.
@@ -130,7 +130,7 @@ resolve_api_auth_oauth_expired_refresh_test(_Config) ->
     %% Test OAuth token refresh when expired
     Now = erlang:system_time(second),
     Self = self(),
-    Callbacks = make_callbacks(#{
+    Config = config_with_callbacks(#{
         oauth_tokens =>
             {ok, #{
                 access_token => <<"expired_token">>,
@@ -144,7 +144,7 @@ resolve_api_auth_oauth_expired_refresh_test(_Config) ->
         end
     }),
 
-    {ok, ApiKey, AuthContext} = hex_cli_auth:resolve_api_auth(Callbacks, read, ?CONFIG),
+    {ok, ApiKey, AuthContext} = hex_cli_auth:resolve_api_auth(read, Config),
     %% Should have refreshed and got a new token
     ?assertMatch(<<"Bearer ", _/binary>>, ApiKey),
     ?assertEqual(#{source => oauth, has_refresh_token => true}, AuthContext),
@@ -160,7 +160,7 @@ resolve_api_auth_oauth_expired_refresh_test(_Config) ->
 resolve_api_auth_oauth_no_refresh_token_test(_Config) ->
     %% Test OAuth token without refresh token
     Now = erlang:system_time(second),
-    Callbacks = make_callbacks(#{
+    Config = config_with_callbacks(#{
         oauth_tokens =>
             {ok, #{
                 access_token => <<"oauth_token">>,
@@ -168,19 +168,19 @@ resolve_api_auth_oauth_no_refresh_token_test(_Config) ->
             }}
     }),
 
-    {ok, ApiKey, AuthContext} = hex_cli_auth:resolve_api_auth(Callbacks, read, ?CONFIG),
+    {ok, ApiKey, AuthContext} = hex_cli_auth:resolve_api_auth(read, Config),
     ?assertEqual(<<"Bearer oauth_token">>, ApiKey),
     ?assertEqual(#{source => oauth, has_refresh_token => false}, AuthContext),
     ok.
 
 resolve_api_auth_no_auth_test(_Config) ->
     %% Test when no auth is available
-    Callbacks = make_callbacks(#{
+    Config = config_with_callbacks(#{
         auth_config => #{},
         oauth_tokens => error
     }),
 
-    Result = hex_cli_auth:resolve_api_auth(Callbacks, read, ?CONFIG),
+    Result = hex_cli_auth:resolve_api_auth(read, Config),
     ?assertEqual({error, no_auth}, Result),
     ok.
 
@@ -190,51 +190,51 @@ resolve_api_auth_no_auth_test(_Config) ->
 
 resolve_repo_auth_config_passthrough_test(_Config) ->
     %% When repo_key is already in config, it should be used directly
-    Callbacks = make_callbacks(#{}),
-    ConfigWithKey = ?CONFIG#{repo_key => <<"config_repo_key">>},
+    Config = config_with_callbacks(#{}),
+    ConfigWithKey = Config#{repo_key => <<"config_repo_key">>},
 
-    {ok, RepoKey, AuthContext} = hex_cli_auth:resolve_repo_auth(Callbacks, ConfigWithKey),
+    {ok, RepoKey, AuthContext} = hex_cli_auth:resolve_repo_auth(ConfigWithKey),
     ?assertEqual(<<"config_repo_key">>, RepoKey),
     ?assertEqual(#{source => config, has_refresh_token => false}, AuthContext),
     ok.
 
 resolve_repo_auth_callback_repo_key_test(_Config) ->
     %% Test repo_key from get_auth_config callback
-    Callbacks = make_callbacks(#{
+    Config = config_with_callbacks(#{
         auth_config => #{<<"hexpm">> => #{repo_key => <<"callback_repo_key">>}}
     }),
 
-    {ok, RepoKey, _} = hex_cli_auth:resolve_repo_auth(Callbacks, ?CONFIG#{trusted => true}),
+    {ok, RepoKey, _} = hex_cli_auth:resolve_repo_auth(Config#{trusted => true}),
     ?assertEqual(<<"callback_repo_key">>, RepoKey),
     ok.
 
 resolve_repo_auth_trusted_auth_key_test(_Config) ->
     %% Test trusted + auth_key (no oauth_exchange) uses auth_key directly
-    Callbacks = make_callbacks(#{
+    Config = config_with_callbacks(#{
         auth_config => #{<<"hexpm">> => #{auth_key => <<"auth_key_value">>}}
     }),
 
-    Config = ?CONFIG#{trusted => true, oauth_exchange => false},
-    {ok, RepoKey, _} = hex_cli_auth:resolve_repo_auth(Callbacks, Config),
+    {ok, RepoKey, _} = hex_cli_auth:resolve_repo_auth(
+        Config#{trusted => true, oauth_exchange => false}
+    ),
     ?assertEqual(<<"auth_key_value">>, RepoKey),
     ok.
 
 resolve_repo_auth_untrusted_ignores_auth_key_test(_Config) ->
     %% Test untrusted config ignores auth_key even when present
-    Callbacks = make_callbacks(#{
+    Config = config_with_callbacks(#{
         auth_config => #{<<"hexpm">> => #{auth_key => <<"auth_key_value">>}},
         oauth_tokens => error
     }),
 
-    Config = ?CONFIG#{trusted => false},
-    Result = hex_cli_auth:resolve_repo_auth(Callbacks, Config),
+    Result = hex_cli_auth:resolve_repo_auth(Config#{trusted => false}),
     ?assertEqual(no_auth, Result),
     ok.
 
 resolve_repo_auth_oauth_fallback_test(_Config) ->
     %% Test fallback to global OAuth when trusted but no auth_key
     Now = erlang:system_time(second),
-    Callbacks = make_callbacks(#{
+    Config = config_with_callbacks(#{
         auth_config => #{},
         oauth_tokens =>
             {ok, #{
@@ -243,27 +243,25 @@ resolve_repo_auth_oauth_fallback_test(_Config) ->
             }}
     }),
 
-    Config = ?CONFIG#{trusted => true},
-    {ok, RepoKey, _} = hex_cli_auth:resolve_repo_auth(Callbacks, Config),
+    {ok, RepoKey, _} = hex_cli_auth:resolve_repo_auth(Config#{trusted => true}),
     ?assertEqual(<<"Bearer global_oauth">>, RepoKey),
     ok.
 
 resolve_repo_auth_no_auth_test(_Config) ->
     %% Test no_auth when untrusted and no credentials
-    Callbacks = make_callbacks(#{
+    Config = config_with_callbacks(#{
         auth_config => #{},
         oauth_tokens => error
     }),
 
-    Config = ?CONFIG#{trusted => false},
-    Result = hex_cli_auth:resolve_repo_auth(Callbacks, Config),
+    Result = hex_cli_auth:resolve_repo_auth(Config#{trusted => false}),
     ?assertEqual(no_auth, Result),
     ok.
 
 resolve_repo_auth_oauth_exchange_new_token_test(_Config) ->
     %% Test oauth_exchange with auth_key but no existing oauth_token
     Self = self(),
-    Callbacks = make_callbacks(#{
+    Config = config_with_callbacks(#{
         auth_config => #{<<"hexpm">> => #{auth_key => <<"my_auth_key">>}},
         persist_oauth_tokens => fun(Scope, Access, _Refresh, Expires) ->
             Self ! {persisted, Scope, Access, Expires},
@@ -271,8 +269,9 @@ resolve_repo_auth_oauth_exchange_new_token_test(_Config) ->
         end
     }),
 
-    Config = ?CONFIG#{trusted => true, oauth_exchange => true},
-    {ok, RepoKey, AuthContext} = hex_cli_auth:resolve_repo_auth(Callbacks, Config),
+    {ok, RepoKey, AuthContext} = hex_cli_auth:resolve_repo_auth(
+        Config#{trusted => true, oauth_exchange => true}
+    ),
     ?assertMatch(<<"Bearer ", _/binary>>, RepoKey),
     ?assertEqual(#{source => oauth, has_refresh_token => false}, AuthContext),
 
@@ -287,7 +286,7 @@ resolve_repo_auth_oauth_exchange_new_token_test(_Config) ->
 resolve_repo_auth_oauth_exchange_existing_valid_test(_Config) ->
     %% Test oauth_exchange with existing valid oauth_token reuses it
     Now = erlang:system_time(second),
-    Callbacks = make_callbacks(#{
+    Config = config_with_callbacks(#{
         auth_config => #{
             <<"hexpm">> => #{
                 auth_key => <<"my_auth_key">>,
@@ -299,8 +298,9 @@ resolve_repo_auth_oauth_exchange_existing_valid_test(_Config) ->
         }
     }),
 
-    Config = ?CONFIG#{trusted => true, oauth_exchange => true},
-    {ok, RepoKey, _} = hex_cli_auth:resolve_repo_auth(Callbacks, Config),
+    {ok, RepoKey, _} = hex_cli_auth:resolve_repo_auth(
+        Config#{trusted => true, oauth_exchange => true}
+    ),
     ?assertEqual(<<"Bearer existing_token">>, RepoKey),
     ok.
 
@@ -308,7 +308,7 @@ resolve_repo_auth_oauth_exchange_existing_expired_test(_Config) ->
     %% Test oauth_exchange with expired oauth_token re-exchanges
     Now = erlang:system_time(second),
     Self = self(),
-    Callbacks = make_callbacks(#{
+    Config = config_with_callbacks(#{
         auth_config => #{
             <<"hexpm">> => #{
                 auth_key => <<"my_auth_key">>,
@@ -324,8 +324,9 @@ resolve_repo_auth_oauth_exchange_existing_expired_test(_Config) ->
         end
     }),
 
-    Config = ?CONFIG#{trusted => true, oauth_exchange => true},
-    {ok, RepoKey, _} = hex_cli_auth:resolve_repo_auth(Callbacks, Config),
+    {ok, RepoKey, _} = hex_cli_auth:resolve_repo_auth(
+        Config#{trusted => true, oauth_exchange => true}
+    ),
     ?assertMatch(<<"Bearer ", _/binary>>, RepoKey),
     ?assertNotEqual(<<"Bearer expired_token">>, RepoKey),
 
@@ -339,12 +340,13 @@ resolve_repo_auth_oauth_exchange_existing_expired_test(_Config) ->
 
 resolve_repo_auth_parent_repo_auth_key_test(_Config) ->
     %% Test trusted org repo falls back to parent repo auth_key
-    Callbacks = make_callbacks(#{
+    Config = config_with_callbacks(#{
         auth_config => #{<<"hexpm">> => #{auth_key => <<"parent_auth_key">>}}
     }),
 
-    Config = ?CONFIG#{repo_name => <<"hexpm:myorg">>, trusted => true, oauth_exchange => false},
-    {ok, RepoKey, _} = hex_cli_auth:resolve_repo_auth(Callbacks, Config),
+    {ok, RepoKey, _} = hex_cli_auth:resolve_repo_auth(
+        Config#{repo_name => <<"hexpm:myorg">>, trusted => true, oauth_exchange => false}
+    ),
     ?assertEqual(<<"parent_auth_key">>, RepoKey),
     ok.
 
@@ -355,7 +357,7 @@ resolve_repo_auth_parent_repo_auth_key_test(_Config) ->
 with_api_otp_required_test(_Config) ->
     %% Test OTP prompt when server returns otp_required
     Now = erlang:system_time(second),
-    Callbacks = make_callbacks(#{
+    Config = config_with_callbacks(#{
         oauth_tokens =>
             {ok, #{
                 access_token => <<"token">>,
@@ -366,10 +368,9 @@ with_api_otp_required_test(_Config) ->
 
     CallCount = counters:new(1, []),
     Result = hex_cli_auth:with_api(
-        Callbacks,
         write,
-        ?CONFIG,
-        fun(Config) ->
+        Config,
+        fun(Cfg) ->
             Count = counters:get(CallCount, 1),
             counters:add(CallCount, 1, 1),
             case Count of
@@ -384,7 +385,7 @@ with_api_otp_required_test(_Config) ->
                             <<>>}};
                 _ ->
                     %% Second call: should have OTP, return success
-                    ?assertEqual(<<"123456">>, maps:get(api_otp, Config)),
+                    ?assertEqual(<<"123456">>, maps:get(api_otp, Cfg)),
                     {ok, {200, #{}, <<"success">>}}
             end
         end
@@ -397,7 +398,7 @@ with_api_otp_invalid_retry_test(_Config) ->
     %% Test OTP retry when server returns invalid_totp
     Now = erlang:system_time(second),
     OtpAttempts = counters:new(1, []),
-    Callbacks = make_callbacks(#{
+    Config = config_with_callbacks(#{
         oauth_tokens =>
             {ok, #{
                 access_token => <<"token">>,
@@ -415,10 +416,9 @@ with_api_otp_invalid_retry_test(_Config) ->
 
     CallCount = counters:new(1, []),
     Result = hex_cli_auth:with_api(
-        Callbacks,
         write,
-        ?CONFIG,
-        fun(Config) ->
+        Config,
+        fun(Cfg) ->
             Count = counters:get(CallCount, 1),
             counters:add(CallCount, 1, 1),
             case Count of
@@ -431,7 +431,7 @@ with_api_otp_invalid_retry_test(_Config) ->
                             },
                             <<>>}};
                 1 ->
-                    ?assertEqual(<<"wrong_otp">>, maps:get(api_otp, Config)),
+                    ?assertEqual(<<"wrong_otp">>, maps:get(api_otp, Cfg)),
                     {ok,
                         {401,
                             #{
@@ -440,7 +440,7 @@ with_api_otp_invalid_retry_test(_Config) ->
                             },
                             <<>>}};
                 _ ->
-                    ?assertEqual(<<"correct_otp">>, maps:get(api_otp, Config)),
+                    ?assertEqual(<<"correct_otp">>, maps:get(api_otp, Cfg)),
                     {ok, {200, #{}, <<"success">>}}
             end
         end
@@ -452,7 +452,7 @@ with_api_otp_invalid_retry_test(_Config) ->
 with_api_otp_cancelled_test(_Config) ->
     %% Test OTP cancellation returns error
     Now = erlang:system_time(second),
-    Callbacks = make_callbacks(#{
+    Config = config_with_callbacks(#{
         oauth_tokens =>
             {ok, #{
                 access_token => <<"token">>,
@@ -462,9 +462,8 @@ with_api_otp_cancelled_test(_Config) ->
     }),
 
     Result = hex_cli_auth:with_api(
-        Callbacks,
         write,
-        ?CONFIG,
+        Config,
         fun(_Cfg) ->
             {ok,
                 {401,
@@ -481,7 +480,7 @@ with_api_otp_cancelled_test(_Config) ->
 with_api_otp_max_retries_test(_Config) ->
     %% Test OTP max retries returns error
     Now = erlang:system_time(second),
-    Callbacks = make_callbacks(#{
+    Config = config_with_callbacks(#{
         oauth_tokens =>
             {ok, #{
                 access_token => <<"token">>,
@@ -491,9 +490,8 @@ with_api_otp_max_retries_test(_Config) ->
     }),
 
     Result = hex_cli_auth:with_api(
-        Callbacks,
         write,
-        ?CONFIG,
+        Config,
         fun(_Cfg) ->
             {ok,
                 {401,
@@ -512,7 +510,7 @@ with_api_token_expired_refresh_test(_Config) ->
     %% Test token refresh when server returns token_expired
     Now = erlang:system_time(second),
     Self = self(),
-    Callbacks = make_callbacks(#{
+    Config = config_with_callbacks(#{
         oauth_tokens =>
             {ok, #{
                 access_token => <<"initial_token">>,
@@ -528,13 +526,12 @@ with_api_token_expired_refresh_test(_Config) ->
 
     CallCount = counters:new(1, []),
     Result = hex_cli_auth:with_api(
-        Callbacks,
         write,
-        ?CONFIG,
-        fun(Config) ->
+        Config,
+        fun(Cfg) ->
             Count = counters:get(CallCount, 1),
             counters:add(CallCount, 1, 1),
-            ApiKey = maps:get(api_key, Config),
+            ApiKey = maps:get(api_key, Cfg),
             case Count of
                 0 ->
                     %% First call gets refreshed token (initial was within expiry buffer)
@@ -574,7 +571,7 @@ with_api_token_expired_reauth_yes_test(_Config) ->
     %% device auth flow is triggered and the operation retried.
     Self = self(),
     Now = erlang:system_time(second),
-    Callbacks = make_callbacks(#{
+    Config = config_with_callbacks(#{
         oauth_tokens =>
             {ok, #{
                 access_token => <<"initial_token">>,
@@ -608,11 +605,10 @@ with_api_token_expired_reauth_yes_test(_Config) ->
             {ok, {200, Headers, term_to_binary(SuccessPayload)}}},
 
     Result = hex_cli_auth:with_api(
-        Callbacks,
         write,
-        ?CONFIG,
-        fun(Config) ->
-            ApiKey = maps:get(api_key, Config),
+        Config,
+        fun(Cfg) ->
+            ApiKey = maps:get(api_key, Cfg),
             case ApiKey of
                 <<"Bearer initial_token">> ->
                     {ok,
@@ -648,7 +644,7 @@ with_api_token_expired_reauth_no_test(_Config) ->
     %% returns auth_declined error.
     Self = self(),
     Now = erlang:system_time(second),
-    Callbacks = make_callbacks(#{
+    Config = config_with_callbacks(#{
         oauth_tokens =>
             {ok, #{
                 access_token => <<"initial_token">>,
@@ -663,9 +659,8 @@ with_api_token_expired_reauth_no_test(_Config) ->
     }),
 
     Result = hex_cli_auth:with_api(
-        Callbacks,
         write,
-        ?CONFIG,
+        Config,
         fun(_) ->
             {ok,
                 {401,
@@ -689,7 +684,7 @@ with_api_token_expired_reauth_inline_false_test(_Config) ->
     %% When auth_inline is false, token refresh failure returns error directly
     %% without prompting the user.
     Now = erlang:system_time(second),
-    Callbacks = make_callbacks(#{
+    Config = config_with_callbacks(#{
         oauth_tokens =>
             {ok, #{
                 access_token => <<"initial_token">>,
@@ -701,9 +696,8 @@ with_api_token_expired_reauth_inline_false_test(_Config) ->
     }),
 
     Result = hex_cli_auth:with_api(
-        Callbacks,
         write,
-        ?CONFIG,
+        Config,
         fun(_) ->
             {ok,
                 {401,
@@ -724,14 +718,13 @@ with_api_token_expired_reauth_inline_false_test(_Config) ->
 
 with_api_optional_test(_Config) ->
     %% Test optional => true allows requests without auth
-    Callbacks = make_callbacks(#{oauth_tokens => error}),
+    Config = config_with_callbacks(#{oauth_tokens => error}),
 
     %% Function is called without api_key
     Result = hex_cli_auth:with_api(
-        Callbacks,
         read,
-        ?CONFIG,
-        fun(Config) -> maps:get(api_key, Config, undefined) end,
+        Config,
+        fun(Cfg) -> maps:get(api_key, Cfg, undefined) end,
         [{optional, true}]
     ),
     ?assertEqual(undefined, Result),
@@ -739,12 +732,11 @@ with_api_optional_test(_Config) ->
 
 with_api_auth_inline_test(_Config) ->
     %% Test auth_inline => false returns error instead of prompting
-    Callbacks = make_callbacks(#{oauth_tokens => error}),
+    Config = config_with_callbacks(#{oauth_tokens => error}),
 
     Result = hex_cli_auth:with_api(
-        Callbacks,
         read,
-        ?CONFIG,
+        Config,
         fun(_) -> error(should_not_be_called) end,
         [{optional, false}, {auth_inline, false}]
     ),
@@ -754,7 +746,7 @@ with_api_auth_inline_test(_Config) ->
 with_api_device_auth_test(_Config) ->
     %% Test device auth flow when should_authenticate returns true
     Self = self(),
-    Callbacks = make_callbacks(#{
+    Config = config_with_callbacks(#{
         oauth_tokens => error,
         should_authenticate => fun(no_credentials) -> true end,
         persist_oauth_tokens => fun(Scope, Access, Refresh, Expires) ->
@@ -778,10 +770,9 @@ with_api_device_auth_test(_Config) ->
             {ok, {200, Headers, term_to_binary(SuccessPayload)}}},
 
     Result = hex_cli_auth:with_api(
-        Callbacks,
         write,
-        ?CONFIG,
-        fun(Config) -> maps:get(api_key, Config) end,
+        Config,
+        fun(Cfg) -> maps:get(api_key, Cfg) end,
         [{oauth_open_browser, false}]
     ),
     ?assertEqual(<<"Bearer device_token">>, Result),
@@ -800,26 +791,24 @@ with_api_device_auth_test(_Config) ->
 
 with_repo_optional_test(_Config) ->
     %% Test that with_repo with optional => true (default) proceeds without auth
-    Callbacks = make_callbacks(#{oauth_tokens => error}),
+    Config = config_with_callbacks(#{oauth_tokens => error}),
 
     Result = hex_cli_auth:with_repo(
-        Callbacks,
-        ?CONFIG#{trusted => false},
-        fun(Config) -> maps:get(repo_key, Config, undefined) end
+        Config#{trusted => false},
+        fun(Cfg) -> maps:get(repo_key, Cfg, undefined) end
     ),
     ?assertEqual(undefined, Result),
     ok.
 
 with_repo_trusted_with_auth_test(_Config) ->
     %% Test with_repo with trusted config and auth_key
-    Callbacks = make_callbacks(#{
+    Config = config_with_callbacks(#{
         auth_config => #{<<"hexpm">> => #{auth_key => <<"my_auth_key">>}}
     }),
 
     Result = hex_cli_auth:with_repo(
-        Callbacks,
-        ?CONFIG#{trusted => true, oauth_exchange => false},
-        fun(Config) -> maps:get(repo_key, Config) end
+        Config#{trusted => true, oauth_exchange => false},
+        fun(Cfg) -> maps:get(repo_key, Cfg) end
     ),
     ?assertEqual(<<"my_auth_key">>, Result),
     ok.
@@ -828,7 +817,7 @@ with_repo_optional_token_refresh_failed_test(_Config) ->
     %% When resolve_repo_auth fails with token_refresh_failed and optional is true,
     %% fall back to executing the request without credentials.
     Now = erlang:system_time(second),
-    Callbacks = make_callbacks(#{
+    Config = config_with_callbacks(#{
         oauth_tokens =>
             {ok, #{
                 access_token => <<"expired_token">>,
@@ -838,9 +827,8 @@ with_repo_optional_token_refresh_failed_test(_Config) ->
     }),
 
     Result = hex_cli_auth:with_repo(
-        Callbacks,
-        ?CONFIG#{trusted => true},
-        fun(Config) -> maps:get(repo_key, Config, undefined) end
+        Config#{trusted => true},
+        fun(Cfg) -> maps:get(repo_key, Cfg, undefined) end
     ),
     ?assertEqual(undefined, Result),
     ok.
@@ -879,7 +867,7 @@ resolve_oauth_token_concurrent_refresh_serialized_test(_Config) ->
         end
     end,
 
-    Callbacks = make_callbacks(#{
+    Config = config_with_callbacks(#{
         get_oauth_tokens => GetOAuthTokensFn,
         persist_oauth_tokens => fun(_Scope, _Access, _Refresh, _Expires) ->
             %% Simulate a slow refresh so the second process must wait
@@ -892,11 +880,11 @@ resolve_oauth_token_concurrent_refresh_serialized_test(_Config) ->
 
     %% Spawn two concurrent callers
     spawn(fun() ->
-        Result = hex_cli_auth:resolve_api_auth(Callbacks, read, ?CONFIG),
+        Result = hex_cli_auth:resolve_api_auth(read, Config),
         Self ! {result1, Result}
     end),
     spawn(fun() ->
-        Result = hex_cli_auth:resolve_api_auth(Callbacks, read, ?CONFIG),
+        Result = hex_cli_auth:resolve_api_auth(read, Config),
         Self ! {result2, Result}
     end),
 
@@ -923,6 +911,9 @@ resolve_oauth_token_concurrent_refresh_serialized_test(_Config) ->
 %%====================================================================
 %% Helper Functions
 %%====================================================================
+
+config_with_callbacks(Opts) ->
+    ?CONFIG#{cli_auth_callbacks => make_callbacks(Opts)}.
 
 make_callbacks(Opts) ->
     AuthConfig = maps:get(auth_config, Opts, #{}),

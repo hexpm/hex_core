@@ -7,7 +7,8 @@
 %%
 %% == Callbacks ==
 %%
-%% The caller provides a callbacks map with these functions (all required):
+%% Callbacks are provided via the `cli_auth_callbacks' key in the config map.
+%% All callbacks are required:
 %%
 %% ```
 %% #{
@@ -74,12 +75,12 @@
 -module(hex_cli_auth).
 
 -export([
+    with_api/3,
     with_api/4,
-    with_api/5,
+    with_repo/2,
     with_repo/3,
-    with_repo/4,
-    resolve_api_auth/3,
-    resolve_repo_auth/2
+    resolve_api_auth/2,
+    resolve_repo_auth/1
 ]).
 
 -export_type([
@@ -162,15 +163,15 @@
 %% @doc
 %% Execute a function with API authentication.
 %%
-%% Equivalent to `with_api(Callbacks, Permission, Config, Fun, [])'.
+%% Equivalent to `with_api(Permission, Config, Fun, [])'.
 %%
-%% @see with_api/5
--spec with_api(callbacks(), permission(), hex_core:config(), fun((hex_core:config()) -> Result)) ->
+%% @see with_api/4
+-spec with_api(permission(), hex_core:config(), fun((hex_core:config()) -> Result)) ->
     Result | {error, auth_error()}
 when
     Result :: term().
-with_api(Callbacks, Permission, BaseConfig, Fun) ->
-    with_api(Callbacks, Permission, BaseConfig, Fun, []).
+with_api(Permission, BaseConfig, Fun) ->
+    with_api(Permission, BaseConfig, Fun, []).
 
 %% @doc
 %% Execute a function with API authentication.
@@ -187,6 +188,8 @@ with_api(Callbacks, Permission, BaseConfig, Fun) ->
 %%
 %% The repository name is taken from the config (`repo_name' or `repo_organization').
 %%
+%% Callbacks are taken from the `cli_auth_callbacks' key in the config map.
+%%
 %% Options:
 %% <ul>
 %% <li>`optional' - When `true', if no credentials are found, executes the function
@@ -202,12 +205,11 @@ with_api(Callbacks, Permission, BaseConfig, Fun) ->
 %%
 %% Example:
 %% ```
-%% hex_cli_auth:with_api(Callbacks, write, Config, fun(C) ->
+%% hex_cli_auth:with_api(write, Config, fun(C) ->
 %%     hex_api_release:publish(C, Tarball)
 %% end, [{optional, false}, {auth_inline, true}]).
 %% '''
 -spec with_api(
-    callbacks(),
     permission(),
     hex_core:config(),
     fun((hex_core:config()) -> Result),
@@ -216,19 +218,19 @@ with_api(Callbacks, Permission, BaseConfig, Fun) ->
     Result | {error, auth_error()}
 when
     Result :: term().
-with_api(Callbacks, Permission, BaseConfig, Fun, Opts) ->
+with_api(Permission, BaseConfig, Fun, Opts) ->
     Optional = proplists:get_value(optional, Opts, false),
     AuthInline = proplists:get_value(auth_inline, Opts, true),
-    case resolve_api_auth(Callbacks, Permission, BaseConfig) of
+    case resolve_api_auth(Permission, BaseConfig) of
         {ok, ApiKey, AuthContext} ->
             Config = BaseConfig#{api_key => ApiKey},
-            execute_with_retry(Callbacks, Config, Fun, AuthContext, 0, undefined, Opts);
+            execute_with_retry(Config, Fun, AuthContext, 0, undefined, Opts);
         {error, no_auth} when Optional =:= true ->
             %% Auth is optional, try without credentials first
-            execute_optional_with_retry(Callbacks, BaseConfig, Fun, Opts);
+            execute_optional_with_retry(BaseConfig, Fun, Opts);
         {error, no_auth} when AuthInline =:= true ->
             %% No auth found, ask user if they want to authenticate
-            maybe_authenticate_and_retry(Callbacks, BaseConfig, Fun, no_credentials, Opts);
+            maybe_authenticate_and_retry(BaseConfig, Fun, no_credentials, Opts);
         {error, no_auth} ->
             %% auth_inline is false, just return error
             {error, {auth_error, no_credentials}};
@@ -239,15 +241,15 @@ with_api(Callbacks, Permission, BaseConfig, Fun, Opts) ->
 %% @doc
 %% Execute a function with repository authentication.
 %%
-%% Equivalent to `with_repo(Callbacks, Config, Fun, [])'.
+%% Equivalent to `with_repo(Config, Fun, [])'.
 %%
-%% @see with_repo/4
--spec with_repo(callbacks(), hex_core:config(), fun((hex_core:config()) -> Result)) ->
+%% @see with_repo/3
+-spec with_repo(hex_core:config(), fun((hex_core:config()) -> Result)) ->
     Result | {error, auth_error()}
 when
     Result :: term().
-with_repo(Callbacks, BaseConfig, Fun) ->
-    with_repo(Callbacks, BaseConfig, Fun, []).
+with_repo(BaseConfig, Fun) ->
+    with_repo(BaseConfig, Fun, []).
 
 %% @doc
 %% Execute a function with repository authentication.
@@ -265,6 +267,8 @@ with_repo(Callbacks, BaseConfig, Fun) ->
 %%
 %% The repository name is taken from the config (`repo_name' or `repo_organization').
 %%
+%% Callbacks are taken from the `cli_auth_callbacks' key in the config map.
+%%
 %% Options:
 %% <ul>
 %% <li>`optional' - When `true' (default), proceeds without auth if none found; retries with auth on 401.</li>
@@ -275,35 +279,33 @@ with_repo(Callbacks, BaseConfig, Fun) ->
 %%
 %% Example:
 %% ```
-%% hex_cli_auth:with_repo(Callbacks, Config, fun(C) ->
+%% hex_cli_auth:with_repo(Config, fun(C) ->
 %%     hex_repo:get_tarball(C, <<"ecto">>, <<"3.0.0">>)
 %% end).
 %% '''
--spec with_repo(
-    callbacks(), hex_core:config(), fun((hex_core:config()) -> Result), opts()
-) ->
+-spec with_repo(hex_core:config(), fun((hex_core:config()) -> Result), opts()) ->
     Result | {error, auth_error()}
 when
     Result :: term().
-with_repo(Callbacks, BaseConfig, Fun, Opts) ->
+with_repo(BaseConfig, Fun, Opts) ->
     Optional = proplists:get_value(optional, Opts, true),
     AuthInline = proplists:get_value(auth_inline, Opts, false),
-    case resolve_repo_auth(Callbacks, BaseConfig) of
+    case resolve_repo_auth(BaseConfig) of
         {ok, RepoKey, _AuthContext} when is_binary(RepoKey) ->
             Config = BaseConfig#{repo_key => RepoKey},
             Fun(Config);
         no_auth when Optional =:= true ->
             %% Auth is optional, try without credentials first
-            execute_optional_with_retry(Callbacks, BaseConfig, Fun, Opts);
+            execute_optional_with_retry(BaseConfig, Fun, Opts);
         no_auth when AuthInline =:= true ->
             %% No auth found, ask user if they want to authenticate
-            maybe_authenticate_and_retry(Callbacks, BaseConfig, Fun, no_credentials, Opts);
+            maybe_authenticate_and_retry(BaseConfig, Fun, no_credentials, Opts);
         no_auth ->
             %% auth_inline is false, return error
             {error, {auth_error, no_credentials}};
         {error, {auth_error, token_refresh_failed}} when Optional =:= true ->
             %% Token refresh failed but auth is optional, fall back to no credentials
-            execute_optional_with_retry(Callbacks, BaseConfig, Fun, Opts);
+            execute_optional_with_retry(BaseConfig, Fun, Opts);
         {error, _} = Error ->
             Error
     end.
@@ -319,15 +321,15 @@ repo_name(_) ->
 
 %% @private
 %% Ask user if they want to authenticate, and if yes, initiate device auth.
-maybe_authenticate_and_retry(Callbacks, BaseConfig, Fun, Reason, Opts) ->
-    case call_callback(Callbacks, should_authenticate, [Reason]) of
+maybe_authenticate_and_retry(BaseConfig, Fun, Reason, Opts) ->
+    case call_callback(BaseConfig, should_authenticate, [Reason]) of
         true ->
-            case device_auth(Callbacks, BaseConfig, <<"api repositories">>, Opts) of
+            case device_auth(BaseConfig, <<"api repositories">>, Opts) of
                 {ok, #{access_token := Token}} ->
                     BearerToken = <<"Bearer ", Token/binary>>,
                     Config = BaseConfig#{api_key => BearerToken},
                     AuthContext = #{source => oauth, has_refresh_token => true},
-                    execute_with_retry(Callbacks, Config, Fun, AuthContext, 0, undefined, Opts);
+                    execute_with_retry(Config, Fun, AuthContext, 0, undefined, Opts);
                 {error, _} = Error ->
                     Error
             end;
@@ -337,12 +339,12 @@ maybe_authenticate_and_retry(Callbacks, BaseConfig, Fun, Reason, Opts) ->
 
 %% @private
 %% Execute function without auth, but retry with auth if we get a 401.
-execute_optional_with_retry(Callbacks, BaseConfig, Fun, Opts) ->
+execute_optional_with_retry(BaseConfig, Fun, Opts) ->
     AuthInline = proplists:get_value(auth_inline, Opts, true),
     case Fun(BaseConfig) of
         {ok, {401, _Headers, _Body}} when AuthInline =:= true ->
             %% Got 401, need auth - ask user if they want to authenticate
-            maybe_authenticate_and_retry(Callbacks, BaseConfig, Fun, no_credentials, Opts);
+            maybe_authenticate_and_retry(BaseConfig, Fun, no_credentials, Opts);
         {ok, {401, _Headers, _Body}} ->
             %% Got 401 but auth_inline is false, return error
             {error, {auth_error, no_credentials}};
@@ -358,10 +360,10 @@ execute_optional_with_retry(Callbacks, BaseConfig, Fun, Opts) ->
 %% Initiate OAuth device authorization flow.
 %% Prompts user, optionally opens the browser for user authentication,
 %% polls for token completion, and persists tokens via callback on success.
--spec device_auth(callbacks(), hex_core:config(), binary(), opts()) ->
+-spec device_auth(hex_core:config(), binary(), opts()) ->
     {ok, oauth_tokens()} | {error, auth_error()}.
-device_auth(Callbacks, Config, Scope, Opts) ->
-    ClientId = call_callback(Callbacks, get_client_id, []),
+device_auth(Config, Scope, Opts) ->
+    ClientId = call_callback(Config, get_client_id, []),
     OpenBrowser = proplists:get_value(oauth_open_browser, Opts, true),
     PromptUser = fun(VerificationUri, UserCode) ->
         io:format("Open ~ts in your browser and enter code: ~ts~n", [VerificationUri, UserCode])
@@ -369,7 +371,7 @@ device_auth(Callbacks, Config, Scope, Opts) ->
     FlowOpts = [{open_browser, OpenBrowser}],
     case hex_api_oauth:device_auth_flow(Config, ClientId, Scope, PromptUser, FlowOpts) of
         {ok, #{access_token := AccessToken, refresh_token := RefreshToken, expires_at := ExpiresAt}} ->
-            ok = call_callback(Callbacks, persist_oauth_tokens, [
+            ok = call_callback(Config, persist_oauth_tokens, [
                 global, AccessToken, RefreshToken, ExpiresAt
             ]),
             {ok, #{
@@ -401,25 +403,25 @@ is_token_expired(ExpiresAt) ->
 %%====================================================================
 
 %% @private
--spec resolve_api_auth(callbacks(), permission(), hex_core:config()) ->
+-spec resolve_api_auth(permission(), hex_core:config()) ->
     {ok, binary(), auth_context()} | {error, no_auth} | {error, auth_error()}.
-resolve_api_auth(_Callbacks, _Permission, #{api_key := ApiKey}) when is_binary(ApiKey) ->
+resolve_api_auth(_Permission, #{api_key := ApiKey}) when is_binary(ApiKey) ->
     %% api_key already in config, pass through directly
     {ok, ApiKey, #{source => config, has_refresh_token => false}};
-resolve_api_auth(Callbacks, _Permission, Config) ->
+resolve_api_auth(_Permission, Config) ->
     RepoName = repo_name(Config),
     %% 1. Check per-repo api_key
-    case call_callback(Callbacks, get_auth_config, [RepoName]) of
+    case call_callback(Config, get_auth_config, [RepoName]) of
         #{api_key := ApiKey} when is_binary(ApiKey) ->
             {ok, ApiKey, #{source => config, has_refresh_token => false}};
         _ ->
             %% 2. Check parent repo (for "hexpm:org" organizations)
-            case get_parent_repo_key(Callbacks, RepoName, api_key) of
+            case get_parent_repo_key(Config, RepoName, api_key) of
                 {ok, ApiKey} ->
                     {ok, ApiKey, #{source => config, has_refresh_token => false}};
                 error ->
                     %% 3. Try global OAuth token
-                    resolve_oauth_token_with_context(Callbacks, Config)
+                    resolve_oauth_token_with_context(Config)
             end
     end.
 
@@ -430,27 +432,27 @@ resolve_api_auth(Callbacks, _Permission, Config) ->
 %% 2. trusted + auth_key + oauth_exchange => exchange for OAuth token
 %% 3. trusted + auth_key => use directly
 %% 4. trusted + global OAuth tokens => use those
-%% 5. Fallthrough to no_auth (handled by with_repo/4 for optional/auth_inline)
--spec resolve_repo_auth(callbacks(), hex_core:config()) ->
+%% 5. Fallthrough to no_auth (handled by with_repo/3 for optional/auth_inline)
+-spec resolve_repo_auth(hex_core:config()) ->
     {ok, binary(), auth_context()} | no_auth | {error, auth_error()}.
-resolve_repo_auth(_Callbacks, #{repo_key := RepoKey}) when is_binary(RepoKey) ->
+resolve_repo_auth(#{repo_key := RepoKey}) when is_binary(RepoKey) ->
     %% repo_key already in config, pass through directly
     {ok, RepoKey, #{source => config, has_refresh_token => false}};
-resolve_repo_auth(Callbacks, Config) ->
+resolve_repo_auth(Config) ->
     RepoName = repo_name(Config),
     global:trans(
         {{?MODULE, repo, RepoName}, self()},
         fun() ->
-            do_resolve_repo_auth(Callbacks, RepoName, RepoName, Config)
+            do_resolve_repo_auth(RepoName, RepoName, Config)
         end,
         [node()],
         infinity
     ).
 
-do_resolve_repo_auth(Callbacks, RepoName, LookupRepo, Config) ->
+do_resolve_repo_auth(RepoName, LookupRepo, Config) ->
     Trusted = maps:get(trusted, Config, false),
     OAuthExchange = maps:get(oauth_exchange, Config, false),
-    case call_callback(Callbacks, get_auth_config, [LookupRepo]) of
+    case call_callback(Config, get_auth_config, [LookupRepo]) of
         #{repo_key := RepoKey} when is_binary(RepoKey) ->
             %% 1. repo_key from get_auth_config => passthrough
             {ok, RepoKey, #{source => config, has_refresh_token => false}};
@@ -458,10 +460,10 @@ do_resolve_repo_auth(Callbacks, RepoName, LookupRepo, Config) ->
             is_binary(AuthKey) and OAuthExchange, Trusted
         ->
             %% 2. trusted + oauth_token + auth_key + oauth_exchange => use/refresh existing token
-            resolve_repo_oauth_token(Callbacks, RepoName, Config, AuthKey, OAuthToken);
+            resolve_repo_oauth_token(RepoName, Config, AuthKey, OAuthToken);
         #{auth_key := AuthKey} when is_binary(AuthKey) and OAuthExchange, Trusted ->
             %% 3. trusted + auth_key + oauth_exchange => exchange for new OAuth token
-            exchange_for_oauth_token(Callbacks, RepoName, Config, AuthKey, <<"repositories">>);
+            exchange_for_oauth_token(RepoName, Config, AuthKey, <<"repositories">>);
         #{auth_key := AuthKey} when is_binary(AuthKey), Trusted ->
             %% 4. trusted + auth_key => use directly
             {ok, AuthKey, #{source => config, has_refresh_token => false}};
@@ -469,10 +471,10 @@ do_resolve_repo_auth(Callbacks, RepoName, LookupRepo, Config) ->
             %% 5. Check parent repo (for "hexpm:org" organizations)
             case binary:split(LookupRepo, <<":">>) of
                 [ParentName, _OrgName] ->
-                    do_resolve_repo_auth(Callbacks, RepoName, ParentName, Config);
+                    do_resolve_repo_auth(RepoName, ParentName, Config);
                 _ ->
                     %% 6. trusted + global OAuth tokens => use those
-                    resolve_global_oauth_for_repo(Callbacks, Config)
+                    resolve_global_oauth_for_repo(Config)
             end;
         _ ->
             %% 7. Not trusted, no auth
@@ -480,8 +482,8 @@ do_resolve_repo_auth(Callbacks, RepoName, LookupRepo, Config) ->
     end.
 
 %% @private
-resolve_global_oauth_for_repo(Callbacks, Config) ->
-    case resolve_oauth_token_with_context(Callbacks, Config) of
+resolve_global_oauth_for_repo(Config) ->
+    case resolve_oauth_token_with_context(Config) of
         {ok, Token, AuthContext} ->
             {ok, Token, AuthContext};
         {error, no_auth} ->
@@ -492,7 +494,7 @@ resolve_global_oauth_for_repo(Callbacks, Config) ->
 
 %% @private
 %% Resolve repo OAuth token: use if valid, re-exchange if expiring.
-resolve_repo_oauth_token(Callbacks, RepoName, Config, AuthKey, #{
+resolve_repo_oauth_token(RepoName, Config, AuthKey, #{
     access_token := AccessToken, expires_at := ExpiresAt
 }) ->
     case is_token_expired(ExpiresAt) of
@@ -502,14 +504,14 @@ resolve_repo_oauth_token(Callbacks, RepoName, Config, AuthKey, #{
             {ok, BearerToken, #{source => oauth, has_refresh_token => false}};
         true ->
             %% Token expired, do a new exchange
-            exchange_for_oauth_token(Callbacks, RepoName, Config, AuthKey, <<"repositories">>)
+            exchange_for_oauth_token(RepoName, Config, AuthKey, <<"repositories">>)
     end.
 
 %% @private
 %% Exchange api_key/auth_key for OAuth token via client credentials grant.
 %% Persists the token with the repo name for per-repo token storage.
-exchange_for_oauth_token(Callbacks, RepoName, Config, AuthKey, Scope) ->
-    ClientId = call_callback(Callbacks, get_client_id, []),
+exchange_for_oauth_token(RepoName, Config, AuthKey, Scope) ->
+    ClientId = call_callback(Config, get_client_id, []),
     ExchangeConfig =
         case maps:get(oauth_exchange_url, Config, undefined) of
             undefined -> Config;
@@ -518,7 +520,7 @@ exchange_for_oauth_token(Callbacks, RepoName, Config, AuthKey, Scope) ->
     case hex_api_oauth:client_credentials_token(ExchangeConfig, ClientId, AuthKey, Scope) of
         {ok, {200, _, #{<<"access_token">> := AccessToken, <<"expires_in">> := ExpiresIn}}} ->
             ExpiresAt = erlang:system_time(second) + ExpiresIn,
-            ok = call_callback(Callbacks, persist_oauth_tokens, [
+            ok = call_callback(Config, persist_oauth_tokens, [
                 RepoName, AccessToken, undefined, ExpiresAt
             ]),
             BearerToken = <<"Bearer ", AccessToken/binary>>,
@@ -530,10 +532,10 @@ exchange_for_oauth_token(Callbacks, RepoName, Config, AuthKey, Scope) ->
     end.
 
 %% @private
-get_parent_repo_key(Callbacks, RepoName, KeyType) ->
+get_parent_repo_key(Config, RepoName, KeyType) ->
     case binary:split(RepoName, <<":">>) of
         [ParentName, _OrgName] ->
-            case call_callback(Callbacks, get_auth_config, [ParentName]) of
+            case call_callback(Config, get_auth_config, [ParentName]) of
                 #{KeyType := Key} when is_binary(Key) ->
                     {ok, Key};
                 _ ->
@@ -545,26 +547,26 @@ get_parent_repo_key(Callbacks, RepoName, KeyType) ->
 
 %% @private
 %% Resolve OAuth token with global lock to prevent concurrent refresh attempts.
-resolve_oauth_token_with_context(Callbacks, Config) ->
+resolve_oauth_token_with_context(Config) ->
     global:trans(
         {{?MODULE, token_refresh}, self()},
         fun() ->
-            do_resolve_oauth_token_with_context(Callbacks, Config)
+            do_resolve_oauth_token_with_context(Config)
         end,
         [node()],
         infinity
     ).
 
 %% @private
-do_resolve_oauth_token_with_context(Callbacks, Config) ->
-    case call_callback(Callbacks, get_oauth_tokens, []) of
+do_resolve_oauth_token_with_context(Config) ->
+    case call_callback(Config, get_oauth_tokens, []) of
         {ok, #{access_token := AccessToken, expires_at := ExpiresAt} = Tokens} ->
             HasRefreshToken =
                 maps:is_key(refresh_token, Tokens) andalso
                     is_binary(maps:get(refresh_token, Tokens)),
             case is_token_expired(ExpiresAt) of
                 true ->
-                    maybe_refresh_token_with_context(Callbacks, Config, Tokens);
+                    maybe_refresh_token_with_context(Config, Tokens);
                 false ->
                     BearerToken = <<"Bearer ", AccessToken/binary>>,
                     {ok, BearerToken, #{source => oauth, has_refresh_token => HasRefreshToken}}
@@ -574,10 +576,10 @@ do_resolve_oauth_token_with_context(Callbacks, Config) ->
     end.
 
 %% @private
-maybe_refresh_token_with_context(Callbacks, Config, #{refresh_token := RefreshToken}) when
+maybe_refresh_token_with_context(Config, #{refresh_token := RefreshToken}) when
     is_binary(RefreshToken)
 ->
-    ClientId = call_callback(Callbacks, get_client_id, []),
+    ClientId = call_callback(Config, get_client_id, []),
     case hex_api_oauth:refresh_token(Config, ClientId, RefreshToken) of
         {ok, {200, _, TokenResponse}} when is_map(TokenResponse) ->
             #{
@@ -586,7 +588,7 @@ maybe_refresh_token_with_context(Callbacks, Config, #{refresh_token := RefreshTo
             } = TokenResponse,
             NewRefreshToken = maps:get(<<"refresh_token">>, TokenResponse, RefreshToken),
             ExpiresAt = erlang:system_time(second) + ExpiresIn,
-            ok = call_callback(Callbacks, persist_oauth_tokens, [
+            ok = call_callback(Config, persist_oauth_tokens, [
                 global, NewAccessToken, NewRefreshToken, ExpiresAt
             ]),
             BearerToken = <<"Bearer ", NewAccessToken/binary>>,
@@ -597,7 +599,7 @@ maybe_refresh_token_with_context(Callbacks, Config, #{refresh_token := RefreshTo
         {error, _Reason} ->
             {error, {auth_error, token_refresh_failed}}
     end;
-maybe_refresh_token_with_context(_Callbacks, _Config, _Tokens) ->
+maybe_refresh_token_with_context(_Config, _Tokens) ->
     {error, {auth_error, token_refresh_failed}}.
 
 %%====================================================================
@@ -605,15 +607,14 @@ maybe_refresh_token_with_context(_Callbacks, _Config, _Tokens) ->
 %%====================================================================
 
 %% @private
-execute_with_retry(Callbacks, Config, Fun, AuthContext, OtpRetries, LastOtpError, Opts) ->
+execute_with_retry(Config, Fun, AuthContext, OtpRetries, LastOtpError, Opts) ->
     case Fun(Config) of
         {error, otp_required} ->
             handle_otp_retry(
-                Callbacks, Config, Fun, AuthContext, OtpRetries, <<"Enter OTP code:">>, Opts
+                Config, Fun, AuthContext, OtpRetries, <<"Enter OTP code:">>, Opts
             );
         {error, invalid_totp} ->
             handle_otp_retry(
-                Callbacks,
                 Config,
                 Fun,
                 AuthContext,
@@ -625,7 +626,7 @@ execute_with_retry(Callbacks, Config, Fun, AuthContext, OtpRetries, LastOtpError
             case detect_auth_error(Headers) of
                 otp_required ->
                     handle_otp_retry(
-                        Callbacks, Config, Fun, AuthContext, OtpRetries, <<"Enter OTP code:">>, Opts
+                        Config, Fun, AuthContext, OtpRetries, <<"Enter OTP code:">>, Opts
                     );
                 invalid_totp ->
                     Msg =
@@ -633,9 +634,9 @@ execute_with_retry(Callbacks, Config, Fun, AuthContext, OtpRetries, LastOtpError
                             invalid_totp -> <<"Invalid OTP code. Please try again:">>;
                             _ -> <<"Enter OTP code:">>
                         end,
-                    handle_otp_retry(Callbacks, Config, Fun, AuthContext, OtpRetries, Msg, Opts);
+                    handle_otp_retry(Config, Fun, AuthContext, OtpRetries, Msg, Opts);
                 token_expired ->
-                    handle_token_refresh_retry(Callbacks, Config, Fun, AuthContext, Opts);
+                    handle_token_refresh_retry(Config, Fun, AuthContext, Opts);
                 none ->
                     Response
             end;
@@ -644,47 +645,47 @@ execute_with_retry(Callbacks, Config, Fun, AuthContext, OtpRetries, LastOtpError
     end.
 
 %% @private
-handle_otp_retry(_Callbacks, _Config, _Fun, _AuthContext, OtpRetries, _Message, _Opts) when
+handle_otp_retry(_Config, _Fun, _AuthContext, OtpRetries, _Message, _Opts) when
     OtpRetries >= ?MAX_OTP_RETRIES
 ->
     {error, {auth_error, otp_max_retries}};
-handle_otp_retry(Callbacks, Config, Fun, AuthContext, OtpRetries, Message, Opts) ->
-    case call_callback(Callbacks, prompt_otp, [Message]) of
+handle_otp_retry(Config, Fun, AuthContext, OtpRetries, Message, Opts) ->
+    case call_callback(Config, prompt_otp, [Message]) of
         {ok, OtpCode} ->
             NewConfig = Config#{api_otp => OtpCode},
             execute_with_retry(
-                Callbacks, NewConfig, Fun, AuthContext, OtpRetries + 1, invalid_totp, Opts
+                NewConfig, Fun, AuthContext, OtpRetries + 1, invalid_totp, Opts
             );
         cancelled ->
             {error, {auth_error, otp_cancelled}}
     end.
 
 %% @private
-handle_token_refresh_retry(Callbacks, Config, Fun, AuthContext, Opts) ->
+handle_token_refresh_retry(Config, Fun, AuthContext, Opts) ->
     %% Only attempt refresh if we have a refresh token
     case maps:get(has_refresh_token, AuthContext, false) of
         true ->
-            case resolve_oauth_token_with_context(Callbacks, Config) of
+            case resolve_oauth_token_with_context(Config) of
                 {ok, NewBearerToken, NewAuthContext} ->
                     NewConfig = Config#{api_key => NewBearerToken},
                     execute_with_retry(
-                        Callbacks, NewConfig, Fun, NewAuthContext, 0, undefined, Opts
+                        NewConfig, Fun, NewAuthContext, 0, undefined, Opts
                     );
                 {error, _} ->
-                    maybe_reauthenticate(Callbacks, Config, Fun, Opts)
+                    maybe_reauthenticate(Config, Fun, Opts)
             end;
         false ->
-            maybe_reauthenticate(Callbacks, Config, Fun, Opts)
+            maybe_reauthenticate(Config, Fun, Opts)
     end.
 
 %% @private
 %% After token refresh failure, prompt the user to re-authenticate via device auth
 %% (only when auth_inline is true). Mirrors Hex.OAuth.reauthenticate/1.
-maybe_reauthenticate(Callbacks, Config, Fun, Opts) ->
+maybe_reauthenticate(Config, Fun, Opts) ->
     AuthInline = proplists:get_value(auth_inline, Opts, true),
     case AuthInline of
         true ->
-            maybe_authenticate_and_retry(Callbacks, Config, Fun, token_refresh_failed, Opts);
+            maybe_authenticate_and_retry(Config, Fun, token_refresh_failed, Opts);
         false ->
             {error, {auth_error, token_refresh_failed}}
     end.
@@ -717,6 +718,7 @@ parse_www_authenticate(Value) when is_binary(Value) ->
 %%====================================================================
 
 %% @private
-call_callback(Callbacks, Name, Args) ->
+call_callback(Config, Name, Args) ->
+    #{cli_auth_callbacks := Callbacks} = Config,
     Fun = maps:get(Name, Callbacks),
     erlang:apply(Fun, Args).
