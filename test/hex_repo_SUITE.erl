@@ -70,9 +70,27 @@ get_policy_test(_Config) ->
             repository := <<"myorg">>,
             name := <<"strict-prod">>,
             visibility := 'VISIBILITY_PUBLIC',
-            advisory_min_severity := 3,
-            retirement_reasons := [1, 2],
-            cooldown := <<"14d">>
+            repositories := [
+                #{
+                    repository := <<"hexpm">>,
+                    restriction := #{
+                        advisory_min_severity := 'SEVERITY_HIGH',
+                        retirement_reasons := ['RETIRED_INVALID', 'RETIRED_SECURITY'],
+                        cooldown := <<"14d">>
+                    },
+                    overrides := [
+                        #{
+                            action := 'OVERRIDE_ACTION_ALLOW',
+                            ref := #{package := <<"phoenix">>, requirement := <<"1.7.18">>}
+                        },
+                        #{action := 'OVERRIDE_ACTION_DENY', ref := #{package := <<"foo">>}}
+                    ]
+                },
+                #{
+                    repository := <<"myorg">>,
+                    overrides := []
+                }
+            ]
         }}} = hex_repo:get_policy(Config, <<"strict-prod">>),
 
     {ok, {403, _, _}} = hex_repo:get_policy(Config, <<"nonexisting">>),
