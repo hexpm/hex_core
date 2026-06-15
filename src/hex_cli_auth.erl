@@ -321,7 +321,38 @@ repo_name(_) ->
 
 %% @private
 %% Ask user if they want to authenticate, and if yes, initiate device auth.
+%%
+%% Serialized with a global lock so concurrent callers don't each trigger their
+%% own device auth flow. The first caller to acquire the lock runs device auth
+%% and persists the resulting token; subsequent callers re-check for an existing
+%% (now-valid) token inside the lock and reuse it instead of re-authenticating.
 maybe_authenticate_and_retry(BaseConfig, Fun, Reason, Opts) ->
+    global:trans(
+        {{?MODULE, device_auth}, self()},
+        fun() ->
+            do_maybe_authenticate_and_retry(BaseConfig, Fun, Reason, Opts)
+        end,
+        [node()],
+        infinity
+    ).
+
+%% @private
+%% Another caller may have authenticated while we waited for the lock. Re-resolve
+%% and, if we get a token that differs from the one we arrived with (none when
+%% credentials were missing; the rejected one on token_refresh_failed), reuse it
+%% instead of prompting again. Otherwise proceed to prompt + device auth.
+do_maybe_authenticate_and_retry(BaseConfig, Fun, Reason, Opts) ->
+    CurrentApiKey = maps:get(api_key, BaseConfig, undefined),
+    case resolve_api_auth(write, BaseConfig) of
+        {ok, ApiKey, AuthContext} when ApiKey =/= CurrentApiKey ->
+            Config = BaseConfig#{api_key => ApiKey},
+            execute_with_retry(Config, Fun, AuthContext, 0, undefined, Opts);
+        _ ->
+            prompt_and_device_auth(BaseConfig, Fun, Reason, Opts)
+    end.
+
+%% @private
+prompt_and_device_auth(BaseConfig, Fun, Reason, Opts) ->
     case call_callback(BaseConfig, should_authenticate, [Reason]) of
         true ->
             case device_auth(BaseConfig, <<"api repositories">>, Opts) of
