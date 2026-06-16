@@ -60,6 +60,7 @@ all() ->
 
         %% with_api tests - wrapper behavior
         with_api_optional_test,
+        with_api_optional_token_refresh_failed_test,
         with_api_auth_inline_test,
         with_api_device_auth_test,
 
@@ -722,6 +723,28 @@ with_api_optional_test(_Config) ->
     Config = config_with_callbacks(#{oauth_tokens => error}),
 
     %% Function is called without api_key
+    Result = hex_cli_auth:with_api(
+        read,
+        Config,
+        fun(Cfg) -> maps:get(api_key, Cfg, undefined) end,
+        [{optional, true}]
+    ),
+    ?assertEqual(undefined, Result),
+    ok.
+
+with_api_optional_token_refresh_failed_test(_Config) ->
+    %% When resolve_api_auth fails with token_refresh_failed and optional is true,
+    %% fall back to executing the request without credentials.
+    Now = erlang:system_time(second),
+    Config = config_with_callbacks(#{
+        oauth_tokens =>
+            {ok, #{
+                access_token => <<"expired_token">>,
+                %% Expired with no refresh_token => token_refresh_failed immediately
+                expires_at => Now - 100
+            }}
+    }),
+
     Result = hex_cli_auth:with_api(
         read,
         Config,
