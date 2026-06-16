@@ -234,6 +234,9 @@ with_api(Permission, BaseConfig, Fun, Opts) ->
         {error, no_auth} ->
             %% auth_inline is false, just return error
             {error, {auth_error, no_credentials}};
+        {error, {auth_error, token_refresh_failed}} when Optional =:= true ->
+            %% Token refresh failed but auth is optional, fall back to no credentials
+            execute_optional_with_retry(BaseConfig, Fun, Opts);
         {error, _} = Error ->
             Error
     end.
