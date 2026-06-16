@@ -69,7 +69,8 @@ all() ->
         with_repo_optional_token_refresh_failed_test,
 
         %% concurrency tests
-        resolve_oauth_token_concurrent_refresh_serialized_test
+        resolve_oauth_token_concurrent_refresh_serialized_test,
+        device_auth_concurrent_serialized_reuses_login_test
     ].
 
 %%====================================================================
@@ -906,6 +907,153 @@ resolve_oauth_token_concurrent_refresh_serialized_test(_Config) ->
         refreshed -> ok
     after 0 -> ok
     end,
+    ok.
+
+device_auth_concurrent_serialized_reuses_login_test(_Config) ->
+    %% Multiple concurrent callers that all need to authenticate via device auth
+    %% must serialize: the FIRST caller runs the device auth flow, persists the
+    %% resulting token, and every subsequent caller reuses that login instead of
+    %% kicking off its own device auth flow.
+    %%
+    %% To make the race deterministic, all callers first sync at a barrier (so
+    %% they enter `with_api` together) and the `should_authenticate' callback
+    %% blocks the caller that reaches it until the test releases it. Then:
+    %%   * With the global lock, only ONE caller can be inside the device auth
+    %%     section at a time, so only one `should_authenticate' arrives while the
+    %%     others are still blocked on the lock.
+    %%   * Without the lock, ALL callers reach `should_authenticate' concurrently.
+    %% We assert exactly one caller entered the prompt, then release it; the
+    %% persisted token is reused by everyone else.
+    NumCallers = 5,
+    Self = self(),
+
+    PromptCount = counters:new(1, [atomics]),
+    PersistCount = counters:new(1, [atomics]),
+
+    %% Persisted token store, updated by the winning device auth flow and read by
+    %% every subsequent caller. Starts empty so the first caller has no credentials.
+    TokenStore = ets:new(token_store, [public, set]),
+    true = ets:insert(TokenStore, {oauth_tokens, error}),
+
+    GetOAuthTokensFn = fun() ->
+        [{oauth_tokens, Tokens}] = ets:lookup(TokenStore, oauth_tokens),
+        Tokens
+    end,
+
+    Config = config_with_callbacks(#{
+        get_oauth_tokens => GetOAuthTokensFn,
+        should_authenticate => fun(no_credentials) ->
+            counters:add(PromptCount, 1, 1),
+            %% Signal arrival and block until the test releases us. This holds the
+            %% global lock (if any), keeping other callers out of this section.
+            Self ! {entered_prompt, self()},
+            receive
+                release -> ok
+            end,
+            true
+        end,
+        persist_oauth_tokens => fun(global, Access, Refresh, Expires) ->
+            %% The winning caller persists the device token; make it valid so
+            %% subsequent callers reuse it instead of authenticating again.
+            ets:insert(
+                TokenStore,
+                {oauth_tokens,
+                    {ok, #{
+                        access_token => Access,
+                        refresh_token => Refresh,
+                        expires_at => Expires
+                    }}}
+            ),
+            counters:add(PersistCount, 1, 1),
+            ok
+        end
+    }),
+
+    %% The device auth poll reads the queued oauth_device_response from the
+    %% *calling* process's mailbox; each caller plants its own success response.
+    AccessToken = <<"device_token">>,
+    SuccessPayload = #{
+        <<"access_token">> => AccessToken,
+        <<"refresh_token">> => <<"device_refresh">>,
+        <<"token_type">> => <<"Bearer">>,
+        <<"expires_in">> => 3600
+    },
+    Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+    DeviceResponse =
+        {hex_http_test, oauth_device_response,
+            {ok, {200, Headers, term_to_binary(SuccessPayload)}}},
+
+    %% Spawn concurrent callers, all with no initial credentials. They sync at a
+    %% barrier so they enter with_api as simultaneously as possible.
+    [
+        spawn(fun() ->
+            self() ! DeviceResponse,
+            Self ! {ready, self()},
+            receive
+                go -> ok
+            end,
+            Result = hex_cli_auth:with_api(
+                write,
+                Config,
+                fun(Cfg) -> maps:get(api_key, Cfg) end,
+                [{oauth_open_browser, false}]
+            ),
+            Self ! {result, N, Result}
+        end)
+     || N <- lists:seq(1, NumCallers)
+    ],
+
+    %% Barrier: wait for all callers to be ready, then release them together.
+    Pids = [
+        receive
+            {ready, Pid} -> Pid
+        after 1000 ->
+            error(caller_not_ready)
+        end
+     || _ <- lists:seq(1, NumCallers)
+    ],
+    [Pid ! go || Pid <- Pids],
+
+    %% Exactly one caller may reach the prompt; give the others time to (wrongly)
+    %% reach it too if the lock is missing.
+    receive
+        {entered_prompt, PromptPid} ->
+            %% Allow other callers to race into the (un)locked section.
+            timer:sleep(200),
+            ?assertEqual(
+                1,
+                counters:get(PromptCount, 1),
+                "device auth was not serialized: multiple callers prompted concurrently"
+            ),
+            %% Release the winner so it completes device auth and persists.
+            PromptPid ! release
+    after 2000 ->
+        error(no_prompt)
+    end,
+
+    %% Collect all results. Every caller must end up with the same bearer token,
+    %% either because it ran the (single) device auth flow or because it reused
+    %% the login persisted by the winner.
+    Results = [
+        receive
+            {result, _N, R} -> R
+        after 5000 ->
+            error(caller_timed_out)
+        end
+     || _ <- lists:seq(1, NumCallers)
+    ],
+
+    [
+        ?assertEqual(<<"Bearer device_token">>, R)
+     || R <- Results
+    ],
+
+    %% The user was prompted, and the token persisted, exactly once across all
+    %% callers — proving calls were serialized and the login was reused.
+    ?assertEqual(1, counters:get(PromptCount, 1)),
+    ?assertEqual(1, counters:get(PersistCount, 1)),
+
+    ets:delete(TokenStore),
     ok.
 
 %%====================================================================
