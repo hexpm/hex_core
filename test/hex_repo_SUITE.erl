@@ -24,7 +24,7 @@ all() ->
         get_versions_test,
         get_package_test,
         get_policy_test,
-        get_policy_missing_org_test,
+        get_policy_without_org_test,
         get_tarball_test,
         get_tarball_to_file_test,
         get_docs_test,
@@ -70,16 +70,41 @@ get_policy_test(_Config) ->
             repository := <<"myorg">>,
             name := <<"strict-prod">>,
             visibility := 'VISIBILITY_PUBLIC',
-            advisory_min_severity := 3,
-            retirement_reasons := [1, 2],
-            cooldown := <<"14d">>
+            repositories := [
+                #{
+                    repository := <<"hexpm">>,
+                    restriction := #{
+                        advisory_min_severity := 'SEVERITY_HIGH',
+                        retirement_reasons := ['RETIRED_INVALID', 'RETIRED_SECURITY'],
+                        cooldown := <<"14d">>
+                    },
+                    overrides := [
+                        #{
+                            action := 'OVERRIDE_ACTION_ALLOW',
+                            ref := #{package := <<"phoenix">>, requirement := <<"1.7.18">>}
+                        },
+                        #{action := 'OVERRIDE_ACTION_DENY', ref := #{package := <<"foo">>}}
+                    ]
+                },
+                #{
+                    repository := <<"myorg">>,
+                    overrides := []
+                }
+            ]
         }}} = hex_repo:get_policy(Config, <<"strict-prod">>),
 
     {ok, {403, _, _}} = hex_repo:get_policy(Config, <<"nonexisting">>),
     ok.
 
-get_policy_missing_org_test(_Config) ->
-    {error, missing_repo_organization} = hex_repo:get_policy(?CONFIG, <<"strict-prod">>),
+% Clients that bake the /repos/<org> segment into repo_url (e.g. Hex) reach
+% the same resource with repo_organization unset.
+get_policy_without_org_test(_Config) ->
+    Config = ?CONFIG#{
+        repo_url => <<"https://repo.test/repos/myorg">>,
+        repo_name => <<"myorg">>
+    },
+
+    {ok, {200, _, #{name := <<"strict-prod">>}}} = hex_repo:get_policy(Config, <<"strict-prod">>),
     ok.
 
 get_tarball_test(_Config) ->

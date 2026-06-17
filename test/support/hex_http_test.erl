@@ -98,9 +98,27 @@ fixture(get, <<?TEST_REPO_URL, "/repos/myorg/policies/strict-prod">>, _, _) ->
         name => <<"strict-prod">>,
         description => <<"Production policy">>,
         visibility => 'VISIBILITY_PUBLIC',
-        advisory_min_severity => 3,
-        retirement_reasons => [1, 2],
-        cooldown => <<"14d">>
+        repositories => [
+            #{
+                repository => <<"hexpm">>,
+                restriction => #{
+                    advisory_min_severity => 'SEVERITY_HIGH',
+                    retirement_reasons => ['RETIRED_INVALID', 'RETIRED_SECURITY'],
+                    cooldown => <<"14d">>
+                },
+                overrides => [
+                    #{
+                        action => 'OVERRIDE_ACTION_ALLOW',
+                        ref => #{package => <<"phoenix">>, requirement => <<"1.7.18">>}
+                    },
+                    #{action => 'OVERRIDE_ACTION_DENY', ref => #{package => <<"foo">>}}
+                ]
+            },
+            #{
+                repository => <<"myorg">>,
+                overrides => []
+            }
+        ]
     },
     Payload = hex_registry:encode_policy(Policy),
     Signed = hex_registry:sign_protobuf(Payload, ?PRIVATE_KEY),
