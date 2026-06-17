@@ -371,16 +371,21 @@ fixture(post, <<?TEST_API_URL, "/oauth/token">>, _, {_, Body}) ->
             },
             {ok, {200, api_headers(), term_to_binary(Payload)}};
         <<"refresh_token">> ->
-            % Simulate successful token refresh
-            NewAccessToken = base64:encode(crypto:strong_rand_bytes(32)),
-            NewRefreshToken = base64:encode(crypto:strong_rand_bytes(32)),
-            Payload = #{
-                <<"access_token">> => NewAccessToken,
-                <<"refresh_token">> => NewRefreshToken,
-                <<"token_type">> => <<"Bearer">>,
-                <<"expires_in">> => 3600
-            },
-            {ok, {200, api_headers(), term_to_binary(Payload)}};
+            receive
+                {hex_http_test, oauth_refresh_response, Response} ->
+                    Response
+            after 0 ->
+                % Default: simulate successful token refresh
+                NewAccessToken = base64:encode(crypto:strong_rand_bytes(32)),
+                NewRefreshToken = base64:encode(crypto:strong_rand_bytes(32)),
+                Payload = #{
+                    <<"access_token">> => NewAccessToken,
+                    <<"refresh_token">> => NewRefreshToken,
+                    <<"token_type">> => <<"Bearer">>,
+                    <<"expires_in">> => 3600
+                },
+                {ok, {200, api_headers(), term_to_binary(Payload)}}
+            end;
         <<"client_credentials">> ->
             % Simulate successful client credentials token exchange
             #{<<"scope">> := Scope} = DecodedBody,

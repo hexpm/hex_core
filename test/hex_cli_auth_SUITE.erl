@@ -71,6 +71,7 @@ all() ->
 
         %% concurrency tests
         resolve_oauth_token_concurrent_refresh_serialized_test,
+        resolve_oauth_token_refresh_failure_clears_once_test,
         device_auth_concurrent_serialized_reuses_login_test
     ].
 
@@ -932,6 +933,93 @@ resolve_oauth_token_concurrent_refresh_serialized_test(_Config) ->
     end,
     ok.
 
+resolve_oauth_token_refresh_failure_clears_once_test(_Config) ->
+    %% Several concurrent callers share one expired global token whose refresh
+    %% the server rejects (400). The first failure must invalidate the token via
+    %% clear_oauth_tokens while holding the token-refresh lock; every caller
+    %% serialized behind the lock then re-reads it as absent instead of each
+    %% re-POSTing to /oauth/token. So the refresh is attempted exactly once.
+    Now = erlang:system_time(second),
+    NumCallers = 5,
+    Self = self(),
+    ClearCount = counters:new(1, [atomics]),
+
+    %% Shared token store: starts with the expired token, emptied by the first
+    %% (and only) clear so subsequent callers see no credentials.
+    TokenStore = ets:new(token_store, [public, set]),
+    true = ets:insert(
+        TokenStore,
+        {oauth_tokens,
+            {ok, #{
+                access_token => <<"expired_token">>,
+                refresh_token => <<"refresh_token">>,
+                expires_at => Now - 100
+            }}}
+    ),
+
+    Config = config_with_callbacks(#{
+        get_oauth_tokens => fun() ->
+            [{oauth_tokens, Tokens}] = ets:lookup(TokenStore, oauth_tokens),
+            Tokens
+        end,
+        clear_oauth_tokens => fun() ->
+            %% Slow clear: a missing lock or missing re-read would let other
+            %% callers race in and refresh again, tripping the count assertion.
+            timer:sleep(50),
+            ets:insert(TokenStore, {oauth_tokens, error}),
+            counters:add(ClearCount, 1, 1),
+            ok
+        end
+    }),
+
+    %% Each caller plants a 400 response for its own refresh request. Only the
+    %% caller that wins the lock actually performs the refresh and consumes it.
+    FailResponse =
+        {ok,
+            {400, #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+                term_to_binary(#{<<"error">> => <<"invalid_grant">>})}},
+
+    [
+        spawn(fun() ->
+            self() ! {hex_http_test, oauth_refresh_response, FailResponse},
+            Self ! {ready, self()},
+            receive
+                go -> ok
+            end,
+            Result = hex_cli_auth:resolve_api_auth(read, Config),
+            Self ! {result, Result}
+        end)
+     || _ <- lists:seq(1, NumCallers)
+    ],
+
+    %% Barrier: release all callers together to maximize the race.
+    Pids = [
+        receive
+            {ready, Pid} -> Pid
+        after 1000 ->
+            error(caller_not_ready)
+        end
+     || _ <- lists:seq(1, NumCallers)
+    ],
+    [Pid ! go || Pid <- Pids],
+
+    Results = [
+        receive
+            {result, R} -> R
+        after 5000 ->
+            error(caller_timed_out)
+        end
+     || _ <- lists:seq(1, NumCallers)
+    ],
+
+    %% The token was cleared exactly once => exactly one refresh POST happened.
+    ?assertEqual(1, counters:get(ClearCount, 1)),
+    %% No caller obtained a usable token.
+    [?assertMatch({error, _}, R) || R <- Results],
+
+    ets:delete(TokenStore),
+    ok.
+
 device_auth_concurrent_serialized_reuses_login_test(_Config) ->
     %% Multiple concurrent callers that all need to authenticate via device auth
     %% must serialize: the FIRST caller runs the device auth flow, persists the
@@ -1091,6 +1179,7 @@ make_callbacks(Opts) ->
     PromptOtp = maps:get(prompt_otp, Opts, fun(_) -> cancelled end),
     ShouldAuthenticate = maps:get(should_authenticate, Opts, fun(_) -> false end),
     PersistFn = maps:get(persist_oauth_tokens, Opts, fun(_, _, _, _) -> ok end),
+    ClearFn = maps:get(clear_oauth_tokens, Opts, fun() -> ok end),
     DefaultGetOAuthTokens = fun() -> maps:get(oauth_tokens, Opts, error) end,
     GetOAuthTokensFn = maps:get(get_oauth_tokens, Opts, DefaultGetOAuthTokens),
 
@@ -1098,6 +1187,7 @@ make_callbacks(Opts) ->
         get_auth_config => fun(RepoName) -> maps:get(RepoName, AuthConfig, undefined) end,
         get_oauth_tokens => GetOAuthTokensFn,
         persist_oauth_tokens => PersistFn,
+        clear_oauth_tokens => ClearFn,
         prompt_otp => PromptOtp,
         should_authenticate => ShouldAuthenticate,
         get_client_id => fun() -> <<"test_client">> end
