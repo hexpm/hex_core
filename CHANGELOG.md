@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## v0.19.0 (2026-07-21)
+
+* Add `hex_cli_auth` module with callback-based authentication handling for build tools: `with_api/3,4` and `with_repo/2,3` request wrappers, credential resolution, OAuth token exchange and automatic refresh, OTP prompt handling, and device authentication.
+* Add `hex_api_oauth:device_auth_flow/4,5` handling the complete OAuth device authorization flow.
+* Add `trusted`, `oauth_exchange`, `oauth_exchange_url`, and `cli_auth_callbacks` config options.
+* Restructure the `Policy` registry resource into per-repository restrictions and per-package overrides, replacing the ordered rule list.
+* Build the policy URL like other registry resources, so `hex_repo:get_policy/2` no longer requires `repo_organization`.
+
 ## v0.18.0 (2026-06-02)
 
 * Add support for the `Policy` registry resource: signed organization dependency policies that opted-in clients honor at resolution time.
