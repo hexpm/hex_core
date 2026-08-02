@@ -33,6 +33,8 @@ all() ->
         oauth_device_auth_flow_denied_test,
         oauth_device_auth_flow_timeout_test,
         oauth_refresh_token_test,
+        oauth_sso_authorization_test,
+        oauth_device_auth_flow_sso_reauth_test,
         oauth_revoke_test,
         oauth_client_credentials_test,
         publish_with_expect_header_test,
@@ -240,6 +242,40 @@ oauth_refresh_token_test(_Config) ->
     ?assert(is_binary(NewAccessToken)),
     ?assert(is_binary(NewRefreshToken)),
     ?assert(is_integer(ExpiresIn)),
+    ok.
+
+oauth_sso_authorization_test(_Config) ->
+    {ok, {201, _, Response}} = hex_api_oauth:sso_authorization(?CONFIG, [<<"acme">>]),
+    #{
+        <<"verification_uri">> := VerificationUri,
+        <<"expires_in">> := ExpiresIn
+    } = Response,
+    ?assertEqual(<<"https://hex.pm/sso/authorize/acme">>, VerificationUri),
+    ?assert(is_integer(ExpiresIn)),
+    ok.
+
+oauth_device_auth_flow_sso_reauth_test(_Config) ->
+    % The organizations a token was minted without reach the caller
+    ClientId = <<"cli">>,
+    Scope = <<"repositories">>,
+    Self = self(),
+    PromptUser = fun(_VerificationUri, _UserCode) -> ok end,
+
+    SuccessPayload = #{
+        <<"access_token">> => <<"test_access_token">>,
+        <<"refresh_token">> => <<"test_refresh_token">>,
+        <<"token_type">> => <<"Bearer">>,
+        <<"expires_in">> => 3600,
+        <<"sso_reauth_required">> => [<<"acme">>]
+    },
+    Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+    Self !
+        {hex_http_test, oauth_device_response,
+            {ok, {200, Headers, term_to_binary(SuccessPayload)}}},
+
+    {ok, Tokens} = hex_api_oauth:device_auth_flow(?CONFIG, ClientId, Scope, PromptUser),
+
+    ?assertEqual([<<"acme">>], maps:get(sso_reauth_required, Tokens)),
     ok.
 
 oauth_revoke_test(_Config) ->

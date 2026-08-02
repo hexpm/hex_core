@@ -35,6 +35,13 @@
 %%     %% holding the token-refresh lock.
 %%     clear_oauth_tokens => fun(() -> ok),
 %%
+%%     %% Report the organizations the server says this session has to
+%%     %% authenticate against their identity provider for (optional). Called
+%%     %% after every token grant, with the empty list when there are none, so
+%%     %% the build tool always holds the current set. It is not told which of
+%%     %% them the running command needs; deciding that is the build tool's job.
+%%     sso_reauth => fun(([binary()]) -> ok),
+%%
 %%     %% User interaction
 %%     prompt_otp => fun((Message :: binary()) -> {ok, OtpCode :: binary()} | cancelled),
 %%     should_authenticate => fun((Reason :: no_credentials | token_refresh_failed) -> boolean()),
@@ -87,7 +94,8 @@
     with_repo/2,
     with_repo/3,
     resolve_api_auth/2,
-    resolve_repo_auth/1
+    resolve_repo_auth/1,
+    refresh_tokens/1
 ]).
 
 -export_type([
@@ -120,6 +128,7 @@
         ) -> ok
     ),
     clear_oauth_tokens => fun(() -> ok),
+    sso_reauth => fun((Organizations :: [binary()]) -> ok),
     prompt_otp := fun((Message :: binary()) -> {ok, OtpCode :: binary()} | cancelled),
     should_authenticate := fun((Reason :: auth_prompt_reason()) -> boolean()),
     get_client_id := fun(() -> binary())
@@ -394,6 +403,32 @@ execute_optional_with_retry(BaseConfig, Fun, Opts) ->
             Other
     end.
 
+%% @doc
+%% Refreshes the stored global OAuth token now, whether or not it has expired.
+%%
+%% What a token carries can change without it expiring: authenticating a
+%% session against an organization's identity provider grants scopes the
+%% current access token was minted without. This is how a build tool picks
+%% those up rather than waiting out the access token.
+-spec refresh_tokens(hex_core:config()) -> ok | {error, auth_error()}.
+refresh_tokens(Config) ->
+    global:trans(
+        {{?MODULE, token_refresh}, self()},
+        fun() ->
+            case call_callback(Config, get_oauth_tokens, []) of
+                {ok, Tokens} ->
+                    case maybe_refresh_token_with_context(Config, Tokens) of
+                        {ok, _BearerToken, _AuthContext} -> ok;
+                        {error, _Reason} = Error -> Error
+                    end;
+                error ->
+                    {error, {auth_error, no_credentials}}
+            end
+        end,
+        [node()],
+        infinity
+    ).
+
 %%====================================================================
 %% Internal functions - Device Auth
 %%====================================================================
@@ -412,10 +447,13 @@ device_auth(Config, Scope, Opts) ->
     end,
     FlowOpts = [{open_browser, OpenBrowser}],
     case hex_api_oauth:device_auth_flow(Config, ClientId, Scope, PromptUser, FlowOpts) of
-        {ok, #{access_token := AccessToken, refresh_token := RefreshToken, expires_at := ExpiresAt}} ->
+        {ok,
+            #{access_token := AccessToken, refresh_token := RefreshToken, expires_at := ExpiresAt} =
+                Tokens} ->
             ok = call_callback(Config, persist_oauth_tokens, [
                 global, AccessToken, RefreshToken, ExpiresAt
             ]),
+            report_sso_reauth(Config, Tokens),
             {ok, #{
                 access_token => AccessToken,
                 refresh_token => RefreshToken,
@@ -648,6 +686,7 @@ maybe_refresh_token_with_context(Config, #{refresh_token := RefreshToken}) when
             ok = call_callback(Config, persist_oauth_tokens, [
                 global, NewAccessToken, NewRefreshToken, ExpiresAt
             ]),
+            report_sso_reauth(Config, TokenResponse),
             BearerToken = <<"Bearer ", NewAccessToken/binary>>,
             HasRefreshToken = is_binary(NewRefreshToken),
             {ok, BearerToken, #{source => oauth, has_refresh_token => HasRefreshToken}};
@@ -779,6 +818,19 @@ call_callback(Config, Name, Args) ->
     #{cli_auth_callbacks := Callbacks} = Config,
     Fun = maps:get(Name, Callbacks),
     erlang:apply(Fun, Args).
+
+%% @private
+%% Hands the build tool the organizations this session has to authenticate for.
+%% Always called after a grant, including with the empty list, so a set that
+%% has been resolved does not linger.
+report_sso_reauth(Config, #{sso_reauth_required := Organizations}) when is_list(Organizations) ->
+    maybe_call_callback(Config, sso_reauth, [Organizations]);
+report_sso_reauth(Config, #{<<"sso_reauth_required">> := Organizations}) when
+    is_list(Organizations)
+->
+    maybe_call_callback(Config, sso_reauth, [Organizations]);
+report_sso_reauth(Config, _Tokens) ->
+    maybe_call_callback(Config, sso_reauth, [[]]).
 
 %% @private
 %% Like call_callback/3 but for optional callbacks: returns ok without doing
