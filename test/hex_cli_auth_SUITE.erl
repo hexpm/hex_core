@@ -50,6 +50,12 @@ all() ->
         with_api_otp_cancelled_test,
         with_api_otp_max_retries_test,
 
+        %% sso re-authorization
+        sso_reauth_reported_on_refresh_test,
+        sso_reauth_reported_empty_test,
+        refresh_tokens_forces_a_refresh_test,
+        refresh_tokens_without_credentials_test,
+
         %% with_api tests - token refresh on 401
         with_api_token_expired_refresh_test,
 
@@ -1171,6 +1177,118 @@ device_auth_concurrent_serialized_reuses_login_test(_Config) ->
 %% Helper Functions
 %%====================================================================
 
+sso_reauth_reported_on_refresh_test(_Config) ->
+    %% The organizations the server flags on a refresh reach the build tool.
+    Now = erlang:system_time(second),
+    Self = self(),
+    Config = config_with_callbacks(#{
+        oauth_tokens =>
+            {ok, #{
+                access_token => <<"expired_token">>,
+                refresh_token => <<"refresh_token">>,
+                expires_at => Now - 100
+            }},
+        sso_reauth => fun(Organizations) ->
+            Self ! {sso_reauth, Organizations},
+            ok
+        end
+    }),
+
+    queue_refresh_response(#{<<"sso_reauth_required">> => [<<"acme">>]}),
+
+    {ok, _ApiKey, _AuthContext} = hex_cli_auth:resolve_api_auth(read, Config),
+
+    receive
+        {sso_reauth, Organizations} -> ?assertEqual([<<"acme">>], Organizations)
+    after 100 ->
+        error(sso_reauth_not_called)
+    end,
+    ok.
+
+sso_reauth_reported_empty_test(_Config) ->
+    %% A server that says nothing means nothing is lapsed, and the build tool
+    %% is told so rather than left holding a stale set.
+    Now = erlang:system_time(second),
+    Self = self(),
+    Config = config_with_callbacks(#{
+        oauth_tokens =>
+            {ok, #{
+                access_token => <<"expired_token">>,
+                refresh_token => <<"refresh_token">>,
+                expires_at => Now - 100
+            }},
+        sso_reauth => fun(Organizations) ->
+            Self ! {sso_reauth, Organizations},
+            ok
+        end
+    }),
+
+    {ok, _ApiKey, _AuthContext} = hex_cli_auth:resolve_api_auth(read, Config),
+
+    receive
+        {sso_reauth, Organizations} -> ?assertEqual([], Organizations)
+    after 100 ->
+        error(sso_reauth_not_called)
+    end,
+    ok.
+
+refresh_tokens_forces_a_refresh_test(_Config) ->
+    %% A token that has not expired is still refreshed: what it carries can
+    %% change without its lifetime running out.
+    Now = erlang:system_time(second),
+    Self = self(),
+    Config = config_with_callbacks(#{
+        oauth_tokens =>
+            {ok, #{
+                access_token => <<"valid_token">>,
+                refresh_token => <<"refresh_token">>,
+                expires_at => Now + 3600
+            }},
+        persist_oauth_tokens => fun(Scope, Access, Refresh, Expires) ->
+            Self ! {persisted, Scope, Access, Refresh, Expires},
+            ok
+        end
+    }),
+
+    queue_refresh_response(#{<<"access_token">> => <<"renewed_token">>}),
+
+    ?assertEqual(ok, hex_cli_auth:refresh_tokens(Config)),
+
+    receive
+        {persisted, global, Access, _Refresh, _Expires} ->
+            ?assertEqual(<<"renewed_token">>, Access)
+    after 100 ->
+        error(token_not_persisted)
+    end,
+    ok.
+
+refresh_tokens_without_credentials_test(_Config) ->
+    Config = config_with_callbacks(#{}),
+
+    ?assertEqual(
+        {error, {auth_error, no_credentials}},
+        hex_cli_auth:refresh_tokens(Config)
+    ),
+    ok.
+
+%% @private
+%% Plants the next refresh response the test HTTP adapter will hand back,
+%% merged over a working one so a test only states what it cares about.
+queue_refresh_response(Overrides) ->
+    Payload = maps:merge(
+        #{
+            <<"access_token">> => <<"new_access_token">>,
+            <<"refresh_token">> => <<"new_refresh_token">>,
+            <<"token_type">> => <<"Bearer">>,
+            <<"expires_in">> => 3600
+        },
+        Overrides
+    ),
+    Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+    self() !
+        {hex_http_test, oauth_refresh_response, {ok, {200, Headers, term_to_binary(Payload)}}},
+    ok.
+
 config_with_callbacks(Opts) ->
     ?CONFIG#{cli_auth_callbacks => make_callbacks(Opts)}.
 
@@ -1180,6 +1298,7 @@ make_callbacks(Opts) ->
     ShouldAuthenticate = maps:get(should_authenticate, Opts, fun(_) -> false end),
     PersistFn = maps:get(persist_oauth_tokens, Opts, fun(_, _, _, _) -> ok end),
     ClearFn = maps:get(clear_oauth_tokens, Opts, fun() -> ok end),
+    SsoReauthFn = maps:get(sso_reauth, Opts, fun(_Organizations) -> ok end),
     DefaultGetOAuthTokens = fun() -> maps:get(oauth_tokens, Opts, error) end,
     GetOAuthTokensFn = maps:get(get_oauth_tokens, Opts, DefaultGetOAuthTokens),
 
@@ -1188,6 +1307,7 @@ make_callbacks(Opts) ->
         get_oauth_tokens => GetOAuthTokensFn,
         persist_oauth_tokens => PersistFn,
         clear_oauth_tokens => ClearFn,
+        sso_reauth => SsoReauthFn,
         prompt_otp => PromptOtp,
         should_authenticate => ShouldAuthenticate,
         get_client_id => fun() -> <<"test_client">> end

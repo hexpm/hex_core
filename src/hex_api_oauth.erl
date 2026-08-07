@@ -8,6 +8,8 @@
     device_auth_flow/5,
     poll_device_token/3,
     refresh_token/3,
+    sso_authorization/2,
+    open_browser/1,
     revoke_token/3,
     client_credentials_token/4,
     client_credentials_token/5
@@ -18,7 +20,11 @@
 -type oauth_tokens() :: #{
     access_token := binary(),
     refresh_token => binary() | undefined,
-    expires_at := integer()
+    expires_at := integer(),
+    %% Organizations the session must authenticate against their identity
+    %% provider for. Their scopes are not in this token and re-requesting them
+    %% will not help; see sso_authorization/2.
+    sso_reauth_required => [binary()]
 }.
 
 -type device_auth_error() ::
@@ -181,7 +187,8 @@ poll_for_token_loop(Config, ClientId, DeviceCode, IntervalSeconds, ExpiresAt) ->
                     {ok, #{
                         access_token => AccessToken,
                         refresh_token => RefreshToken,
-                        expires_at => TokenExpiresAt
+                        expires_at => TokenExpiresAt,
+                        sso_reauth_required => sso_reauth_required(TokenResponse)
                     }};
                 {ok, {400, _, #{<<"error">> := <<"authorization_pending">>}}} ->
                     poll_for_token_loop(Config, ClientId, DeviceCode, IntervalSeconds, ExpiresAt);
@@ -259,6 +266,30 @@ refresh_token(Config, ClientId, RefreshToken) ->
         <<"client_id">> => ClientId
     },
     hex_api:post(Config, Path, Params).
+
+%% @doc
+%% Requests a URL for authenticating the current session against organizations
+%% that require single sign-on.
+%%
+%% The session the access token belongs to is the one being authorized: its
+%% owner opens the URL in a browser, completes SSO, and the next token refresh
+%% carries the scopes again. The URL is single-use and short-lived.
+%%
+%% Examples:
+%%
+%% ```
+%% 1> Config = hex_core:default_config().
+%% 2> hex_api_oauth:sso_authorization(Config, [<<"acme">>]).
+%% {ok, {201, _, #{
+%%     <<"verification_uri">> => <<"https://hex.pm/sso/authorize/...">>,
+%%     <<"expires_in">> => 600
+%% }}}
+%% '''
+%% @end
+-spec sso_authorization(hex_core:config(), [binary()]) -> hex_api:response().
+sso_authorization(Config, Organizations) ->
+    Path = <<"oauth/sso_authorization">>,
+    hex_api:post(Config, Path, #{<<"organizations">> => Organizations}).
 
 %% @doc
 %% Exchanges an API key for an OAuth access token using the client credentials grant.
@@ -341,13 +372,13 @@ revoke_token(Config, ClientId, Token) ->
     },
     hex_api:post(Config, Path, Params).
 
-%%====================================================================
-%% Internal functions
-%%====================================================================
-
-%% @private
-%% Open a URL in the default browser.
-%% Uses platform-specific commands: open (macOS), xdg-open (Linux), start (Windows).
+%% @doc
+%% Opens a URL in the default browser.
+%%
+%% Uses the platform's opener: `open' on macOS, `xdg-open' on Linux, `start'
+%% on Windows. Returns `{error, browser_not_found}' when none of them exists,
+%% which is the ordinary case on a headless machine.
+%% @end
 -spec open_browser(binary()) -> ok | {error, browser_not_found}.
 open_browser(Url) when is_binary(Url) ->
     ok = ensure_valid_http_url(Url),
@@ -367,6 +398,19 @@ open_browser(Url) when is_binary(Url) ->
         Executable ->
             open_port({spawn_executable, Executable}, [{args, Args}]),
             ok
+    end.
+
+%%====================================================================
+%% Internal functions
+%%====================================================================
+
+%% @private
+%% Older servers do not send the field at all, which means nothing is lapsed.
+-spec sso_reauth_required(map()) -> [binary()].
+sso_reauth_required(TokenResponse) ->
+    case maps:get(<<"sso_reauth_required">>, TokenResponse, []) of
+        Organizations when is_list(Organizations) -> Organizations;
+        _Other -> []
     end.
 
 %% @private
