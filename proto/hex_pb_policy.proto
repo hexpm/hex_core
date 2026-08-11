@@ -41,10 +41,9 @@ message RepositoryPolicy {
   // override (those bypass all limits).
   optional Restriction restriction = 2;
 
-  // Per-package final say, evaluated against each release in this repository.
-  // An ALLOW override permits the release immediately and bypasses
-  // `restriction`; a DENY override blocks it. When multiple overrides match a
-  // release, the one with the most specific requirement wins.
+  // Per-package overrides. ALLOW and DENY provide a final decision for the
+  // matching release. ADVISORY, RETIREMENT, and COOLDOWN each bypass only the
+  // selected restriction. Invalid or unknown entries are ignored.
   repeated Override overrides = 3;
 }
 
@@ -58,8 +57,8 @@ message Restriction {
   repeated RetirementReason retirement_reasons = 2 [packed=true];
 
   // Minimum release age. Same duration grammar as the Hex cooldown config
-  // ("7d", "2w", "1mo", "0"). Unset or "0" = no minimum age. If multiple
-  // active policies declare cooldowns, the effective cooldown is the strictest.
+  // ("7d", "2w", "1mo", "0"). Unset or "0" = no minimum age. The active
+  // policy and local cooldown compose by strictest-wins.
   optional string cooldown = 3;
 }
 
@@ -72,16 +71,37 @@ message PackageRef {
 }
 
 message Override {
-  // Whether this override permits or blocks the matching release.
+  // The effect of this override. The fields permitted for each action are
+  // described below. Unknown actions must be ignored.
   required OverrideAction action = 1;
 
   // The package (and optional requirement) the override applies to.
   required PackageRef ref = 2;
+
+  // ADVISORY requires advisory_id and forbids retirement_reason. Advisory
+  // identifiers match primary advisory IDs and aliases without regard to
+  // case. RETIREMENT requires retirement_reason and forbids advisory_id.
+  // ALLOW, DENY, and COOLDOWN forbid both selector fields.
+  optional string advisory_id = 3;
+  optional RetirementReason retirement_reason = 4;
+
+  // Optional UTF-8 explanation surfaced by clients for every override action.
+  // At most 500 Unicode code points; control, format, line separator, and
+  // paragraph separator characters are invalid. This is public when the
+  // policy visibility is VISIBILITY_PUBLIC.
+  optional string comment = 5;
 }
 
 enum OverrideAction {
-  // Permit the release and bypass `restriction`.
+  // Permit the release and bypass every policy restriction.
   OVERRIDE_ACTION_ALLOW = 0;
   // Block the release.
   OVERRIDE_ACTION_DENY = 1;
+  // Accept only the advisory selected by advisory_id.
+  OVERRIDE_ACTION_ADVISORY = 2;
+  // Accept only a retirement with the selected retirement_reason.
+  OVERRIDE_ACTION_RETIREMENT = 3;
+  // Bypass only the policy cooldown. Local cooldown configuration still
+  // applies independently.
+  OVERRIDE_ACTION_COOLDOWN = 4;
 }
