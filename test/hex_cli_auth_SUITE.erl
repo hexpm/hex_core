@@ -36,6 +36,8 @@ all() ->
         resolve_repo_auth_trusted_auth_key_test,
         resolve_repo_auth_untrusted_ignores_auth_key_test,
         resolve_repo_auth_oauth_fallback_test,
+        resolve_repo_auth_oauth_fallback_child_repo_test,
+        resolve_repo_auth_oauth_fallback_custom_repo_test,
         resolve_repo_auth_no_auth_test,
 
         %% resolve_repo_auth tests - token exchange
@@ -248,6 +250,35 @@ resolve_repo_auth_oauth_fallback_test(_Config) ->
 
     {ok, RepoKey, _} = hex_cli_auth:resolve_repo_auth(Config#{trusted => true}),
     ?assertEqual(<<"Bearer global_oauth">>, RepoKey),
+    ok.
+
+resolve_repo_auth_oauth_fallback_child_repo_test(_Config) ->
+    Now = erlang:system_time(second),
+    Config = config_with_callbacks(#{
+        auth_config => #{},
+        oauth_tokens =>
+            {ok, #{
+                access_token => <<"global_oauth">>,
+                expires_at => Now + 3600
+            }}
+    }),
+
+    {ok, RepoKey, _} = hex_cli_auth:resolve_repo_auth(
+        Config#{repo_organization => <<"myorg">>, trusted => true}
+    ),
+    ?assertEqual(<<"Bearer global_oauth">>, RepoKey),
+    ok.
+
+resolve_repo_auth_oauth_fallback_custom_repo_test(_Config) ->
+    Config = config_with_callbacks(#{
+        auth_config => #{},
+        get_oauth_tokens => fun() -> error(global_oauth_callback_called) end
+    }),
+
+    Result = hex_cli_auth:resolve_repo_auth(
+        Config#{repo_name => <<"custom">>, trusted => true}
+    ),
+    ?assertEqual(no_auth, Result),
     ok.
 
 resolve_repo_auth_no_auth_test(_Config) ->
