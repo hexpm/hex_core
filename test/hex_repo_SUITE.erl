@@ -81,9 +81,24 @@ get_policy_test(_Config) ->
                     overrides := [
                         #{
                             action := 'OVERRIDE_ACTION_ALLOW',
-                            ref := #{package := <<"phoenix">>, requirement := <<"1.7.18">>}
+                            ref := #{package := <<"phoenix">>, requirement := <<"1.7.18">>},
+                            comment := <<"Approved release">>
                         },
-                        #{action := 'OVERRIDE_ACTION_DENY', ref := #{package := <<"foo">>}}
+                        #{action := 'OVERRIDE_ACTION_DENY', ref := #{package := <<"foo">>}},
+                        #{
+                            action := 'OVERRIDE_ACTION_ADVISORY',
+                            ref := #{package := <<"phoenix">>, requirement := <<"~> 1.7">>},
+                            advisory_id := <<"CVE-2026-0001">>
+                        },
+                        #{
+                            action := 'OVERRIDE_ACTION_RETIREMENT',
+                            ref := #{package := <<"legacy">>},
+                            retirement_reason := 'RETIRED_DEPRECATED'
+                        },
+                        #{
+                            action := 'OVERRIDE_ACTION_COOLDOWN',
+                            ref := #{package := <<"hotfix">>, requirement := <<"== 2.0.1">>}
+                        }
                     ]
                 },
                 #{
