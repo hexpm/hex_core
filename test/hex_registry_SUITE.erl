@@ -10,7 +10,7 @@ suite() ->
     [{require, {ssl_certs, [test_pub, test_priv, hexpm_pub]}}].
 
 all() ->
-    [names_test, versions_test, package_test, policy_test, signed_test].
+    [names_test, versions_test, package_test, policy_test, policy_malformed_test, signed_test].
 
 names_test(_Config) ->
     TestPublicKey = ct:get_config({ssl_certs, test_pub}),
@@ -145,14 +145,33 @@ policy_test(_Config) ->
                 overrides => [
                     #{
                         action => 'OVERRIDE_ACTION_ALLOW',
-                        ref => #{package => <<"phoenix">>, requirement => <<"1.7.18">>}
+                        ref => #{package => <<"phoenix">>, requirement => <<"1.7.18">>},
+                        comment => <<"Approved release">>
                     },
-                    #{action => 'OVERRIDE_ACTION_DENY', ref => #{package => <<"foo">>}}
+                    #{action => 'OVERRIDE_ACTION_DENY', ref => #{package => <<"foo">>}},
+                    #{
+                        action => 'OVERRIDE_ACTION_ADVISORY',
+                        ref => #{package => <<"phoenix">>, requirement => <<"~> 1.7">>},
+                        advisory_id => <<"CVE-2026-0001">>,
+                        comment => <<"Mitigated by configuration">>
+                    },
+                    #{
+                        action => 'OVERRIDE_ACTION_RETIREMENT',
+                        ref => #{package => <<"legacy">>},
+                        retirement_reason => 'RETIRED_DEPRECATED'
+                    },
+                    #{
+                        action => 'OVERRIDE_ACTION_COOLDOWN',
+                        ref => #{package => <<"hotfix">>, requirement => <<"== 2.0.1">>},
+                        comment => <<"Urgent security fix">>
+                    }
                 ]
             },
             #{
                 repository => <<"myorg">>,
-                overrides => []
+                overrides => [
+                    #{action => 'OVERRIDE_ACTION_DENY', ref => #{package => <<"old-package">>}}
+                ]
             }
         ]
     },
@@ -174,6 +193,27 @@ policy_test(_Config) ->
     %% unpack while skipping repo/name check; signature still verified
     {ok, _} =
         hex_registry:unpack_policy(Payload, no_verify, no_verify, TestPublicKey),
+    ok.
+
+policy_malformed_test(_Config) ->
+    MissingRef = hex_pb_policy:decode_msg(
+        <<26, 13, "CVE-2026-0001">>,
+        'Override'
+    ),
+    ?assertEqual(
+        #{action => '$undef', advisory_id => <<"CVE-2026-0001">>},
+        MissingRef
+    ),
+    ?assertException(
+        error,
+        {gpb_type_error, _},
+        hex_pb_policy:verify_msg(MissingRef, 'Override')
+    ),
+    ?assertException(
+        error,
+        {gpb_error, {decoding_failure, _}},
+        hex_pb_policy:decode_msg(<<18, 20, "truncated">>, 'Override')
+    ),
     ok.
 
 signed_test(_Config) ->

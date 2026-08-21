@@ -12,6 +12,7 @@ all() ->
         timestamps_and_permissions_test,
         symlinks_test,
         symlinks_parent_dir_test,
+        symlink_cycle_test,
         unsafe_paths_to_create_test,
         unsupported_file_types_to_create_test,
         memory_test,
@@ -276,6 +277,34 @@ symlinks_parent_dir_test(Config) ->
     {error, {tarball, {unsafe_symlink, "dir/link.sh", "../../escape"}}} =
         hex_tarball:create(Metadata, UnsafeFiles, CreateConfig),
 
+    ok.
+
+%% dir/loop -> .. resolves inside the extraction dir but forms a cycle, so the
+%% post-unpack mtime pass must not traverse symlinked directories.
+symlink_cycle_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    Metadata = #{<<"name">> => <<"cycle">>, <<"version">> => <<"1.0.0">>},
+
+    Dir = filename:join(BaseDir, "cycle_dir"),
+    ok = file:make_dir(Dir),
+    ok = file:write_file(filename:join(Dir, "foo.sh"), <<"foo">>),
+    ok = file:make_symlink("..", filename:join(Dir, "loop")),
+
+    Files = [
+        {"dir/foo.sh", filename:join("cycle_dir", "foo.sh")},
+        {"dir/loop", filename:join("cycle_dir", "loop")}
+    ],
+    CreateConfig = maps:put(tarball_files_root, BaseDir, hex_core:default_config()),
+
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, Files, CreateConfig),
+    UnpackDir = filename:join(BaseDir, "symlink_cycle"),
+    {ok, _} = hex_tarball:unpack(Tarball, UnpackDir),
+
+    {ok, #file_info{type = symlink}} =
+        file:read_link_info(filename:join([UnpackDir, "dir", "loop"])),
+    {ok, FooShInfo} = file:read_file_info(filename:join([UnpackDir, "dir", "foo.sh"])),
+    [{{Year, _, _}, _}] = calendar:local_time_to_universal_time_dst(FooShInfo#file_info.mtime),
+    {{Year, _, _}, _} = calendar:local_time(),
     ok.
 
 unsafe_paths_to_create_test(Config) ->
