@@ -10,13 +10,13 @@ message Policy {
   // (matches ^[a-z0-9][a-z0-9_\-\.]*[a-z0-9]$, length 3..64)
   required string name = 2;
 
-  // Optional, free-form description (admin-set, surfaced in CLI/UI)
+  // Optional, free-form description.
   optional string description = 3;
 
   // Whether the policy is publicly readable or restricted to org members.
   // Read at the edge to decide whether to enforce auth on the fetch.
-  // Adding new Visibility values is a breaking change — old clients will
-  // treat unknown values as PRIVATE per the fail-closed rule.
+  // Consumers that use this field to authorize access MUST treat unknown
+  // values as PRIVATE.
   required Visibility visibility = 4;
 
   // One entry per repository the policy constrains (in practice "hexpm" and
@@ -42,8 +42,9 @@ message RepositoryPolicy {
   optional Restriction restriction = 2;
 
   // Per-package overrides. ALLOW and DENY provide a final decision for the
-  // matching release. ADVISORY, RETIREMENT, and COOLDOWN each bypass only the
-  // selected restriction. Invalid or unknown entries are ignored.
+  // matching release. The most specific match wins; the first entry wins ties.
+  // ADVISORY, RETIREMENT, and COOLDOWN each bypass only the selected
+  // restriction. Consumers MUST ignore invalid or unknown entries.
   repeated Override overrides = 3;
 }
 
@@ -56,9 +57,8 @@ message Restriction {
   // this set. Empty = no retirement limit.
   repeated RetirementReason retirement_reasons = 2 [packed=true];
 
-  // Minimum release age. Same duration grammar as the Hex cooldown config
-  // ("7d", "2w", "1mo", "0"). Unset or "0" = no minimum age. The active
-  // policy and local cooldown compose by strictest-wins.
+  // Minimum release age ("7d", "2w", "1mo", "0"). Unset or "0" = no
+  // minimum age. A release without published_at does not trigger the cooldown.
   optional string cooldown = 3;
 }
 
@@ -72,7 +72,7 @@ message PackageRef {
 
 message Override {
   // The effect of this override. The fields permitted for each action are
-  // described below. Unknown actions must be ignored.
+  // described below. Consumers MUST ignore unknown actions.
   required OverrideAction action = 1;
 
   // The package (and optional requirement) the override applies to.
@@ -85,10 +85,9 @@ message Override {
   optional string advisory_id = 3;
   optional RetirementReason retirement_reason = 4;
 
-  // Optional UTF-8 explanation surfaced by clients for every override action.
-  // At most 500 Unicode code points; control, format, line separator, and
-  // paragraph separator characters are invalid. This is public when the
-  // policy visibility is VISIBILITY_PUBLIC.
+  // Optional UTF-8 explanation. At most 500 Unicode code points; control,
+  // format, line separator, and paragraph separator characters are invalid.
+  // This is public when the policy visibility is VISIBILITY_PUBLIC.
   optional string comment = 5;
 }
 
@@ -101,7 +100,6 @@ enum OverrideAction {
   OVERRIDE_ACTION_ADVISORY = 2;
   // Accept only a retirement with the selected retirement_reason.
   OVERRIDE_ACTION_RETIREMENT = 3;
-  // Bypass only the policy cooldown. Local cooldown configuration still
-  // applies independently.
+  // Bypass only the policy cooldown.
   OVERRIDE_ACTION_COOLDOWN = 4;
 }
