@@ -32,6 +32,9 @@ all() ->
         oauth_device_auth_flow_success_test,
         oauth_device_auth_flow_denied_test,
         oauth_device_auth_flow_timeout_test,
+        oauth_device_auth_flow_poll_error_test,
+        oauth_device_auth_flow_no_refresh_token_test,
+        oauth_device_auth_flow_invalid_verification_uri_test,
         oauth_refresh_token_test,
         oauth_sso_authorization_test,
         oauth_device_auth_flow_sso_reauth_test,
@@ -224,6 +227,92 @@ oauth_device_auth_flow_timeout_test(_Config) ->
         {hex_http_test, oauth_device_response, {ok, {400, Headers, term_to_binary(ErrorPayload)}}},
 
     {error, timeout} = hex_api_oauth:device_auth_flow(?CONFIG, ClientId, Scope, PromptUser),
+    ok.
+
+oauth_device_auth_flow_poll_error_test(_Config) ->
+    % A poll that fails to reach the server keeps polling: the authorization the
+    % user is part way through outlives one dropped request.
+    ClientId = <<"cli">>,
+    Scope = <<"api:write">>,
+    Self = self(),
+    PromptUser = fun(_VerificationUri, _UserCode) -> ok end,
+
+    SuccessPayload = #{
+        <<"access_token">> => <<"test_access_token">>,
+        <<"refresh_token">> => <<"test_refresh_token">>,
+        <<"token_type">> => <<"Bearer">>,
+        <<"expires_in">> => 3600
+    },
+    Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+    Self ! {hex_http_test, oauth_device_response, {error, timeout}},
+    Self !
+        {hex_http_test, oauth_device_response,
+            {ok, {200, Headers, term_to_binary(SuccessPayload)}}},
+
+    {ok, Tokens} = hex_api_oauth:device_auth_flow(?CONFIG, ClientId, Scope, PromptUser),
+
+    ?assertEqual(<<"test_access_token">>, maps:get(access_token, Tokens)),
+    ok.
+
+oauth_device_auth_flow_no_refresh_token_test(_Config) ->
+    % A grant without a refresh token carries no key, rather than a placeholder
+    % a build tool would go on to store as if it were a token.
+    ClientId = <<"cli">>,
+    Scope = <<"api:write">>,
+    Self = self(),
+    PromptUser = fun(_VerificationUri, _UserCode) -> ok end,
+
+    SuccessPayload = #{
+        <<"access_token">> => <<"test_access_token">>,
+        <<"token_type">> => <<"Bearer">>,
+        <<"expires_in">> => 3600
+    },
+    Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+    Self !
+        {hex_http_test, oauth_device_response,
+            {ok, {200, Headers, term_to_binary(SuccessPayload)}}},
+
+    {ok, Tokens} = hex_api_oauth:device_auth_flow(?CONFIG, ClientId, Scope, PromptUser),
+
+    ?assertNot(maps:is_key(refresh_token, Tokens)),
+    ok.
+
+oauth_device_auth_flow_invalid_verification_uri_test(_Config) ->
+    % A verification URI that is not http(s) is not opened, and not a reason to
+    % end the flow either.
+    ClientId = <<"cli">>,
+    Scope = <<"api:write">>,
+    Self = self(),
+    PromptUser = fun(_VerificationUri, _UserCode) -> ok end,
+    Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+
+    DevicePayload = #{
+        <<"device_code">> => <<"device_code">>,
+        <<"user_code">> => <<"1234-5678">>,
+        <<"verification_uri">> => <<"javascript:alert(1)">>,
+        <<"verification_uri_complete">> => <<"javascript:alert(1)">>,
+        <<"expires_in">> => 600,
+        <<"interval">> => 0
+    },
+    Self !
+        {hex_http_test, oauth_device_authorization_response,
+            {ok, {200, Headers, term_to_binary(DevicePayload)}}},
+
+    SuccessPayload = #{
+        <<"access_token">> => <<"test_access_token">>,
+        <<"refresh_token">> => <<"test_refresh_token">>,
+        <<"token_type">> => <<"Bearer">>,
+        <<"expires_in">> => 3600
+    },
+    Self !
+        {hex_http_test, oauth_device_response,
+            {ok, {200, Headers, term_to_binary(SuccessPayload)}}},
+
+    {ok, Tokens} = hex_api_oauth:device_auth_flow(?CONFIG, ClientId, Scope, PromptUser, [
+        {open_browser, true}
+    ]),
+
+    ?assertEqual(<<"test_access_token">>, maps:get(access_token, Tokens)),
     ok.
 
 oauth_refresh_token_test(_Config) ->
