@@ -73,6 +73,7 @@ all() ->
         %% with_api tests - wrapper behavior
         with_api_optional_test,
         with_api_optional_token_refresh_failed_test,
+        with_api_refused_refresh_prompts_test,
         with_api_auth_inline_test,
         with_api_device_auth_test,
 
@@ -896,6 +897,41 @@ with_api_optional_token_refresh_failed_test(_Config) ->
         [{optional, true}]
     ),
     ?assertEqual(undefined, Result),
+    ok.
+
+with_api_refused_refresh_prompts_test(_Config) ->
+    %% A refused refresh leaves no usable token, same as having none, so the
+    %% caller that asked to be prompted up front is asked rather than told to
+    %% run mix hex.user auth.
+    Now = erlang:system_time(second),
+    Self = self(),
+    Config = config_with_callbacks(#{
+        oauth_tokens =>
+            {ok, #{
+                access_token => <<"expired_token">>,
+                expires_at => Now - 100
+            }},
+        should_authenticate => fun(Reason) ->
+            Self ! {should_authenticate, Reason},
+            false
+        end
+    }),
+
+    Result = hex_cli_auth:with_api(
+        write,
+        Config,
+        fun(_) -> error(should_not_be_called) end,
+        [{optional, false}, {auth_inline, true}]
+    ),
+
+    receive
+        {should_authenticate, Reason} ->
+            ?assertEqual(token_refresh_failed, Reason)
+    after 0 ->
+        ct:fail("should_authenticate was never called")
+    end,
+
+    ?assertEqual({error, {auth_error, auth_declined}}, Result),
     ok.
 
 with_api_auth_inline_test(_Config) ->
