@@ -52,8 +52,18 @@ all() ->
         with_api_otp_cancelled_test,
         with_api_otp_max_retries_test,
 
+        %% sso re-authorization
+        sso_reauth_reported_on_refresh_test,
+        sso_reauth_reported_empty_test,
+        sso_reauth_malformed_not_reported_test,
+        refresh_tokens_forces_a_refresh_test,
+        refresh_tokens_without_credentials_test,
+
         %% with_api tests - token refresh on 401
         with_api_token_expired_refresh_test,
+        with_api_token_expired_renews_test,
+        with_api_token_expired_retry_bounded_test,
+        with_api_token_expired_reauth_retry_bounded_test,
 
         %% with_api tests - reauthentication after refresh failure
         with_api_token_expired_reauth_yes_test,
@@ -63,6 +73,7 @@ all() ->
         %% with_api tests - wrapper behavior
         with_api_optional_test,
         with_api_optional_token_refresh_failed_test,
+        with_api_refused_refresh_prompts_test,
         with_api_auth_inline_test,
         with_api_device_auth_test,
 
@@ -70,11 +81,22 @@ all() ->
         with_repo_optional_test,
         with_repo_trusted_with_auth_test,
         with_repo_optional_token_refresh_failed_test,
+        with_repo_optional_401_does_not_prompt_test,
+        with_repo_device_auth_sets_repo_key_test,
+        with_repo_token_expired_refresh_test,
+        with_repo_token_expired_exchange_test,
+
+        %% token refresh failure modes
+        refresh_transport_error_keeps_token_test,
+        refresh_server_error_keeps_token_test,
+        refresh_malformed_body_keeps_token_test,
+        refresh_refusal_clears_token_test,
 
         %% concurrency tests
         resolve_oauth_token_concurrent_refresh_serialized_test,
         resolve_oauth_token_refresh_failure_clears_once_test,
-        device_auth_concurrent_serialized_reuses_login_test
+        device_auth_concurrent_serialized_reuses_login_test,
+        device_auth_lock_released_before_request_test
     ].
 
 %%====================================================================
@@ -88,7 +110,7 @@ resolve_api_auth_config_passthrough_test(_Config) ->
 
     {ok, ApiKey, AuthContext} = hex_cli_auth:resolve_api_auth(read, ConfigWithKey),
     ?assertEqual(<<"config_api_key">>, ApiKey),
-    ?assertEqual(#{source => config, has_refresh_token => false}, AuthContext),
+    ?assertEqual(#{has_refresh_token => false}, AuthContext),
     ok.
 
 resolve_api_auth_per_repo_test(_Config) ->
@@ -99,7 +121,7 @@ resolve_api_auth_per_repo_test(_Config) ->
 
     {ok, ApiKey, AuthContext} = hex_cli_auth:resolve_api_auth(write, Config),
     ?assertEqual(<<"repo_api_key">>, ApiKey),
-    ?assertEqual(#{source => config, has_refresh_token => false}, AuthContext),
+    ?assertEqual(#{has_refresh_token => false}, AuthContext),
     ok.
 
 resolve_api_auth_parent_repo_test(_Config) ->
@@ -128,7 +150,7 @@ resolve_api_auth_oauth_test(_Config) ->
 
     {ok, ApiKey, AuthContext} = hex_cli_auth:resolve_api_auth(read, Config),
     ?assertEqual(<<"Bearer oauth_token">>, ApiKey),
-    ?assertEqual(#{source => oauth, has_refresh_token => true}, AuthContext),
+    ?assertEqual(#{has_refresh_token => true}, AuthContext),
     ok.
 
 resolve_api_auth_oauth_expired_refresh_test(_Config) ->
@@ -152,7 +174,7 @@ resolve_api_auth_oauth_expired_refresh_test(_Config) ->
     {ok, ApiKey, AuthContext} = hex_cli_auth:resolve_api_auth(read, Config),
     %% Should have refreshed and got a new token
     ?assertMatch(<<"Bearer ", _/binary>>, ApiKey),
-    ?assertEqual(#{source => oauth, has_refresh_token => true}, AuthContext),
+    ?assertEqual(#{has_refresh_token => true}, AuthContext),
 
     %% Verify token was persisted
     receive
@@ -175,7 +197,7 @@ resolve_api_auth_oauth_no_refresh_token_test(_Config) ->
 
     {ok, ApiKey, AuthContext} = hex_cli_auth:resolve_api_auth(read, Config),
     ?assertEqual(<<"Bearer oauth_token">>, ApiKey),
-    ?assertEqual(#{source => oauth, has_refresh_token => false}, AuthContext),
+    ?assertEqual(#{has_refresh_token => false}, AuthContext),
     ok.
 
 resolve_api_auth_no_auth_test(_Config) ->
@@ -200,7 +222,7 @@ resolve_repo_auth_config_passthrough_test(_Config) ->
 
     {ok, RepoKey, AuthContext} = hex_cli_auth:resolve_repo_auth(ConfigWithKey),
     ?assertEqual(<<"config_repo_key">>, RepoKey),
-    ?assertEqual(#{source => config, has_refresh_token => false}, AuthContext),
+    ?assertEqual(#{has_refresh_token => false}, AuthContext),
     ok.
 
 resolve_repo_auth_callback_repo_key_test(_Config) ->
@@ -307,7 +329,7 @@ resolve_repo_auth_oauth_exchange_new_token_test(_Config) ->
         Config#{trusted => true, oauth_exchange => true}
     ),
     ?assertMatch(<<"Bearer ", _/binary>>, RepoKey),
-    ?assertEqual(#{source => oauth, has_refresh_token => false}, AuthContext),
+    ?assertEqual(#{has_refresh_token => false}, AuthContext),
 
     %% Verify token was persisted with repo name
     receive
@@ -596,6 +618,97 @@ with_api_token_expired_refresh_test(_Config) ->
     end,
     ok.
 
+with_api_token_expired_renews_test(_Config) ->
+    %% An API token the server rejects as expired is refreshed even though its
+    %% stored expiry has not passed, the way a repository token is, and the
+    %% request runs again with the token that came back.
+    Now = erlang:system_time(second),
+    Config = config_with_callbacks(#{
+        oauth_tokens =>
+            {ok, #{
+                access_token => <<"stale_token">>,
+                refresh_token => <<"refresh_token">>,
+                expires_at => Now + 3600
+            }}
+    }),
+
+    queue_refresh_response(#{<<"access_token">> => <<"renewed_token">>}),
+
+    Fun = fun(Cfg) ->
+        case maps:get(api_key, Cfg) of
+            <<"Bearer stale_token">> -> token_expired_response();
+            ApiKey -> {ok, {200, #{}, ApiKey}}
+        end
+    end,
+
+    ?assertEqual(
+        {ok, {200, #{}, <<"Bearer renewed_token">>}},
+        hex_cli_auth:with_api(write, Config, Fun)
+    ),
+    ok.
+
+with_api_token_expired_retry_bounded_test(_Config) ->
+    %% A server that answers token_expired to every bearer it is sent gets a
+    %% bounded number of requests: the renewed token is tried once and the 401
+    %% is handed back, rather than renewed and retried without end.
+    Now = erlang:system_time(second),
+    Config = config_with_callbacks(#{
+        oauth_tokens =>
+            {ok, #{
+                access_token => <<"stale_token">>,
+                refresh_token => <<"refresh_token">>,
+                expires_at => Now + 3600
+            }},
+        should_authenticate => fun(_Reason) -> error(should_not_be_called) end
+    }),
+
+    CallCount = counters:new(1, []),
+    Result = hex_cli_auth:with_api(write, Config, fun(_Cfg) ->
+        counters:add(CallCount, 1, 1),
+        token_expired_response()
+    end),
+
+    ?assertMatch({ok, {401, _Headers, _Body}}, Result),
+    ?assertEqual(2, counters:get(CallCount, 1)),
+    ok.
+
+with_api_token_expired_reauth_retry_bounded_test(_Config) ->
+    %% Same bound when the renewal is a device auth: the user authenticates
+    %% once, the request runs again with the new token, and a second
+    %% token_expired is the caller's to handle rather than a second prompt.
+    Now = erlang:system_time(second),
+    PromptCount = counters:new(1, []),
+    CallCount = counters:new(1, []),
+    Config = config_with_callbacks(#{
+        oauth_tokens =>
+            {ok, #{
+                access_token => <<"initial_token">>,
+                %% No refresh_token, so the 401 goes straight to reauth
+                expires_at => Now + 3600
+            }},
+        should_authenticate => fun(token_refresh_failed) ->
+            counters:add(PromptCount, 1, 1),
+            true
+        end
+    }),
+
+    queue_device_response(<<"device_token">>),
+
+    Result = hex_cli_auth:with_api(
+        write,
+        Config,
+        fun(_Cfg) ->
+            counters:add(CallCount, 1, 1),
+            token_expired_response()
+        end,
+        [{oauth_open_browser, false}]
+    ),
+
+    ?assertMatch({ok, {401, _Headers, _Body}}, Result),
+    ?assertEqual(1, counters:get(PromptCount, 1)),
+    ?assertEqual(2, counters:get(CallCount, 1)),
+    ok.
+
 %%====================================================================
 %% Test Cases - with_api reauthentication after refresh failure
 %%====================================================================
@@ -786,6 +899,41 @@ with_api_optional_token_refresh_failed_test(_Config) ->
     ?assertEqual(undefined, Result),
     ok.
 
+with_api_refused_refresh_prompts_test(_Config) ->
+    %% A refused refresh leaves no usable token, same as having none, so the
+    %% caller that asked to be prompted up front is asked rather than told to
+    %% run mix hex.user auth.
+    Now = erlang:system_time(second),
+    Self = self(),
+    Config = config_with_callbacks(#{
+        oauth_tokens =>
+            {ok, #{
+                access_token => <<"expired_token">>,
+                expires_at => Now - 100
+            }},
+        should_authenticate => fun(Reason) ->
+            Self ! {should_authenticate, Reason},
+            false
+        end
+    }),
+
+    Result = hex_cli_auth:with_api(
+        write,
+        Config,
+        fun(_) -> error(should_not_be_called) end,
+        [{optional, false}, {auth_inline, true}]
+    ),
+
+    receive
+        {should_authenticate, Reason} ->
+            ?assertEqual(token_refresh_failed, Reason)
+    after 0 ->
+        ct:fail("should_authenticate was never called")
+    end,
+
+    ?assertEqual({error, {auth_error, auth_declined}}, Result),
+    ok.
+
 with_api_auth_inline_test(_Config) ->
     %% Test auth_inline => false returns error instead of prompting
     Config = config_with_callbacks(#{oauth_tokens => error}),
@@ -887,6 +1035,261 @@ with_repo_optional_token_refresh_failed_test(_Config) ->
         fun(Cfg) -> maps:get(repo_key, Cfg, undefined) end
     ),
     ?assertEqual(undefined, Result),
+    ok.
+
+with_repo_optional_401_does_not_prompt_test(_Config) ->
+    %% with_repo defaults auth_inline to false, so a 401 on a private package
+    %% returns instead of opening a device auth flow the caller did not ask for.
+    Self = self(),
+    Config = config_with_callbacks(#{
+        should_authenticate => fun(_Reason) ->
+            Self ! prompted,
+            false
+        end
+    }),
+
+    Result = hex_cli_auth:with_repo(
+        Config#{trusted => true},
+        fun(_Cfg) -> {ok, {401, #{}, <<"">>}} end
+    ),
+    ?assertEqual({error, {auth_error, no_credentials}}, Result),
+
+    receive
+        prompted -> error(prompted_without_auth_inline)
+    after 0 -> ok
+    end,
+    ok.
+
+with_repo_device_auth_sets_repo_key_test(_Config) ->
+    %% Authenticating inline from a repository request must retry with
+    %% repository auth: hex_repo only reads repo_key, so an api_key-shaped retry
+    %% goes out with no authorization header at all.
+    TokenStore = ets:new(token_store, [public, set]),
+    true = ets:insert(TokenStore, {oauth_tokens, error}),
+
+    Config = config_with_callbacks(#{
+        get_oauth_tokens => fun() ->
+            [{oauth_tokens, Tokens}] = ets:lookup(TokenStore, oauth_tokens),
+            Tokens
+        end,
+        should_authenticate => fun(no_credentials) -> true end,
+        persist_oauth_tokens => fun(global, Access, Refresh, Expires) ->
+            ets:insert(
+                TokenStore,
+                {oauth_tokens,
+                    {ok, #{
+                        access_token => Access,
+                        refresh_token => Refresh,
+                        expires_at => Expires
+                    }}}
+            ),
+            ok
+        end
+    }),
+
+    queue_device_response(<<"device_token">>),
+
+    Fun = fun(Cfg) ->
+        case maps:get(repo_key, Cfg, undefined) of
+            undefined -> {ok, {401, #{}, <<"">>}};
+            RepoKey -> RepoKey
+        end
+    end,
+
+    Result = hex_cli_auth:with_repo(
+        Config#{trusted => true},
+        Fun,
+        [{auth_inline, true}, {oauth_open_browser, false}]
+    ),
+    ?assertEqual(<<"Bearer device_token">>, Result),
+
+    ets:delete(TokenStore),
+    ok.
+
+with_repo_token_expired_refresh_test(_Config) ->
+    %% A repository token the server rejects as expired is refreshed and the
+    %% request runs again, rather than the 401 reaching the caller.
+    Now = erlang:system_time(second),
+    Config = config_with_callbacks(#{
+        oauth_tokens =>
+            {ok, #{
+                access_token => <<"stale_token">>,
+                refresh_token => <<"refresh_token">>,
+                expires_at => Now + 3600
+            }}
+    }),
+
+    queue_refresh_response(#{<<"access_token">> => <<"renewed_token">>}),
+
+    Fun = fun(Cfg) ->
+        case maps:get(repo_key, Cfg) of
+            <<"Bearer stale_token">> -> token_expired_response();
+            RepoKey -> RepoKey
+        end
+    end,
+
+    Result = hex_cli_auth:with_repo(Config#{trusted => true}, Fun),
+    ?assertEqual(<<"Bearer renewed_token">>, Result),
+    ok.
+
+with_repo_token_expired_exchange_test(_Config) ->
+    %% Same for a per-repo token: it is exchanged again from the auth_key it
+    %% came from, even though its stored expiry has not passed.
+    Now = erlang:system_time(second),
+    Self = self(),
+    Config = config_with_callbacks(#{
+        auth_config => #{
+            <<"hexpm">> => #{
+                auth_key => <<"repo_auth_key">>,
+                oauth_token => #{
+                    access_token => <<"stale_repo_token">>,
+                    expires_at => Now + 3600
+                }
+            }
+        },
+        persist_oauth_tokens => fun(Scope, Access, Refresh, Expires) ->
+            Self ! {persisted, Scope, Access, Refresh, Expires},
+            ok
+        end
+    }),
+
+    Fun = fun(Cfg) ->
+        case maps:get(repo_key, Cfg) of
+            <<"Bearer stale_repo_token">> -> token_expired_response();
+            RepoKey -> RepoKey
+        end
+    end,
+
+    Result = hex_cli_auth:with_repo(Config#{trusted => true, oauth_exchange => true}, Fun),
+    ?assertMatch(<<"Bearer ", _/binary>>, Result),
+    ?assertNotEqual(<<"Bearer stale_repo_token">>, Result),
+
+    receive
+        {persisted, <<"hexpm">>, _Access, RefreshToken, _Expires} ->
+            ?assertEqual(undefined, RefreshToken)
+    after 100 ->
+        error(token_not_exchanged)
+    end,
+    ok.
+
+refresh_transport_error_keeps_token_test(_Config) ->
+    %% A refresh that never reached the server says nothing about the stored
+    %% token, so it is kept and the caller is told the difference.
+    Now = erlang:system_time(second),
+    Self = self(),
+    Config = config_with_callbacks(#{
+        oauth_tokens =>
+            {ok, #{
+                access_token => <<"expired_token">>,
+                refresh_token => <<"refresh_token">>,
+                expires_at => Now - 100
+            }},
+        clear_oauth_tokens => fun() ->
+            Self ! cleared,
+            ok
+        end
+    }),
+
+    Self ! {hex_http_test, oauth_refresh_response, {error, timeout}},
+
+    ?assertEqual(
+        {error, {auth_error, token_refresh_unavailable}},
+        hex_cli_auth:resolve_api_auth(read, Config)
+    ),
+
+    receive
+        cleared -> error(token_cleared_on_transport_error)
+    after 0 -> ok
+    end,
+    ok.
+
+refresh_server_error_keeps_token_test(_Config) ->
+    %% A 429 or a 5xx is the server having a bad minute, not a refusal of the
+    %% refresh token, so the stored token survives it.
+    Statuses = [429, 500, 502, 503],
+
+    [
+        begin
+            Self = self(),
+            Config = refresh_failure_config(Self),
+            Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+            Self !
+                {hex_http_test, oauth_refresh_response,
+                    {ok, {Status, Headers, term_to_binary(#{<<"error">> => <<"server_error">>})}}},
+
+            ?assertEqual(
+                {error, {auth_error, token_refresh_unavailable}},
+                hex_cli_auth:resolve_api_auth(read, Config)
+            ),
+
+            receive
+                cleared -> error({token_cleared_on_server_error, Status})
+            after 0 -> ok
+            end
+        end
+     || Status <- Statuses
+    ],
+    ok.
+
+refresh_malformed_body_keeps_token_test(_Config) ->
+    %% A 200 whose body is not a token response says nothing about the refresh
+    %% token either, so it is not read as the server refusing it.
+    Bodies = [
+        <<"not a map">>,
+        #{<<"expires_in">> => 3600},
+        #{<<"access_token">> => <<"new_access_token">>},
+        #{<<"access_token">> => <<"new_access_token">>, <<"expires_in">> => <<"3600">>},
+        #{<<"access_token">> => 42, <<"expires_in">> => 3600}
+    ],
+
+    [
+        begin
+            Self = self(),
+            Config = refresh_failure_config(Self),
+            Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+            Self !
+                {hex_http_test, oauth_refresh_response, {ok, {200, Headers, term_to_binary(Body)}}},
+
+            ?assertEqual(
+                {error, {auth_error, token_refresh_unavailable}},
+                hex_cli_auth:resolve_api_auth(read, Config)
+            ),
+
+            receive
+                cleared -> error({token_cleared_on_malformed_body, Body})
+            after 0 -> ok
+            end
+        end
+     || Body <- Bodies
+    ],
+    ok.
+
+refresh_refusal_clears_token_test(_Config) ->
+    %% A 400 or a 401 is the server refusing the refresh token itself: it will
+    %% not work again, so the stored token is dropped.
+    Statuses = [400, 401],
+
+    [
+        begin
+            Self = self(),
+            Config = refresh_failure_config(Self),
+            Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+            Self !
+                {hex_http_test, oauth_refresh_response,
+                    {ok, {Status, Headers, term_to_binary(#{<<"error">> => <<"invalid_grant">>})}}},
+
+            ?assertEqual(
+                {error, {auth_error, token_refresh_failed}},
+                hex_cli_auth:resolve_api_auth(read, Config)
+            ),
+
+            receive
+                cleared -> ok
+            after 100 -> error({token_not_cleared, Status})
+            end
+        end
+     || Status <- Statuses
+    ],
     ok.
 
 %%====================================================================
@@ -1198,9 +1601,252 @@ device_auth_concurrent_serialized_reuses_login_test(_Config) ->
     ets:delete(TokenStore),
     ok.
 
+device_auth_lock_released_before_request_test(_Config) ->
+    %% The device auth lock covers acquiring the credential, not running the
+    %% request. A request answering 401 comes back to the same lock, and
+    %% global:trans/4 on a lock this process already holds does not nest: the
+    %% inner transaction releases it while the outer one is still running.
+    Self = self(),
+    Config = config_with_callbacks(#{
+        oauth_tokens => error,
+        should_authenticate => fun(no_credentials) ->
+            Self ! {locked_during_prompt, device_auth_lock_held()},
+            true
+        end
+    }),
+
+    queue_device_response(<<"device_token">>),
+
+    Result = hex_cli_auth:with_api(
+        write,
+        Config,
+        fun(Cfg) ->
+            Self ! {locked_during_request, device_auth_lock_held()},
+            maps:get(api_key, Cfg)
+        end,
+        [{oauth_open_browser, false}]
+    ),
+    ?assertEqual(<<"Bearer device_token">>, Result),
+
+    receive
+        {locked_during_prompt, LockedDuringPrompt} ->
+            ?assertEqual(true, LockedDuringPrompt)
+    after 100 ->
+        error(should_authenticate_not_called)
+    end,
+
+    receive
+        {locked_during_request, LockedDuringRequest} ->
+            ?assertEqual(false, LockedDuringRequest)
+    after 100 ->
+        error(request_not_run)
+    end,
+    ok.
+
 %%====================================================================
 %% Helper Functions
 %%====================================================================
+
+sso_reauth_reported_on_refresh_test(_Config) ->
+    %% The organizations the server flags on a refresh reach the build tool.
+    Now = erlang:system_time(second),
+    Self = self(),
+    Config = config_with_callbacks(#{
+        oauth_tokens =>
+            {ok, #{
+                access_token => <<"expired_token">>,
+                refresh_token => <<"refresh_token">>,
+                expires_at => Now - 100
+            }},
+        sso_reauth => fun(Organizations) ->
+            Self ! {sso_reauth, Organizations},
+            ok
+        end
+    }),
+
+    queue_refresh_response(#{<<"sso_reauth_required">> => [<<"acme">>]}),
+
+    {ok, _ApiKey, _AuthContext} = hex_cli_auth:resolve_api_auth(read, Config),
+
+    receive
+        {sso_reauth, Organizations} -> ?assertEqual([<<"acme">>], Organizations)
+    after 100 ->
+        error(sso_reauth_not_called)
+    end,
+    ok.
+
+sso_reauth_reported_empty_test(_Config) ->
+    %% A server that says nothing means nothing is lapsed, and the build tool
+    %% is told so rather than left holding a stale set.
+    Now = erlang:system_time(second),
+    Self = self(),
+    Config = config_with_callbacks(#{
+        oauth_tokens =>
+            {ok, #{
+                access_token => <<"expired_token">>,
+                refresh_token => <<"refresh_token">>,
+                expires_at => Now - 100
+            }},
+        sso_reauth => fun(Organizations) ->
+            Self ! {sso_reauth, Organizations},
+            ok
+        end
+    }),
+
+    {ok, _ApiKey, _AuthContext} = hex_cli_auth:resolve_api_auth(read, Config),
+
+    receive
+        {sso_reauth, Organizations} -> ?assertEqual([], Organizations)
+    after 100 ->
+        error(sso_reauth_not_called)
+    end,
+    ok.
+
+sso_reauth_malformed_not_reported_test(_Config) ->
+    %% A set the server sent in a shape we cannot read is not reported at all.
+    %% The build tool takes the empty list for "nothing lapsed" and deletes the
+    %% organizations it holds, which drops the prompt the user needs.
+    Now = erlang:system_time(second),
+    Self = self(),
+    Config = config_with_callbacks(#{
+        oauth_tokens =>
+            {ok, #{
+                access_token => <<"expired_token">>,
+                refresh_token => <<"refresh_token">>,
+                expires_at => Now - 100
+            }},
+        sso_reauth => fun(Organizations) ->
+            Self ! {sso_reauth, Organizations},
+            ok
+        end
+    }),
+
+    queue_refresh_response(#{<<"sso_reauth_required">> => <<"acme">>}),
+
+    {ok, _ApiKey, _AuthContext} = hex_cli_auth:resolve_api_auth(read, Config),
+
+    receive
+        {sso_reauth, Organizations} -> error({sso_reauth_reported, Organizations})
+    after 0 -> ok
+    end,
+    ok.
+
+refresh_tokens_forces_a_refresh_test(_Config) ->
+    %% A token that has not expired is still refreshed: what it carries can
+    %% change without its lifetime running out.
+    Now = erlang:system_time(second),
+    Self = self(),
+    Config = config_with_callbacks(#{
+        oauth_tokens =>
+            {ok, #{
+                access_token => <<"valid_token">>,
+                refresh_token => <<"refresh_token">>,
+                expires_at => Now + 3600
+            }},
+        persist_oauth_tokens => fun(Scope, Access, Refresh, Expires) ->
+            Self ! {persisted, Scope, Access, Refresh, Expires},
+            ok
+        end
+    }),
+
+    queue_refresh_response(#{<<"access_token">> => <<"renewed_token">>}),
+
+    ?assertEqual(ok, hex_cli_auth:refresh_tokens(Config)),
+
+    receive
+        {persisted, global, Access, _Refresh, _Expires} ->
+            ?assertEqual(<<"renewed_token">>, Access)
+    after 100 ->
+        error(token_not_persisted)
+    end,
+    ok.
+
+refresh_tokens_without_credentials_test(_Config) ->
+    Config = config_with_callbacks(#{}),
+
+    ?assertEqual(
+        {error, {auth_error, no_credentials}},
+        hex_cli_auth:refresh_tokens(Config)
+    ),
+    ok.
+
+%% @private
+%% Plants the next refresh response the test HTTP adapter will hand back,
+%% merged over a working one so a test only states what it cares about.
+queue_refresh_response(Overrides) ->
+    Payload = maps:merge(
+        #{
+            <<"access_token">> => <<"new_access_token">>,
+            <<"refresh_token">> => <<"new_refresh_token">>,
+            <<"token_type">> => <<"Bearer">>,
+            <<"expires_in">> => 3600
+        },
+        Overrides
+    ),
+    Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+    self() !
+        {hex_http_test, oauth_refresh_response, {ok, {200, Headers, term_to_binary(Payload)}}},
+    ok.
+
+%% @private
+%% Plants the token the next device auth poll hands back.
+queue_device_response(AccessToken) ->
+    Payload = #{
+        <<"access_token">> => AccessToken,
+        <<"refresh_token">> => <<"device_refresh">>,
+        <<"token_type">> => <<"Bearer">>,
+        <<"expires_in">> => 3600
+    },
+    Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+    self() !
+        {hex_http_test, oauth_device_response, {ok, {200, Headers, term_to_binary(Payload)}}},
+    ok.
+
+%% @private
+%% The 401 hexpm answers a request whose token it considers expired.
+token_expired_response() ->
+    Headers = #{<<"www-authenticate">> => <<"Bearer realm=\"hex\", error=\"token_expired\"">>},
+    {ok, {401, Headers, <<"">>}}.
+
+%% @private
+%% An expired global token whose refresh is about to fail, with the clear
+%% callback reporting to Pid so a test can say whether the token was dropped.
+refresh_failure_config(Pid) ->
+    Now = erlang:system_time(second),
+    config_with_callbacks(#{
+        oauth_tokens =>
+            {ok, #{
+                access_token => <<"expired_token">>,
+                refresh_token => <<"refresh_token">>,
+                expires_at => Now - 100
+            }},
+        clear_oauth_tokens => fun() ->
+            Pid ! cleared,
+            ok
+        end
+    }).
+
+%% @private
+%% Whether the device auth lock is held by anyone other than the process asking.
+%% A concurrent caller arrives with its own pid as the lock requester id, which
+%% is what makes global refuse it while another process holds the lock.
+device_auth_lock_held() ->
+    Parent = self(),
+    spawn(fun() ->
+        Id = {{hex_cli_auth, device_auth}, self()},
+        case global:set_lock(Id, [node()], 0) of
+            true ->
+                Parent ! {device_auth_lock, false},
+                global:del_lock(Id, [node()]);
+            false ->
+                Parent ! {device_auth_lock, true}
+        end
+    end),
+    receive
+        {device_auth_lock, Held} -> Held
+    after 5000 ->
+        error(device_auth_lock_probe_timed_out)
+    end.
 
 config_with_callbacks(Opts) ->
     ?CONFIG#{cli_auth_callbacks => make_callbacks(Opts)}.
@@ -1211,6 +1857,7 @@ make_callbacks(Opts) ->
     ShouldAuthenticate = maps:get(should_authenticate, Opts, fun(_) -> false end),
     PersistFn = maps:get(persist_oauth_tokens, Opts, fun(_, _, _, _) -> ok end),
     ClearFn = maps:get(clear_oauth_tokens, Opts, fun() -> ok end),
+    SsoReauthFn = maps:get(sso_reauth, Opts, fun(_Organizations) -> ok end),
     DefaultGetOAuthTokens = fun() -> maps:get(oauth_tokens, Opts, error) end,
     GetOAuthTokensFn = maps:get(get_oauth_tokens, Opts, DefaultGetOAuthTokens),
 
@@ -1219,6 +1866,7 @@ make_callbacks(Opts) ->
         get_oauth_tokens => GetOAuthTokensFn,
         persist_oauth_tokens => PersistFn,
         clear_oauth_tokens => ClearFn,
+        sso_reauth => SsoReauthFn,
         prompt_otp => PromptOtp,
         should_authenticate => ShouldAuthenticate,
         get_client_id => fun() -> <<"test_client">> end

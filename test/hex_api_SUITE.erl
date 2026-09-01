@@ -32,7 +32,17 @@ all() ->
         oauth_device_auth_flow_success_test,
         oauth_device_auth_flow_denied_test,
         oauth_device_auth_flow_timeout_test,
+        oauth_device_auth_flow_poll_error_test,
+        oauth_device_auth_flow_no_refresh_token_test,
+        oauth_device_auth_flow_invalid_verification_uri_test,
+        oauth_device_auth_flow_malformed_device_response_test,
+        oauth_device_auth_flow_malformed_token_response_test,
         oauth_refresh_token_test,
+        oauth_sso_authorization_test,
+        oauth_device_auth_flow_sso_reauth_test,
+        oauth_device_auth_flow_malformed_sso_reauth_test,
+        oauth_sso_reauth_required_test,
+        oauth_win_cmd_args_escapes_metacharacters_test,
         oauth_revoke_test,
         oauth_client_credentials_test,
         publish_with_expect_header_test,
@@ -224,6 +234,163 @@ oauth_device_auth_flow_timeout_test(_Config) ->
     {error, timeout} = hex_api_oauth:device_auth_flow(?CONFIG, ClientId, Scope, PromptUser),
     ok.
 
+oauth_device_auth_flow_poll_error_test(_Config) ->
+    % A poll that fails to reach the server keeps polling: the authorization the
+    % user is part way through outlives one dropped request.
+    ClientId = <<"cli">>,
+    Scope = <<"api:write">>,
+    Self = self(),
+    PromptUser = fun(_VerificationUri, _UserCode) -> ok end,
+
+    SuccessPayload = #{
+        <<"access_token">> => <<"test_access_token">>,
+        <<"refresh_token">> => <<"test_refresh_token">>,
+        <<"token_type">> => <<"Bearer">>,
+        <<"expires_in">> => 3600
+    },
+    Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+    Self ! {hex_http_test, oauth_device_response, {error, timeout}},
+    Self !
+        {hex_http_test, oauth_device_response,
+            {ok, {200, Headers, term_to_binary(SuccessPayload)}}},
+
+    {ok, Tokens} = hex_api_oauth:device_auth_flow(?CONFIG, ClientId, Scope, PromptUser),
+
+    ?assertEqual(<<"test_access_token">>, maps:get(access_token, Tokens)),
+    ok.
+
+oauth_device_auth_flow_no_refresh_token_test(_Config) ->
+    % A grant without a refresh token carries no key, rather than a placeholder
+    % a build tool would go on to store as if it were a token.
+    ClientId = <<"cli">>,
+    Scope = <<"api:write">>,
+    Self = self(),
+    PromptUser = fun(_VerificationUri, _UserCode) -> ok end,
+
+    SuccessPayload = #{
+        <<"access_token">> => <<"test_access_token">>,
+        <<"token_type">> => <<"Bearer">>,
+        <<"expires_in">> => 3600
+    },
+    Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+    Self !
+        {hex_http_test, oauth_device_response,
+            {ok, {200, Headers, term_to_binary(SuccessPayload)}}},
+
+    {ok, Tokens} = hex_api_oauth:device_auth_flow(?CONFIG, ClientId, Scope, PromptUser),
+
+    ?assertNot(maps:is_key(refresh_token, Tokens)),
+    ok.
+
+oauth_device_auth_flow_invalid_verification_uri_test(_Config) ->
+    % A verification URI that is not http(s) is not opened, and not a reason to
+    % end the flow either.
+    ClientId = <<"cli">>,
+    Scope = <<"api:write">>,
+    Self = self(),
+    PromptUser = fun(_VerificationUri, _UserCode) -> ok end,
+    Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+
+    DevicePayload = #{
+        <<"device_code">> => <<"device_code">>,
+        <<"user_code">> => <<"1234-5678">>,
+        <<"verification_uri">> => <<"javascript:alert(1)">>,
+        <<"verification_uri_complete">> => <<"javascript:alert(1)">>,
+        <<"expires_in">> => 600,
+        <<"interval">> => 0
+    },
+    Self !
+        {hex_http_test, oauth_device_authorization_response,
+            {ok, {200, Headers, term_to_binary(DevicePayload)}}},
+
+    SuccessPayload = #{
+        <<"access_token">> => <<"test_access_token">>,
+        <<"refresh_token">> => <<"test_refresh_token">>,
+        <<"token_type">> => <<"Bearer">>,
+        <<"expires_in">> => 3600
+    },
+    Self !
+        {hex_http_test, oauth_device_response,
+            {ok, {200, Headers, term_to_binary(SuccessPayload)}}},
+
+    {ok, Tokens} = hex_api_oauth:device_auth_flow(?CONFIG, ClientId, Scope, PromptUser, [
+        {open_browser, true}
+    ]),
+
+    ?assertEqual(<<"test_access_token">>, maps:get(access_token, Tokens)),
+    ok.
+
+oauth_device_auth_flow_malformed_device_response_test(_Config) ->
+    % A 200 that does not carry the fields the flow uses is a failed device
+    % authorization, not a badmatch or a timer:sleep/1 badarg in the caller.
+    ClientId = <<"cli">>,
+    Scope = <<"api:write">>,
+    Self = self(),
+    PromptUser = fun(_VerificationUri, _UserCode) -> error(prompt_called) end,
+    Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+
+    Complete = #{
+        <<"device_code">> => <<"device_code">>,
+        <<"user_code">> => <<"1234-5678">>,
+        <<"verification_uri_complete">> => <<"https://hex.pm/oauth/device?user_code=1234-5678">>,
+        <<"expires_in">> => 600,
+        <<"interval">> => 0
+    },
+    Malformed = [
+        maps:remove(<<"device_code">>, Complete),
+        maps:remove(<<"verification_uri_complete">>, Complete),
+        Complete#{<<"interval">> => <<"5">>},
+        Complete#{<<"interval">> => -1},
+        Complete#{<<"expires_in">> => <<"600">>},
+        Complete#{<<"verification_uri_complete">> => 42},
+        <<"not a map">>
+    ],
+
+    [
+        begin
+            Self !
+                {hex_http_test, oauth_device_authorization_response,
+                    {ok, {200, Headers, term_to_binary(Payload)}}},
+            ?assertEqual(
+                {error, {device_auth_failed, 200, Payload}},
+                hex_api_oauth:device_auth_flow(?CONFIG, ClientId, Scope, PromptUser)
+            )
+        end
+     || Payload <- Malformed
+    ],
+    ok.
+
+oauth_device_auth_flow_malformed_token_response_test(_Config) ->
+    % Same for the poll: a 200 without a usable access token ends the flow with
+    % an error the caller already handles.
+    ClientId = <<"cli">>,
+    Scope = <<"api:write">>,
+    Self = self(),
+    PromptUser = fun(_VerificationUri, _UserCode) -> ok end,
+    Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+
+    Malformed = [
+        #{<<"expires_in">> => 3600},
+        #{<<"access_token">> => <<"test_access_token">>},
+        #{<<"access_token">> => <<"test_access_token">>, <<"expires_in">> => <<"3600">>},
+        #{<<"access_token">> => 42, <<"expires_in">> => 3600},
+        <<"not a map">>
+    ],
+
+    [
+        begin
+            Self !
+                {hex_http_test, oauth_device_response,
+                    {ok, {200, Headers, term_to_binary(Payload)}}},
+            ?assertEqual(
+                {error, {poll_failed, 200, Payload}},
+                hex_api_oauth:device_auth_flow(?CONFIG, ClientId, Scope, PromptUser)
+            )
+        end
+     || Payload <- Malformed
+    ],
+    ok.
+
 oauth_refresh_token_test(_Config) ->
     % Test token refresh
     ClientId = <<"cli">>,
@@ -240,6 +407,114 @@ oauth_refresh_token_test(_Config) ->
     ?assert(is_binary(NewAccessToken)),
     ?assert(is_binary(NewRefreshToken)),
     ?assert(is_integer(ExpiresIn)),
+    ok.
+
+oauth_sso_authorization_test(_Config) ->
+    {ok, {201, _, Response}} = hex_api_oauth:sso_authorization(?CONFIG, [<<"acme">>]),
+    #{
+        <<"verification_uri">> := VerificationUri,
+        <<"expires_in">> := ExpiresIn
+    } = Response,
+    ?assertEqual(<<"https://hex.pm/sso/authorize/acme">>, VerificationUri),
+    ?assert(is_integer(ExpiresIn)),
+    ok.
+
+oauth_device_auth_flow_sso_reauth_test(_Config) ->
+    % The organizations a token was minted without reach the caller
+    ClientId = <<"cli">>,
+    Scope = <<"repositories">>,
+    Self = self(),
+    PromptUser = fun(_VerificationUri, _UserCode) -> ok end,
+
+    SuccessPayload = #{
+        <<"access_token">> => <<"test_access_token">>,
+        <<"refresh_token">> => <<"test_refresh_token">>,
+        <<"token_type">> => <<"Bearer">>,
+        <<"expires_in">> => 3600,
+        <<"sso_reauth_required">> => [<<"acme">>]
+    },
+    Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+    Self !
+        {hex_http_test, oauth_device_response,
+            {ok, {200, Headers, term_to_binary(SuccessPayload)}}},
+
+    {ok, Tokens} = hex_api_oauth:device_auth_flow(?CONFIG, ClientId, Scope, PromptUser),
+
+    ?assertEqual([<<"acme">>], maps:get(sso_reauth_required, Tokens)),
+    ok.
+
+oauth_device_auth_flow_malformed_sso_reauth_test(_Config) ->
+    % A set the server sent in a shape we cannot read carries no key at all. The
+    % empty list means "nothing lapsed", which is not what the response said.
+    ClientId = <<"cli">>,
+    Scope = <<"repositories">>,
+    Self = self(),
+    PromptUser = fun(_VerificationUri, _UserCode) -> ok end,
+
+    SuccessPayload = #{
+        <<"access_token">> => <<"test_access_token">>,
+        <<"refresh_token">> => <<"test_refresh_token">>,
+        <<"token_type">> => <<"Bearer">>,
+        <<"expires_in">> => 3600,
+        <<"sso_reauth_required">> => <<"acme">>
+    },
+    Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+    Self !
+        {hex_http_test, oauth_device_response,
+            {ok, {200, Headers, term_to_binary(SuccessPayload)}}},
+
+    {ok, Tokens} = hex_api_oauth:device_auth_flow(?CONFIG, ClientId, Scope, PromptUser),
+
+    ?assertNot(maps:is_key(sso_reauth_required, Tokens)),
+    ok.
+
+oauth_sso_reauth_required_test(_Config) ->
+    % A response that does not carry the field is a server that predates it and
+    % means nothing is lapsed; one that carries an unreadable value means the
+    % response says nothing at all.
+    ?assertEqual({ok, []}, hex_api_oauth:sso_reauth_required(#{})),
+    ?assertEqual(
+        {ok, []},
+        hex_api_oauth:sso_reauth_required(#{<<"sso_reauth_required">> => []})
+    ),
+    ?assertEqual(
+        {ok, [<<"acme">>]},
+        hex_api_oauth:sso_reauth_required(#{<<"sso_reauth_required">> => [<<"acme">>]})
+    ),
+    ?assertEqual(
+        error,
+        hex_api_oauth:sso_reauth_required(#{<<"sso_reauth_required">> => <<"acme">>})
+    ),
+    ?assertEqual(
+        error,
+        hex_api_oauth:sso_reauth_required(#{<<"sso_reauth_required">> => [<<"acme">>, 42]})
+    ),
+    ?assertEqual(
+        error,
+        hex_api_oauth:sso_reauth_required(#{<<"sso_reauth_required">> => null})
+    ),
+    ok.
+
+oauth_win_cmd_args_escapes_metacharacters_test(_Config) ->
+    % cmd.exe parses the command line before `start' sees it, and erts only
+    % quotes an argument containing whitespace, so a server-supplied URL reaches
+    % cmd with its separators inert or it runs whatever trails them.
+    ?assertEqual(
+        ["/c", "start", "", "https://example.com/^&calc.exe"],
+        hex_api_oauth:win_cmd_args("https://example.com/&calc.exe")
+    ),
+    ?assertEqual(
+        ["/c", "start", "", "https://example.com/^%PATH^%"],
+        hex_api_oauth:win_cmd_args("https://example.com/%PATH%")
+    ),
+    ?assertEqual(
+        ["/c", "start", "", "^^^&^|^<^>^(^)^\"^%"],
+        hex_api_oauth:win_cmd_args("^&|<>()\"%")
+    ),
+    ?assertEqual(
+        ["/c", "start", "", "https://example.com/plain"],
+        hex_api_oauth:win_cmd_args("https://example.com/plain")
+    ),
     ok.
 
 oauth_revoke_test(_Config) ->

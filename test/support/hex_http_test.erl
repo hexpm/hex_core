@@ -33,6 +33,22 @@ api_headers() ->
         <<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>
     }.
 
+device_authorization_fixture() ->
+    DeviceCode = base64:encode(crypto:strong_rand_bytes(32)),
+    UserCode = iolist_to_binary([
+        integer_to_binary(rand:uniform(9999)), "-",
+        integer_to_binary(rand:uniform(9999))
+    ]),
+    Payload = #{
+        <<"device_code">> => DeviceCode,
+        <<"user_code">> => UserCode,
+        <<"verification_uri">> => <<"https://hex.pm/oauth/device">>,
+        <<"verification_uri_complete">> => <<"https://hex.pm/oauth/device?user_code=", UserCode/binary>>,
+        <<"expires_in">> => 600,
+        <<"interval">> => 0
+    },
+    {ok, {200, api_headers(), term_to_binary(Payload)}}.
+
 fixture(get, _, #{<<"if-none-match">> := <<"\"dummy\"">> = ETag}, _) ->
     Headers = #{
       <<"etag">> => ETag
@@ -346,20 +362,12 @@ fixture(post, <<?TEST_API_URL, "/short_url">>, _, {_, Body}) ->
 fixture(post, <<?TEST_API_URL, "/oauth/device_authorization">>, _, {_, Body}) ->
     DecodedBody = binary_to_term(Body),
     #{<<"client_id">> := _ClientId, <<"scope">> := _Scope} = DecodedBody,
-    DeviceCode = base64:encode(crypto:strong_rand_bytes(32)),
-    UserCode = iolist_to_binary([
-        integer_to_binary(rand:uniform(9999)), "-",
-        integer_to_binary(rand:uniform(9999))
-    ]),
-    Payload = #{
-        <<"device_code">> => DeviceCode,
-        <<"user_code">> => UserCode,
-        <<"verification_uri">> => <<"https://hex.pm/oauth/device">>,
-        <<"verification_uri_complete">> => <<"https://hex.pm/oauth/device?user_code=", UserCode/binary>>,
-        <<"expires_in">> => 600,
-        <<"interval">> => 0
-    },
-    {ok, {200, api_headers(), term_to_binary(Payload)}};
+    receive
+        {hex_http_test, oauth_device_authorization_response, Response} ->
+            Response
+    after 0 ->
+        device_authorization_fixture()
+    end;
 
 fixture(post, <<?TEST_API_URL, "/oauth/token">>, _, {_, Body}) ->
     DecodedBody = binary_to_term(Body),
@@ -419,6 +427,15 @@ fixture(post, <<?TEST_API_URL, "/oauth/token">>, _, {_, Body}) ->
             },
             {ok, {400, api_headers(), term_to_binary(ErrorPayload)}}
     end;
+
+fixture(post, <<?TEST_API_URL, "/oauth/sso_authorization">>, _, {_, Body}) ->
+    #{<<"organizations">> := Organizations} = binary_to_term(Body),
+    Joined = iolist_to_binary(lists:join(<<"-">>, Organizations)),
+    Payload = #{
+        <<"verification_uri">> => <<"https://hex.pm/sso/authorize/", Joined/binary>>,
+        <<"expires_in">> => 600
+    },
+    {ok, {201, api_headers(), term_to_binary(Payload)}};
 
 fixture(post, <<?TEST_API_URL, "/oauth/revoke">>, _, _) ->
     % OAuth revoke always returns 200 OK per RFC 7009
