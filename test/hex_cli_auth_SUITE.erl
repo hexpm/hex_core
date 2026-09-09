@@ -52,10 +52,10 @@ all() ->
         with_api_otp_cancelled_test,
         with_api_otp_max_retries_test,
 
-        %% sso re-authorization
-        sso_reauth_reported_on_refresh_test,
-        sso_reauth_reported_empty_test,
-        sso_reauth_malformed_not_reported_test,
+        %% organization re-authorization
+        organization_reauth_reported_on_refresh_test,
+        organization_reauth_reported_empty_test,
+        organization_reauth_malformed_not_reported_test,
         refresh_tokens_forces_a_refresh_test,
         refresh_tokens_without_credentials_test,
 
@@ -1647,7 +1647,7 @@ device_auth_lock_released_before_request_test(_Config) ->
 %% Helper Functions
 %%====================================================================
 
-sso_reauth_reported_on_refresh_test(_Config) ->
+organization_reauth_reported_on_refresh_test(_Config) ->
     %% The organizations the server flags on a refresh reach the build tool.
     Now = erlang:system_time(second),
     Self = self(),
@@ -1658,24 +1658,31 @@ sso_reauth_reported_on_refresh_test(_Config) ->
                 refresh_token => <<"refresh_token">>,
                 expires_at => Now - 100
             }},
-        sso_reauth => fun(Organizations) ->
-            Self ! {sso_reauth, Organizations},
+        organization_reauth => fun(Organizations) ->
+            Self ! {organization_reauth, Organizations},
             ok
         end
     }),
 
-    queue_refresh_response(#{<<"sso_reauth_required">> => [<<"acme">>]}),
+    queue_refresh_response(#{
+        <<"organization_reauth_required">> => [
+            #{<<"organization">> => <<"acme">>, <<"requirements">> => [<<"sso">>]}
+        ]
+    }),
 
     {ok, _ApiKey, _AuthContext} = hex_cli_auth:resolve_api_auth(read, Config),
 
     receive
-        {sso_reauth, Organizations} -> ?assertEqual([<<"acme">>], Organizations)
+        {organization_reauth, Organizations} ->
+            ?assertEqual(
+                [#{organization => <<"acme">>, requirements => [<<"sso">>]}], Organizations
+            )
     after 100 ->
-        error(sso_reauth_not_called)
+        error(organization_reauth_not_called)
     end,
     ok.
 
-sso_reauth_reported_empty_test(_Config) ->
+organization_reauth_reported_empty_test(_Config) ->
     %% A server that says nothing means nothing is lapsed, and the build tool
     %% is told so rather than left holding a stale set.
     Now = erlang:system_time(second),
@@ -1687,8 +1694,8 @@ sso_reauth_reported_empty_test(_Config) ->
                 refresh_token => <<"refresh_token">>,
                 expires_at => Now - 100
             }},
-        sso_reauth => fun(Organizations) ->
-            Self ! {sso_reauth, Organizations},
+        organization_reauth => fun(Organizations) ->
+            Self ! {organization_reauth, Organizations},
             ok
         end
     }),
@@ -1696,13 +1703,13 @@ sso_reauth_reported_empty_test(_Config) ->
     {ok, _ApiKey, _AuthContext} = hex_cli_auth:resolve_api_auth(read, Config),
 
     receive
-        {sso_reauth, Organizations} -> ?assertEqual([], Organizations)
+        {organization_reauth, Organizations} -> ?assertEqual([], Organizations)
     after 100 ->
-        error(sso_reauth_not_called)
+        error(organization_reauth_not_called)
     end,
     ok.
 
-sso_reauth_malformed_not_reported_test(_Config) ->
+organization_reauth_malformed_not_reported_test(_Config) ->
     %% A set the server sent in a shape we cannot read is not reported at all.
     %% The build tool takes the empty list for "nothing lapsed" and deletes the
     %% organizations it holds, which drops the prompt the user needs.
@@ -1715,18 +1722,18 @@ sso_reauth_malformed_not_reported_test(_Config) ->
                 refresh_token => <<"refresh_token">>,
                 expires_at => Now - 100
             }},
-        sso_reauth => fun(Organizations) ->
-            Self ! {sso_reauth, Organizations},
+        organization_reauth => fun(Organizations) ->
+            Self ! {organization_reauth, Organizations},
             ok
         end
     }),
 
-    queue_refresh_response(#{<<"sso_reauth_required">> => <<"acme">>}),
+    queue_refresh_response(#{<<"organization_reauth_required">> => <<"acme">>}),
 
     {ok, _ApiKey, _AuthContext} = hex_cli_auth:resolve_api_auth(read, Config),
 
     receive
-        {sso_reauth, Organizations} -> error({sso_reauth_reported, Organizations})
+        {organization_reauth, Organizations} -> error({organization_reauth_reported, Organizations})
     after 0 -> ok
     end,
     ok.
@@ -1857,7 +1864,7 @@ make_callbacks(Opts) ->
     ShouldAuthenticate = maps:get(should_authenticate, Opts, fun(_) -> false end),
     PersistFn = maps:get(persist_oauth_tokens, Opts, fun(_, _, _, _) -> ok end),
     ClearFn = maps:get(clear_oauth_tokens, Opts, fun() -> ok end),
-    SsoReauthFn = maps:get(sso_reauth, Opts, fun(_Organizations) -> ok end),
+    OrganizationReauthFn = maps:get(organization_reauth, Opts, fun(_Organizations) -> ok end),
     DefaultGetOAuthTokens = fun() -> maps:get(oauth_tokens, Opts, error) end,
     GetOAuthTokensFn = maps:get(get_oauth_tokens, Opts, DefaultGetOAuthTokens),
 
@@ -1866,7 +1873,7 @@ make_callbacks(Opts) ->
         get_oauth_tokens => GetOAuthTokensFn,
         persist_oauth_tokens => PersistFn,
         clear_oauth_tokens => ClearFn,
-        sso_reauth => SsoReauthFn,
+        organization_reauth => OrganizationReauthFn,
         prompt_otp => PromptOtp,
         should_authenticate => ShouldAuthenticate,
         get_client_id => fun() -> <<"test_client">> end

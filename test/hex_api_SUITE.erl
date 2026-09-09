@@ -38,10 +38,10 @@ all() ->
         oauth_device_auth_flow_malformed_device_response_test,
         oauth_device_auth_flow_malformed_token_response_test,
         oauth_refresh_token_test,
-        oauth_sso_authorization_test,
-        oauth_device_auth_flow_sso_reauth_test,
-        oauth_device_auth_flow_malformed_sso_reauth_test,
-        oauth_sso_reauth_required_test,
+        oauth_organization_authorization_test,
+        oauth_device_auth_flow_organization_reauth_test,
+        oauth_device_auth_flow_malformed_organization_reauth_test,
+        oauth_organization_reauth_required_test,
         oauth_win_cmd_args_escapes_metacharacters_test,
         oauth_revoke_test,
         oauth_client_credentials_test,
@@ -409,17 +409,17 @@ oauth_refresh_token_test(_Config) ->
     ?assert(is_integer(ExpiresIn)),
     ok.
 
-oauth_sso_authorization_test(_Config) ->
-    {ok, {201, _, Response}} = hex_api_oauth:sso_authorization(?CONFIG, [<<"acme">>]),
+oauth_organization_authorization_test(_Config) ->
+    {ok, {201, _, Response}} = hex_api_oauth:organization_authorization(?CONFIG, [<<"acme">>]),
     #{
         <<"verification_uri">> := VerificationUri,
         <<"expires_in">> := ExpiresIn
     } = Response,
-    ?assertEqual(<<"https://hex.pm/sso/authorize/acme">>, VerificationUri),
+    ?assertEqual(<<"https://hex.pm/organizations/authorize/acme">>, VerificationUri),
     ?assert(is_integer(ExpiresIn)),
     ok.
 
-oauth_device_auth_flow_sso_reauth_test(_Config) ->
+oauth_device_auth_flow_organization_reauth_test(_Config) ->
     % The organizations a token was minted without reach the caller
     ClientId = <<"cli">>,
     Scope = <<"repositories">>,
@@ -431,7 +431,9 @@ oauth_device_auth_flow_sso_reauth_test(_Config) ->
         <<"refresh_token">> => <<"test_refresh_token">>,
         <<"token_type">> => <<"Bearer">>,
         <<"expires_in">> => 3600,
-        <<"sso_reauth_required">> => [<<"acme">>]
+        <<"organization_reauth_required">> => [
+            #{<<"organization">> => <<"acme">>, <<"requirements">> => [<<"sso">>]}
+        ]
     },
     Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
     Self !
@@ -440,10 +442,13 @@ oauth_device_auth_flow_sso_reauth_test(_Config) ->
 
     {ok, Tokens} = hex_api_oauth:device_auth_flow(?CONFIG, ClientId, Scope, PromptUser),
 
-    ?assertEqual([<<"acme">>], maps:get(sso_reauth_required, Tokens)),
+    ?assertEqual(
+        [#{organization => <<"acme">>, requirements => [<<"sso">>]}],
+        maps:get(organization_reauth_required, Tokens)
+    ),
     ok.
 
-oauth_device_auth_flow_malformed_sso_reauth_test(_Config) ->
+oauth_device_auth_flow_malformed_organization_reauth_test(_Config) ->
     % A set the server sent in a shape we cannot read carries no key at all. The
     % empty list means "nothing lapsed", which is not what the response said.
     ClientId = <<"cli">>,
@@ -456,7 +461,7 @@ oauth_device_auth_flow_malformed_sso_reauth_test(_Config) ->
         <<"refresh_token">> => <<"test_refresh_token">>,
         <<"token_type">> => <<"Bearer">>,
         <<"expires_in">> => 3600,
-        <<"sso_reauth_required">> => <<"acme">>
+        <<"organization_reauth_required">> => <<"acme">>
     },
     Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
     Self !
@@ -465,33 +470,65 @@ oauth_device_auth_flow_malformed_sso_reauth_test(_Config) ->
 
     {ok, Tokens} = hex_api_oauth:device_auth_flow(?CONFIG, ClientId, Scope, PromptUser),
 
-    ?assertNot(maps:is_key(sso_reauth_required, Tokens)),
+    ?assertNot(maps:is_key(organization_reauth_required, Tokens)),
     ok.
 
-oauth_sso_reauth_required_test(_Config) ->
+oauth_organization_reauth_required_test(_Config) ->
+    ?assertEqual(
+        {ok, [#{organization => <<"acme">>, requirements => [<<"sso">>, <<"tfa">>]}]},
+        hex_api_oauth:organization_reauth_required(#{
+            <<"organization_reauth_required">> => [
+                #{<<"organization">> => <<"acme">>, <<"requirements">> => [<<"tfa">>, <<"sso">>]}
+            ]
+        })
+    ),
+    lists:foreach(
+        fun(Entry) ->
+            ?assertEqual(
+                error,
+                hex_api_oauth:organization_reauth_required(
+                    #{<<"organization_reauth_required">> => [Entry]}
+                )
+            )
+        end,
+        [
+            #{<<"organization">> => <<"acme">>},
+            #{<<"organization">> => <<"acme">>, <<"requirements">> => []},
+            #{<<"organization">> => <<"acme">>, <<"requirements">> => [<<"password">>]},
+            #{<<"organization">> => <<>>, <<"requirements">> => [<<"tfa">>]}
+        ]
+    ),
     % A response that does not carry the field is a server that predates it and
     % means nothing is lapsed; one that carries an unreadable value means the
     % response says nothing at all.
-    ?assertEqual({ok, []}, hex_api_oauth:sso_reauth_required(#{})),
+    ?assertEqual({ok, []}, hex_api_oauth:organization_reauth_required(#{})),
     ?assertEqual(
         {ok, []},
-        hex_api_oauth:sso_reauth_required(#{<<"sso_reauth_required">> => []})
+        hex_api_oauth:organization_reauth_required(#{<<"organization_reauth_required">> => []})
     ),
     ?assertEqual(
-        {ok, [<<"acme">>]},
-        hex_api_oauth:sso_reauth_required(#{<<"sso_reauth_required">> => [<<"acme">>]})
-    ),
-    ?assertEqual(
-        error,
-        hex_api_oauth:sso_reauth_required(#{<<"sso_reauth_required">> => <<"acme">>})
-    ),
-    ?assertEqual(
-        error,
-        hex_api_oauth:sso_reauth_required(#{<<"sso_reauth_required">> => [<<"acme">>, 42]})
+        {ok, [#{organization => <<"acme">>, requirements => [<<"sso">>]}]},
+        hex_api_oauth:organization_reauth_required(#{
+            <<"organization_reauth_required">> => [
+                #{<<"organization">> => <<"acme">>, <<"requirements">> => [<<"sso">>]}
+            ]
+        })
     ),
     ?assertEqual(
         error,
-        hex_api_oauth:sso_reauth_required(#{<<"sso_reauth_required">> => null})
+        hex_api_oauth:organization_reauth_required(#{
+            <<"organization_reauth_required">> => <<"acme">>
+        })
+    ),
+    ?assertEqual(
+        error,
+        hex_api_oauth:organization_reauth_required(#{
+            <<"organization_reauth_required">> => [<<"acme">>, 42]
+        })
+    ),
+    ?assertEqual(
+        error,
+        hex_api_oauth:organization_reauth_required(#{<<"organization_reauth_required">> => null})
     ),
     ok.
 

@@ -428,11 +428,11 @@ fixture(post, <<?TEST_API_URL, "/oauth/token">>, _, {_, Body}) ->
             {ok, {400, api_headers(), term_to_binary(ErrorPayload)}}
     end;
 
-fixture(post, <<?TEST_API_URL, "/oauth/sso_authorization">>, _, {_, Body}) ->
+fixture(post, <<?TEST_API_URL, "/oauth/organization_authorization">>, _, {_, Body}) ->
     #{<<"organizations">> := Organizations} = binary_to_term(Body),
     Joined = iolist_to_binary(lists:join(<<"-">>, Organizations)),
     Payload = #{
-        <<"verification_uri">> => <<"https://hex.pm/sso/authorize/", Joined/binary>>,
+        <<"verification_uri">> => <<"https://hex.pm/organizations/authorize/", Joined/binary>>,
         <<"expires_in">> => 600
     },
     {ok, {201, api_headers(), term_to_binary(Payload)}};
