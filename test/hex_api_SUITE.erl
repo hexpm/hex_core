@@ -495,8 +495,17 @@ oauth_organization_reauth_required_test(_Config) ->
             #{<<"organization">> => <<"acme">>},
             #{<<"organization">> => <<"acme">>, <<"requirements">> => []},
             #{<<"organization">> => <<"acme">>, <<"requirements">> => [<<"password">>]},
+            #{<<"organization">> => <<"acme">>, <<"requirements">> => [<<"tfa">> | 42]},
             #{<<"organization">> => <<>>, <<"requirements">> => [<<"tfa">>]}
         ]
+    ),
+    ?assertEqual(
+        error,
+        hex_api_oauth:organization_reauth_required(#{
+            <<"organization_reauth_required">> => [
+                #{<<"organization">> => <<"acme">>, <<"requirements">> => [<<"tfa">>]} | 42
+            ]
+        })
     ),
     % A response that does not carry the field is a server that predates it and
     % means nothing is lapsed; one that carries an unreadable value means the
