@@ -13,6 +13,8 @@ all() ->
         symlinks_test,
         symlinks_parent_dir_test,
         symlink_cycle_test,
+        non_ascii_names_latin1_test,
+        non_ascii_names_utf8_test,
         unsafe_paths_to_create_test,
         unsupported_file_types_to_create_test,
         memory_test,
@@ -305,6 +307,107 @@ symlink_cycle_test(Config) ->
     {ok, FooShInfo} = file:read_file_info(filename:join([UnpackDir, "dir", "foo.sh"])),
     [{{Year, _, _}, _}] = calendar:local_time_to_universal_time_dst(FooShInfo#file_info.mtime),
     {{Year, _, _}, _} = calendar:local_time(),
+    ok.
+
+%% With the latin1 native file name encoding (+fnl, or a non-UTF-8 locale on
+%% Linux) the VM encodes charlist file names one byte per character, so
+%% characters above 255 can't be encoded and 128-255 are written as Latin-1.
+%% Unpacking must write the UTF-8 bytes stored in the archive in both modes.
+non_ascii_names_latin1_test(Config) ->
+    non_ascii_names(Config, "+fnl").
+
+non_ascii_names_utf8_test(Config) ->
+    non_ascii_names(Config, "+fnu").
+
+non_ascii_names(Config, EncodingFlag) ->
+    case code:which(peer) of
+        non_existing -> {skip, "peer requires OTP 25 or later"};
+        _ -> do_non_ascii_names(Config, EncodingFlag)
+    end.
+
+do_non_ascii_names(Config, EncodingFlag) ->
+    BaseDir = ?config(priv_dir, Config),
+    SourceDir = filename:join(BaseDir, "non_ascii_source"),
+    ok = file:make_dir(SourceDir),
+    ok = file:make_dir(filename:join(SourceDir, "empty")),
+    ok = file:make_dir(filename:join(SourceDir, "sub")),
+    ok = file:make_symlink(<<"日本/語.ex"/utf8>>, filename:join(SourceDir, "link")),
+    ok = file:make_symlink("..", filename:join([SourceDir, "sub", "up"])),
+    ok = file:make_symlink(<<"a/日/.."/utf8>>, filename:join(SourceDir, "escape")),
+
+    Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+    Files = [
+        {"lib/café.ex", <<"café"/utf8>>},
+        {"lib/日本/語.ex", <<"語"/utf8>>},
+        {"lib/链接.ex", "link"},
+        {"priv/données", "empty"}
+    ],
+    %% a/日 -> .. resolves to the extraction dir, so b -> a/日/.. escapes it
+    %% and a/日/../../x climbs above it
+    UnsafeSymlinkFiles = [{"a/日", "sub/up"}, {"b", "escape"}],
+    UnsafePathFiles = [{"a/日", "sub/up"}, {"a/日/../../x", <<"x">>}],
+    CreateConfig = maps:put(tarball_files_root, SourceDir, hex_core:default_config()),
+
+    %% hex_tarball:create/3 reads symlink targets with the native encoding
+    {Tarball, DocsTarball, UnsafeSymlinkTarball, UnsafePathTarball} =
+        with_peer("+fnu", fun(Peer) ->
+            {ok, #{tarball := T1}} =
+                peer:call(Peer, hex_tarball, create, [Metadata, Files, CreateConfig]),
+            {ok, T2} = peer:call(Peer, hex_tarball, create_docs, [Files, CreateConfig]),
+            {ok, #{tarball := T3}} =
+                peer:call(Peer, hex_tarball, create, [Metadata, UnsafeSymlinkFiles, CreateConfig]),
+            {ok, #{tarball := T4}} =
+                peer:call(Peer, hex_tarball, create, [Metadata, UnsafePathFiles, CreateConfig]),
+            {T1, T2, T3, T4}
+        end),
+
+    UnpackDir = filename:join(BaseDir, "non_ascii_unpack"),
+    DocsDir = filename:join(BaseDir, "non_ascii_docs"),
+    UnsafeSymlinkDir = filename:join(BaseDir, "non_ascii_unsafe_symlink"),
+    UnsafePathDir = filename:join(BaseDir, "non_ascii_unsafe_path"),
+    with_peer(EncodingFlag, fun(Peer) ->
+        {ok, _} = peer:call(Peer, hex_tarball, unpack, [Tarball, UnpackDir]),
+        ok = peer:call(Peer, hex_tarball, unpack_docs, [DocsTarball, DocsDir]),
+        {error, {inner_tarball, {"a/日/..", unsafe_symlink}}} =
+            peer:call(Peer, hex_tarball, unpack, [UnsafeSymlinkTarball, UnsafeSymlinkDir]),
+        {error, {inner_tarball, {"a/日/../../x", unsafe_path}}} =
+            peer:call(Peer, hex_tarball, unpack, [UnsafePathTarball, UnsafePathDir])
+    end),
+
+    Expected = [
+        {<<"lib">>, directory},
+        {<<"lib/café.ex"/utf8>>, regular},
+        {<<"lib/日本"/utf8>>, directory},
+        {<<"lib/日本/語.ex"/utf8>>, regular},
+        {<<"lib/链接.ex"/utf8>>, symlink},
+        {<<"priv">>, directory},
+        {<<"priv/données"/utf8>>, directory}
+    ],
+    Unpacked = raw_name(UnpackDir),
+    ?assertEqual(
+        lists:sort([{<<"hex_metadata.config">>, regular} | Expected]), list_raw_tree(Unpacked)
+    ),
+    ?assertEqual(lists:sort(Expected), list_raw_tree(raw_name(DocsDir))),
+
+    Link = <<Unpacked/binary, "/lib/链接.ex"/utf8>>,
+    {ok, LinkTarget} = file:read_link_all(Link),
+    ?assertEqual(<<"日本/語.ex"/utf8>>, raw_name(LinkTarget)),
+    ?assertEqual({ok, <<"語"/utf8>>}, file:read_file(Link)),
+    ?assertEqual({ok, <<"café"/utf8>>}, file:read_file(<<Unpacked/binary, "/lib/café.ex"/utf8>>)),
+
+    %% The mtime pass replaces the Y2K mtimes stored in the tarball
+    lists:foreach(
+        fun(Name) ->
+            {ok, #file_info{mtime = Mtime}} =
+                file:read_file_info(<<Unpacked/binary, "/", Name/binary>>, [{time, posix}]),
+            ?assert(Mtime > epoch())
+        end,
+        [<<"lib/café.ex"/utf8>>, <<"lib/日本/語.ex"/utf8>>, <<"priv/données"/utf8>>]
+    ),
+
+    UnsafeEntries = [{<<"a">>, directory}, {<<"a/日"/utf8>>, symlink}],
+    ?assertEqual(UnsafeEntries, list_raw_tree(raw_name(UnsafeSymlinkDir))),
+    ?assertEqual(UnsafeEntries, list_raw_tree(raw_name(UnsafePathDir))),
     ok.
 
 unsafe_paths_to_create_test(Config) ->
@@ -1100,3 +1203,41 @@ unpack_files(Files) ->
     {ok, Binary} = file:read_file("test.tar"),
     ok = file:delete("test.tar"),
     hex_tarball:unpack(Binary, memory).
+
+with_peer(EncodingFlag, Fun) ->
+    Ebin = filename:dirname(code:which(hex_tarball)),
+    {ok, Peer, _Node} = peer:start_link(#{
+        connection => standard_io, args => [EncodingFlag, "-pa", Ebin]
+    }),
+    try
+        Fun(Peer)
+    after
+        peer:stop(Peer)
+    end.
+
+%% Returns the bytes the VM passes to the OS for a file name.
+raw_name(Name) when is_binary(Name) ->
+    Name;
+raw_name(Name) ->
+    unicode:characters_to_binary(Name, unicode, file:native_name_encoding()).
+
+%% Lists the entries below Dir as {RelativePath, Type} with raw file names.
+list_raw_tree(Dir) ->
+    lists:sort(list_raw_tree(Dir, <<>>)).
+
+list_raw_tree(Dir, Prefix) ->
+    {ok, Names} = file:list_dir_all(Dir),
+    lists:flatmap(
+        fun(Name) ->
+            RawName = raw_name(Name),
+            Path = <<Dir/binary, "/", RawName/binary>>,
+            Relative = <<Prefix/binary, RawName/binary>>,
+            case file:read_link_info(Path) of
+                {ok, #file_info{type = directory}} ->
+                    [{Relative, directory} | list_raw_tree(Path, <<Relative/binary, "/">>)];
+                {ok, #file_info{type = Type}} ->
+                    [{Relative, Type}]
+            end
+        end,
+        Names
+    ).
