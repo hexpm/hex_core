@@ -9,6 +9,9 @@
 %% 6. Default chunk_size to 65536 in add_opts instead of 0 with special case
 %% 7. Use compressed instead of compressed_one for file:open for OTP 24 compat
 %% 8. Added {max_size, N} extraction option for zip bomb protection
+%% 9. When extracting to disk, make_safe_path/2 and safe_link_name/2 return
+%%    binary file names so the UTF-8 bytes of member names and symlink targets
+%%    are written unchanged when the native file name encoding is latin1
 %%
 %% OTP commit: 013041bd68c2547848e88963739edea7f0a1a90f
 %%
@@ -1854,17 +1857,18 @@ write_extracted_element(#tar_header{name=Name0}=Header, Bin, Opts) ->
 make_safe_path([$/|Path], Opts) ->
     make_safe_path(Path, Opts);
 make_safe_path(Path0, #read_opts{cwd=Cwd}) ->
-    case filelib:safe_relative_path(Path0, Cwd) of
+    case filelib:safe_relative_path(unicode:characters_to_binary(Path0), Cwd) of
         unsafe -> throw({error,{Path0,unsafe_path}});
         Path -> filename:absname(Path, Cwd)
     end.
 
 safe_link_name(#tar_header{name=Name,linkname=Path0},#read_opts{cwd=Cwd} ) ->
-    ParentDir = filename:dirname(Name),
-    ResolvedTarget = filename:join(ParentDir, Path0),
+    Path1 = unicode:characters_to_binary(Path0),
+    ParentDir = filename:dirname(unicode:characters_to_binary(Name)),
+    ResolvedTarget = filename:join(ParentDir, Path1),
     case filelib:safe_relative_path(ResolvedTarget, Cwd) of
         unsafe -> throw({error,{Path0,unsafe_symlink}});
-        _Path -> Path0
+        _Path -> Path1
     end.
 
 create_regular(Name, NameInArchive, Bin, Opts) ->
