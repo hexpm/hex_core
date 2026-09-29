@@ -429,11 +429,27 @@ encode_metadata(Meta) ->
     Data = lists:map(
         fun(MetaPair) ->
             String = io_lib_pretty:print(binarify(MetaPair), [{encoding, utf8}]),
-            unicode:characters_to_binary([String, ".\n"])
+            Chars = escape_final_backslashes(unicode:characters_to_list(String)),
+            unicode:characters_to_binary([Chars, ".\n"])
         end,
         maps:to_list(Meta)
     ),
     iolist_to_binary(Data).
+
+%% @private
+%% io_lib_pretty escapes a backslash as \\. The safe_erl_term lexer in
+%% released Hex clients and hex_core versions reads \\ at the end of a string
+%% as a backslash followed by an escaped closing quote and fails to decode the
+%% metadata, so a backslash that ends a string is written as \134 instead.
+%% Backslashes in the output only appear in string escapes.
+escape_final_backslashes([$\\, $\\, $" | Rest]) ->
+    [$\\, $1, $3, $4, $" | escape_final_backslashes(Rest)];
+escape_final_backslashes([$\\, Char | Rest]) ->
+    [$\\, Char | escape_final_backslashes(Rest)];
+escape_final_backslashes([Char | Rest]) ->
+    [Char | escape_final_backslashes(Rest)];
+escape_final_backslashes([]) ->
+    [].
 
 %% @private
 do_unpack(Files, OuterChecksum, Output, Config) ->
