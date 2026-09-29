@@ -21,6 +21,8 @@ all() ->
         build_tools_test,
         requirements_test,
         decode_metadata_test,
+        decode_metadata_backslash_test,
+        backslash_metadata_test,
         unpack_error_handling_test,
         docs_test,
         too_big_to_create_test,
@@ -755,6 +757,60 @@ decode_metadata_test(_Config) ->
 
     %% Empty input still errors.
     {error, {metadata, invalid_terms}} = hex_tarball:do_decode_metadata(<<>>, [<<"x">>]),
+
+    ok.
+
+decode_metadata_backslash_test(_Config) ->
+    %% {EscapedContents, Value}: a string ends at the first quote that isn't
+    %% escaped, so the form after it is decoded on its own.
+    Cases = [
+        {"a\\\\", <<"a\\">>},
+        {"a\\\\\\\\", <<"a\\\\">>},
+        {"\\\\", <<"\\">>},
+        {"a\\\\\\\"", <<"a\\\"">>},
+        {"a\\134", <<"a\\">>},
+        {"a\\\nb", <<"ab">>}
+    ],
+    lists:foreach(
+        fun({Escaped, Value}) ->
+            Binary = iolist_to_binary([
+                "{<<\"k\">>,<<\"", Escaped, "\">>}.\n{<<\"name\">>,<<\"foo\">>}.\n"
+            ]),
+            Expected = #{<<"k">> => Value, <<"name">> => <<"foo">>},
+            Expected = hex_tarball:do_decode_metadata(Binary),
+            Expected = hex_tarball:do_decode_metadata(Binary, [<<"k">>, <<"name">>])
+        end,
+        Cases
+    ),
+
+    #{<<"k">> := 'a\\', <<"name">> := true} =
+        hex_tarball:do_decode_metadata(<<"{<<\"k\">>,'a\\\\'}.\n{<<\"name\">>,'true'}.\n">>),
+
+    ok.
+
+backslash_metadata_test(_Config) ->
+    Metadata = #{
+        <<"name">> => <<"foo">>,
+        <<"version">> => <<"1.0.0">>,
+        <<"description">> => <<"a\\">>,
+        <<"maintainers">> => [<<"\\">>, <<"a\\\\">>, <<"a\\\"">>, <<"é\\"/utf8>>],
+        <<"links">> => #{<<"GitHub\\">> => <<"https://github.com/\\">>},
+        <<"extra">> => #{<<"chars">> => "a\\"}
+    },
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, []),
+    {ok, #{metadata := Metadata}} = hex_tarball:unpack(Tarball, memory),
+
+    Fields = [<<"description">>, <<"maintainers">>],
+    Config = maps:put(metadata_fields, Fields, hex_core:default_config()),
+    {ok, #{metadata := Selected}} = hex_tarball:unpack(Tarball, none, Config),
+    Selected = maps:with(Fields, Metadata),
+
+    %% Released Hex clients read \\" at the end of a string as a backslash
+    %% followed by an escaped quote, so the final backslash is written as \134.
+    {ok, OuterFiles} = hex_erl_tar:extract({binary, Tarball}, [memory]),
+    {"metadata.config", MetadataConfig} = lists:keyfind("metadata.config", 1, OuterFiles),
+    {_, _} = binary:match(MetadataConfig, <<"{<<\"description\">>,<<\"a\\134\">>}.\n">>),
+    {_, _} = binary:match(MetadataConfig, <<"{<<\"chars\">>,\"a\\134\"}">>),
 
     ok.
 
