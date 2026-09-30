@@ -41,6 +41,7 @@ all() ->
         decode_metadata_backslash_test,
         backslash_metadata_test,
         unpack_error_handling_test,
+        gzip_test,
         docs_test,
         too_big_to_create_test,
         too_big_to_unpack_test,
@@ -1363,6 +1364,16 @@ docs_too_big_to_unpack_test(_Config) ->
     {error, {tarball, too_big}} = hex_tarball:unpack_docs(Tarball, memory, Config),
 
     ok.
+
+gzip_test(_Config) ->
+    Uncompressed = <<"-module(foo).\n-module(foo).\n">>,
+    Gzip = hex_tarball:gzip(Uncompressed),
+    ?assertEqual(
+        <<31, 139, 8, 0, 0, 0, 0, 0, 0, 0, 211, 205, 205, 79, 41, 205, 73, 213, 72, 203, 207, 215,
+            212, 227, 66, 229, 1, 0, 204, 17, 177, 26, 28, 0, 0, 0>>,
+        Gzip
+    ),
+    ?assertEqual(Uncompressed, zlib:gunzip(Gzip)).
 
 docs_test(Config) ->
     BaseDir = ?config(priv_dir, Config),

@@ -1457,25 +1457,12 @@ tar_opts() ->
 %% |     CRC32     |     ISIZE     |
 %% +---+---+---+---+---+---+---+---+
 gzip(Uncompressed) ->
-    Compressed = gzip_no_header(Uncompressed),
+    Compressed = hex_deflate:compress(Uncompressed),
     Header = <<31, 139, 8, 0, 0, 0, 0, 0, 0, 0>>,
     Crc = erlang:crc32(Uncompressed),
     Size = byte_size(Uncompressed),
     Trailer = <<Crc:32/little, Size:32/little>>,
     iolist_to_binary([Header, Compressed, Trailer]).
-
-%% @private
-gzip_no_header(Uncompressed) ->
-    Zstream = zlib:open(),
-
-    try
-        zlib:deflateInit(Zstream, default, deflated, -15, 8, default),
-        Compressed = zlib:deflate(Zstream, Uncompressed, finish),
-        zlib:deflateEnd(Zstream),
-        iolist_to_binary(Compressed)
-    after
-        zlib:close(Zstream)
-    end.
 
 %%====================================================================
 %% Helpers
