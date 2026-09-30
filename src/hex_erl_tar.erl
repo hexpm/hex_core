@@ -2,18 +2,12 @@
 %% 1. Module renamed from erl_tar to hex_erl_tar
 %% 2. -include changed from erl_tar.hrl to hex_erl_tar.hrl
 %% 3. -doc and -moduledoc attributes removed for OTP 24 compatibility
-%% 4. safe_link_name/2 fixed to validate symlink targets relative to symlink's
-%%    parent directory instead of in isolation
-%% 5. When extracting to disk (cwd option), stream file entries in chunks
-%%    instead of loading them fully into memory
-%% 6. Default chunk_size to 65536 in add_opts instead of 0 with special case
-%% 7. Use compressed instead of compressed_one for file:open for OTP 24 compat
-%% 8. Added {max_size, N} extraction option for zip bomb protection
-%% 9. When extracting to disk, make_safe_path/2 and safe_link_name/2 return
+%% 4. Use compressed instead of compressed_one for file:open for OTP 24 compat
+%% 5. When extracting to disk, make_safe_path/2 and safe_link_name/2 return
 %%    binary file names so the UTF-8 bytes of member names and symlink targets
 %%    are written unchanged when the native file name encoding is latin1
 %%
-%% OTP commit: 013041bd68c2547848e88963739edea7f0a1a90f
+%% OTP commit: ad05823719d77c8faee87348ea39513d4e2f99c5 (OTP-29.1.1)
 %%
 %% %CopyrightBegin%
 %%
