@@ -9,7 +9,18 @@
 all() ->
     [
         disk_test,
+        file_order_test,
+        docs_file_order_test,
+        duplicate_files_test,
+        unicode_normalization_test,
+        latin1_filename_encoding_test,
+        empty_directories_test,
+        read_only_cwd_test,
+        pax_record_length_test,
+        ustar_prefix_test,
         timestamps_and_permissions_test,
+        normalized_permissions_test,
+        executable_option_test,
         symlinks_test,
         symlinks_parent_dir_test,
         symlink_cycle_test,
@@ -20,6 +31,12 @@ all() ->
         memory_test,
         build_tools_test,
         requirements_test,
+        metadata_key_order_test,
+        metadata_encoding_test,
+        metadata_long_string_test,
+        metadata_line_length_test,
+        printable_range_test,
+        invalid_metadata_test,
         decode_metadata_test,
         decode_metadata_backslash_test,
         backslash_metadata_test,
@@ -138,6 +155,222 @@ disk_test(Config) ->
         <<"{<<\"build_tool\">>,<<\"rebar3\">>}.\n{<<\"name\">>,<<\"foo\">>}.\n{<<\"version\">>,<<\"1.0.0\">>}.\n">>} =
         file:read_file(filename:join(UnpackDir, "hex_metadata.config")).
 
+file_order_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    Dir = filename:join(BaseDir, "file_order"),
+    ok = file:make_dir(Dir),
+    ok = file:write_file(filename:join(Dir, "a.erl"), <<"-module(a).">>),
+    ok = file:write_file(filename:join(Dir, "b.erl"), <<"-module(b).">>),
+
+    Files = [
+        {"src/b.erl", filename:join("file_order", "b.erl")},
+        {"src/a.erl", filename:join("file_order", "a.erl")},
+        {"README.md", <<"readme">>}
+    ],
+    Metadata = #{
+        <<"name">> => <<"foo">>,
+        <<"version">> => <<"1.0.0">>,
+        <<"files">> => [<<"src/b.erl">>, <<"src/a.erl">>, <<"README.md">>]
+    },
+    ReversedMetadata = maps:put(
+        <<"files">>, lists:reverse(maps:get(<<"files">>, Metadata)), Metadata
+    ),
+    CreateConfig = maps:put(tarball_files_root, BaseDir, hex_core:default_config()),
+
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, Files, CreateConfig),
+    {ok, #{tarball := Tarball}} = hex_tarball:create(
+        ReversedMetadata, lists:reverse(Files), CreateConfig
+    ),
+
+    {ok, OuterFiles} = hex_erl_tar:extract({binary, Tarball}, [memory]),
+    ?assertEqual(
+        ["VERSION", "CHECKSUM", "metadata.config", "contents.tar.gz"],
+        [Name || {Name, _} <- OuterFiles]
+    ),
+    {_, ContentsBinary} = lists:keyfind("contents.tar.gz", 1, OuterFiles),
+    ?assertEqual(
+        {ok, ["README.md", "src/a.erl", "src/b.erl"]},
+        hex_erl_tar:table({binary, ContentsBinary}, [compressed])
+    ),
+    {ok, #{metadata := UnpackedMetadata}} = hex_tarball:unpack(Tarball, memory),
+    ?assertEqual(
+        [<<"README.md">>, <<"src/a.erl">>, <<"src/b.erl">>],
+        maps:get(<<"files">>, UnpackedMetadata)
+    ).
+
+docs_file_order_test(_Config) ->
+    Files = [
+        {"index.html", <<"index">>},
+        {"api/b.html", <<"b">>},
+        {"api/a.html", <<"a">>}
+    ],
+    {ok, Tarball} = hex_tarball:create_docs(Files),
+    {ok, Tarball} = hex_tarball:create_docs(lists:reverse(Files)),
+    ?assertEqual(
+        {ok, ["api/a.html", "api/b.html", "index.html"]},
+        hex_erl_tar:table({binary, Tarball}, [compressed])
+    ).
+
+duplicate_files_test(_Config) ->
+    Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+    Error = {error, {tarball, {duplicate_file, "src/foo.erl"}}},
+    ?assertEqual(
+        Error,
+        hex_tarball:create(Metadata, [{"src/foo.erl", <<"a">>}, {"src/foo.erl", <<"b">>}])
+    ),
+    ?assertEqual(
+        Error,
+        hex_tarball:create(Metadata, [{"src/foo.erl", <<"a">>}, {"./src/foo.erl", <<"b">>}])
+    ),
+    ?assertEqual(Error, hex_tarball:create_docs([{"src/foo.erl", <<>>}, {"src/foo.erl", <<>>}])),
+    "duplicate file in tarball: src/foo.erl" = lists:flatten(
+        hex_tarball:format_error(element(2, Error))
+    ).
+
+unicode_normalization_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    Dir = filename:join(BaseDir, "unicode_normalization"),
+    ok = file:make_dir(Dir),
+    %% "café" with a combining acute accent (NFD), raw names are independent
+    %% of the native file name encoding
+    ok = file:write_file(<<(raw_path(Dir))/binary, "/cafe", 16#CC, 16#81, ".erl">>, <<"nfd">>),
+    ok = file:make_symlink(
+        <<"cafe", 16#CC, 16#81, ".erl">>, <<(raw_path(Dir))/binary, "/link.erl">>
+    ),
+    Nfc = "src/caf" ++ [16#E9] ++ ".erl",
+    Nfd = "src/cafe" ++ [16#301] ++ ".erl",
+    Files = [
+        {Nfd, native_path(filename:join(Dir, "cafe" ++ [16#301] ++ ".erl"))},
+        {"src/link.erl", native_path(filename:join(Dir, "link.erl"))}
+    ],
+    Metadata = #{
+        <<"name">> => <<"foo">>,
+        <<"version">> => <<"1.0.0">>,
+        <<"files">> => [unicode:characters_to_binary(Nfd)]
+    },
+    CreateConfig = maps:put(tarball_files_root, BaseDir, hex_core:default_config()),
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, Files, CreateConfig),
+
+    {ok, OuterFiles} = hex_erl_tar:extract({binary, Tarball}, [memory]),
+    {_, ContentsBinary} = lists:keyfind("contents.tar.gz", 1, OuterFiles),
+    ?assertEqual([Nfc, "src/link.erl"], tar_names(zlib:gunzip(ContentsBinary))),
+    ?assertEqual(["caf" ++ [16#E9] ++ ".erl"], tar_linknames(zlib:gunzip(ContentsBinary))),
+    {ok, #{metadata := #{<<"files">> := [NfcBinary]}}} = hex_tarball:unpack(Tarball, memory),
+    ?assertEqual(unicode:characters_to_binary(Nfc), NfcBinary),
+
+    ?assertEqual(
+        {error, {tarball, {duplicate_file, Nfc}}},
+        hex_tarball:create(Metadata, [{Nfc, <<"nfc">>}, {Nfd, <<"nfd">>}])
+    ).
+
+%% With the latin1 native file name encoding (+fnl) names read from the file
+%% system are bytes, the tarball must still be the same
+latin1_filename_encoding_test(Config) ->
+    case code:ensure_loaded(peer) of
+        {module, peer} ->
+            BaseDir = ?config(priv_dir, Config),
+            Dir = filename:join(BaseDir, "latin1_filename_encoding"),
+            ok = file:make_dir(Dir),
+            RawDir = raw_path(Dir),
+            ok = file:write_file(<<RawDir/binary, "/caf", 16#C3, 16#A9, ".erl">>, <<"café">>),
+            ok = file:make_symlink(<<"caf", 16#C3, 16#A9, ".erl">>, <<RawDir/binary, "/link.erl">>),
+            Name = "caf" ++ [16#E9] ++ ".erl",
+            Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+            CreateConfig = maps:put(tarball_files_root, BaseDir, hex_core:default_config()),
+            Utf8Files = [
+                {"src/" ++ Name, filename:join(Dir, Name)},
+                {"src/link.erl", filename:join(Dir, "link.erl")}
+            ],
+            Latin1Files = [
+                {
+                    "src/" ++ Name,
+                    binary_to_list(unicode:characters_to_binary(filename:join(Dir, Name)))
+                },
+                {"src/link.erl",
+                    binary_to_list(unicode:characters_to_binary(filename:join(Dir, "link.erl")))}
+            ],
+            {ok, #{tarball := Tarball}} =
+                peer_call(["+fnu"], hex_tarball, create, [Metadata, Utf8Files, CreateConfig]),
+            {ok, #{tarball := Tarball}} =
+                peer_call(["+fnl"], hex_tarball, create, [Metadata, Latin1Files, CreateConfig]),
+
+            {ok, OuterFiles} = hex_erl_tar:extract({binary, Tarball}, [memory]),
+            {_, ContentsBinary} = lists:keyfind("contents.tar.gz", 1, OuterFiles),
+            ?assertEqual([Name], tar_linknames(zlib:gunzip(ContentsBinary)));
+        _ ->
+            {skip, "peer requires OTP 25"}
+    end.
+
+empty_directories_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    Dir = filename:join(BaseDir, "empty_directories"),
+    ok = filelib:ensure_dir(filename:join([Dir, "empty", "x"])),
+    ok = filelib:ensure_dir(filename:join([Dir, "listed", "x"])),
+    ok = filelib:ensure_dir(filename:join([Dir, "unlisted", "x"])),
+    ok = file:write_file(filename:join([Dir, "listed", "a.erl"]), <<"a">>),
+    ok = file:write_file(filename:join([Dir, "unlisted", ".DS_Store"]), <<"junk">>),
+
+    Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+    Files = [
+        {Name, filename:join("empty_directories", Name)}
+     || Name <- ["empty", "listed", "listed/a.erl", "unlisted"]
+    ],
+    CreateConfig = maps:put(tarball_files_root, BaseDir, hex_core:default_config()),
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, Files, CreateConfig),
+
+    {ok, OuterFiles} = hex_erl_tar:extract({binary, Tarball}, [memory]),
+    {_, ContentsBinary} = lists:keyfind("contents.tar.gz", 1, OuterFiles),
+    {ok, Entries} = hex_erl_tar:table({binary, ContentsBinary}, [compressed, verbose]),
+    ?assertEqual(
+        [{"empty", directory}, {"listed/a.erl", regular}, {"unlisted", directory}],
+        [{Name, Type} || {Name, Type, _Size, _Mtime, _Mode, _Uid, _Gid} <- Entries]
+    ).
+
+read_only_cwd_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    Dir = filename:join(BaseDir, "read_only_cwd"),
+    ok = file:make_dir(Dir),
+    ok = file:write_file(filename:join(Dir, "foo.erl"), <<"-module(foo).">>),
+    ok = file:change_mode(Dir, 8#555),
+    {ok, Cwd} = file:get_cwd(),
+    ok = file:set_cwd(Dir),
+
+    try
+        Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+        CreateConfig = maps:put(tarball_files_root, Dir, hex_core:default_config()),
+        {ok, _} = hex_tarball:create(Metadata, ["foo.erl"], CreateConfig),
+        {ok, _} = hex_tarball:create_docs([{"index.html", <<>>}]),
+        ?assertEqual({ok, ["foo.erl"]}, file:list_dir(Dir))
+    after
+        ok = file:set_cwd(Cwd),
+        ok = file:change_mode(Dir, 8#755)
+    end.
+
+pax_record_length_test(_Config) ->
+    Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+    Names = ["lib/" ++ lists:duplicate(N, 16#E9) ++ ".ex" || N <- lists:seq(40, 60)],
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, [{Name, <<"x">>} || Name <- Names]),
+
+    {ok, OuterFiles} = hex_erl_tar:extract({binary, Tarball}, [memory]),
+    {_, ContentsBinary} = lists:keyfind("contents.tar.gz", 1, OuterFiles),
+    ?assertEqual(Names, tar_names(zlib:gunzip(ContentsBinary))),
+    {ok, #{contents := Contents}} = hex_tarball:unpack(Tarball, memory),
+    ?assertEqual(Names, [Name || {Name, _} <- Contents]).
+
+ustar_prefix_test(_Config) ->
+    Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+    Names = [
+        lists:duplicate(A, $a) ++ "/" ++ lists:duplicate(B, $b) ++ "/c"
+     || A <- lists:seq(75, 79), B <- lists:seq(75, 79)
+    ],
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, [{Name, <<"x">>} || Name <- Names]),
+
+    {ok, OuterFiles} = hex_erl_tar:extract({binary, Tarball}, [memory]),
+    {_, ContentsBinary} = lists:keyfind("contents.tar.gz", 1, OuterFiles),
+    ?assertEqual(lists:sort(Names), tar_names(zlib:gunzip(ContentsBinary))),
+    {ok, #{contents := Contents}} = hex_tarball:unpack(Tarball, memory),
+    ?assertEqual(lists:sort(Names), [Name || {Name, _} <- Contents]).
+
 timestamps_and_permissions_test(Config) ->
     BaseDir = ?config(priv_dir, Config),
     Foo = filename:join(BaseDir, "foo.sh"),
@@ -184,6 +417,100 @@ timestamps_and_permissions_test(Config) ->
     8#100755 = FooShFileInfo#file_info.mode,
     [{{Year, _, _}, _}] = calendar:local_time_to_universal_time_dst(FooErlFileInfo#file_info.mtime),
     {{Year, _, _}, _} = calendar:local_time().
+
+normalized_permissions_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    Dir = filename:join(BaseDir, "normalized_permissions"),
+    EmptyDir = filename:join(Dir, "empty"),
+    ok = file:make_dir(Dir),
+    ok = file:make_dir(EmptyDir),
+    ok = file:change_mode(EmptyDir, 8#775),
+    ok = file:write_file(filename:join(Dir, "group.erl"), <<"">>),
+    ok = file:change_mode(filename:join(Dir, "group.erl"), 8#664),
+    ok = file:write_file(filename:join(Dir, "private.erl"), <<"">>),
+    ok = file:change_mode(filename:join(Dir, "private.erl"), 8#600),
+    ok = file:write_file(filename:join(Dir, "script.sh"), <<"">>),
+    ok = file:change_mode(filename:join(Dir, "script.sh"), 8#775),
+    ok = file:write_file(filename:join(Dir, "owner.sh"), <<"">>),
+    ok = file:change_mode(filename:join(Dir, "owner.sh"), 8#700),
+    ok = file:make_symlink("group.erl", filename:join(Dir, "link.erl")),
+
+    Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+    Files = [
+        {Name, filename:join("normalized_permissions", Name)}
+     || Name <- ["empty", "group.erl", "link.erl", "owner.sh", "private.erl", "script.sh"]
+    ],
+    CreateConfig = maps:put(tarball_files_root, BaseDir, hex_core:default_config()),
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, Files, CreateConfig),
+
+    {ok, OuterFiles} = hex_erl_tar:extract({binary, Tarball}, [memory]),
+    {_, ContentsBinary} = lists:keyfind("contents.tar.gz", 1, OuterFiles),
+    {ok, Entries} = hex_erl_tar:table({binary, ContentsBinary}, [compressed, verbose]),
+    ?assertEqual(
+        [
+            {"empty", directory, 8#40755},
+            {"group.erl", regular, 8#100644},
+            {"link.erl", symlink, 8#120777},
+            {"owner.sh", regular, 8#100755},
+            {"private.erl", regular, 8#100644},
+            {"script.sh", regular, 8#100755}
+        ],
+        [{Name, Type, Mode} || {Name, Type, _Size, _Mtime, Mode, _Uid, _Gid} <- Entries]
+    ).
+
+executable_option_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    Dir = filename:join(BaseDir, "executable_option"),
+    ok = file:make_dir(Dir),
+    ok = file:make_dir(filename:join(Dir, "empty")),
+    ok = file:write_file(filename:join(Dir, "script.sh"), <<"">>),
+    ok = file:change_mode(filename:join(Dir, "script.sh"), 8#755),
+    ok = file:write_file(filename:join(Dir, "run.sh"), <<"">>),
+    ok = file:change_mode(filename:join(Dir, "run.sh"), 8#644),
+    ok = file:make_symlink("run.sh", filename:join(Dir, "link.sh")),
+
+    Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+    Path = fun(Name) -> filename:join("executable_option", Name) end,
+    Files = [
+        {"contents.sh", <<"">>, #{executable => true}},
+        {"contents.txt", <<"">>, #{executable => false}},
+        {"empty", Path("empty"), #{executable => true}},
+        {"link.sh", Path("link.sh"), #{executable => false}},
+        {"run.sh", Path("run.sh"), #{executable => true}},
+        {"script.sh", Path("script.sh"), #{executable => false}},
+        {"unchanged.sh", Path("script.sh"), #{}}
+    ],
+    CreateConfig = maps:put(tarball_files_root, BaseDir, hex_core:default_config()),
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, Files, CreateConfig),
+
+    {ok, OuterFiles} = hex_erl_tar:extract({binary, Tarball}, [memory]),
+    {_, ContentsBinary} = lists:keyfind("contents.tar.gz", 1, OuterFiles),
+    {ok, Entries} = hex_erl_tar:table({binary, ContentsBinary}, [compressed, verbose]),
+    ?assertEqual(
+        [
+            {"contents.sh", regular, 8#100755},
+            {"contents.txt", regular, 8#100644},
+            {"empty", directory, 8#40755},
+            {"link.sh", symlink, 8#120777},
+            {"run.sh", regular, 8#100755},
+            {"script.sh", regular, 8#100644},
+            {"unchanged.sh", regular, 8#100755}
+        ],
+        [{Name, Type, Mode} || {Name, Type, _Size, _Mtime, Mode, _Uid, _Gid} <- Entries]
+    ),
+
+    InvalidOptions = [#{executable => yes}, #{mode => 8#755}, #{executable => true, mode => 8#755}],
+    lists:foreach(
+        fun(Options) ->
+            {error, Reason} = hex_tarball:create(Metadata, [{"foo.sh", <<"">>, Options}]),
+            ?assertEqual({tarball, {invalid_file_options, "foo.sh", Options}}, Reason),
+            ?assertMatch(
+                "invalid options for file foo.sh: " ++ _,
+                lists:flatten(hex_tarball:format_error(Reason))
+            )
+        end,
+        InvalidOptions
+    ).
 
 symlinks_test(Config) ->
     BaseDir = ?config(priv_dir, Config),
@@ -649,6 +976,159 @@ requirements_test(_Config) ->
     ExpectedRequirements = hex_tarball:normalize_requirements(Normal),
     ExpectedRequirements = hex_tarball:normalize_requirements(Legacy),
     ok.
+
+%% Small maps with atom keys iterate in atom creation order, so the atoms are
+%% created in reverse alphabetical order at runtime.
+metadata_key_order_test(_Config) ->
+    Zebra = list_to_atom("hex_tarball_suite_zebra"),
+    Apple = list_to_atom("hex_tarball_suite_apple"),
+    AtomMetadata = #{
+        name => <<"foo">>,
+        version => <<"1.0.0">>,
+        Zebra => <<"z">>,
+        Apple => #{Zebra => <<"z">>, Apple => <<"a">>}
+    },
+    BinaryMetadata = #{
+        <<"name">> => <<"foo">>,
+        <<"version">> => <<"1.0.0">>,
+        <<"hex_tarball_suite_zebra">> => <<"z">>,
+        <<"hex_tarball_suite_apple">> => #{
+            <<"hex_tarball_suite_zebra">> => <<"z">>,
+            <<"hex_tarball_suite_apple">> => <<"a">>
+        }
+    },
+    Files = [{"src/foo.erl", <<"-module(foo).">>}],
+
+    {ok, #{tarball := Tarball}} = hex_tarball:create(BinaryMetadata, Files),
+    {ok, #{tarball := Tarball}} = hex_tarball:create(AtomMetadata, Files),
+    ok.
+
+metadata_encoding_test(_Config) ->
+    Metadata = #{
+        <<"name">> => <<"foo">>,
+        <<"version">> => <<"1.0.0">>,
+        <<"ascii">> => <<"say \"hi\"\\\n">>,
+        <<"latin1">> => <<"Café"/utf8>>,
+        <<"unicode">> => <<"日本"/utf8>>,
+        <<"invalid">> => <<255, 97>>,
+        <<"empty">> => <<>>,
+        <<"integers">> => [0, -1, 123456789012345678901234567890],
+        <<"atoms">> => [true, false, undefined, nil],
+        <<"charlists">> => ["say \"hi\"\n", [26085, 26412], [1, 2]],
+        <<"nested">> => #{<<"b">> => [<<"x">>], a => {<<"k">>, <<"v">>}}
+    },
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, [{"src/foo.erl", <<>>}]),
+    ?assertEqual(
+        unicode:characters_to_binary([
+            "{<<\"ascii\">>,<<\"say \\\"hi\\\"\\\\\\n\">>}.\n",
+            "{<<\"atoms\">>,[true,false,undefined,<<\"nil\">>]}.\n",
+            "{<<\"charlists\">>,[\"say \\\"hi\\\"\\n\",[26085,26412],[1,2]]}.\n",
+            "{<<\"empty\">>,<<>>}.\n",
+            "{<<\"integers\">>,[0,-1,123456789012345678901234567890]}.\n",
+            "{<<\"invalid\">>,<<255,97>>}.\n",
+            "{<<\"latin1\">>,<<\"Café\"/utf8>>}.\n",
+            "{<<\"name\">>,<<\"foo\">>}.\n",
+            "{<<\"nested\">>,[{<<\"a\">>,{<<\"k\">>,<<\"v\">>}},{<<\"b\">>,[<<\"x\">>]}]}.\n",
+            "{<<\"unicode\">>,<<230,151,165,230,156,172>>}.\n",
+            "{<<\"version\">>,<<\"1.0.0\">>}.\n"
+        ]),
+        metadata_config(Tarball)
+    ),
+    {ok, #{metadata := Decoded}} = hex_tarball:unpack(Tarball, memory),
+    #{
+        <<"ascii">> := <<"say \"hi\"\\\n">>,
+        <<"latin1">> := <<"Café"/utf8>>,
+        <<"unicode">> := <<"日本"/utf8>>,
+        <<"invalid">> := <<255, 97>>,
+        <<"empty">> := <<>>,
+        <<"integers">> := [0, -1, 123456789012345678901234567890],
+        <<"atoms">> := [true, false, undefined, <<"nil">>],
+        <<"charlists">> := ["say \"hi\"\n", [26085, 26412], [1, 2]]
+    } = Decoded,
+    ok.
+
+metadata_long_string_test(_Config) ->
+    Text = lists:duplicate(300000, $a),
+    Metadata = #{
+        <<"name">> => <<"foo">>,
+        <<"version">> => <<"1.0.0">>,
+        <<"extra">> => #{<<"text">> => Text}
+    },
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, [{"src/foo.erl", <<>>}]),
+    ?assert(byte_size(metadata_config(Tarball)) < 300100),
+    {ok, #{metadata := #{<<"extra">> := #{<<"text">> := Text}}}} =
+        hex_tarball:unpack(Tarball, memory),
+    ok.
+
+metadata_line_length_test(_Config) ->
+    Files = [<<"lib/file", (integer_to_binary(N))/binary, ".ex">> || N <- lists:seq(1, 5)],
+    Metadata = #{
+        <<"name">> => <<"foo">>,
+        <<"version">> => <<"1.0.0">>,
+        <<"files">> => lists:reverse(Files),
+        <<"links">> => #{<<"GitHub">> => <<"https://github.com/hexpm/hex_core">>}
+    },
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, [{"src/foo.erl", <<>>}]),
+    ?assertEqual(
+        <<
+            "{<<\"files\">>,\n"
+            " [<<\"lib/file1.ex\">>,\n"
+            "  <<\"lib/file2.ex\">>,\n"
+            "  <<\"lib/file3.ex\">>,\n"
+            "  <<\"lib/file4.ex\">>,\n"
+            "  <<\"lib/file5.ex\">>]}.\n"
+            "{<<\"links\">>,[{<<\"GitHub\">>,<<\"https://github.com/hexpm/hex_core\">>}]}.\n"
+            "{<<\"name\">>,<<\"foo\">>}.\n"
+            "{<<\"version\">>,<<\"1.0.0\">>}.\n"
+        >>,
+        metadata_config(Tarball)
+    ),
+    {ok, #{metadata := #{<<"files">> := Files}}} = hex_tarball:unpack(Tarball, memory),
+    ok.
+
+%% io_lib_pretty prints non-Latin-1 text as strings only with +pc unicode
+printable_range_test(_Config) ->
+    case code:ensure_loaded(peer) of
+        {module, peer} ->
+            Metadata = #{
+                <<"name">> => <<"foo">>,
+                <<"version">> => <<"1.0.0">>,
+                <<"description">> => <<"日本語のパッケージ"/utf8>>,
+                <<"extra">> => #{<<"list">> => [26085, 26412]}
+            },
+            Files = [{"src/foo.erl", <<>>}],
+            {ok, #{tarball := Tarball}} =
+                peer_call(["+pc", "latin1"], hex_tarball, create, [Metadata, Files]),
+            {ok, #{tarball := Tarball}} =
+                peer_call(["+pc", "unicode"], hex_tarball, create, [Metadata, Files]),
+            ok;
+        _ ->
+            {skip, "peer requires OTP 25"}
+    end.
+
+invalid_metadata_test(_Config) ->
+    Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+    Files = [{"src/foo.erl", <<>>}],
+    Errors = [
+        {{metadata, {unsupported_term, 1.5}}, Metadata#{<<"extra">> => #{<<"float">> => 1.5}}},
+        {{metadata, {unsupported_term, {a, b, c}}}, Metadata#{<<"extra">> => [{a, b, c}]}},
+        {{metadata, {duplicate_key, <<"description">>}}, Metadata#{
+            description => <<"atom">>, <<"description">> => <<"binary">>
+        }},
+        {{metadata, {duplicate_key, <<"key">>}}, Metadata#{
+            <<"extra">> => #{key => <<"atom">>, <<"key">> => <<"binary">>}
+        }},
+        {{metadata, {invalid_file, "lib/foo.ex"}}, Metadata#{
+            <<"files">> => [<<"src/foo.erl">>, "lib/foo.ex"]
+        }}
+    ],
+    lists:foreach(
+        fun({Reason, InvalidMetadata}) ->
+            ?assertEqual({error, Reason}, hex_tarball:create(InvalidMetadata, Files)),
+            true = is_list(lists:flatten(hex_tarball:format_error(Reason)))
+        end,
+        Errors
+    ).
 
 decode_metadata_test(_Config) ->
     #{<<"foo">> := <<"bar">>} = hex_tarball:do_decode_metadata(<<"{<<\"foo\">>, <<\"bar\">>}.">>),
@@ -1249,6 +1729,91 @@ epoch() ->
     NixEpoch = calendar:datetime_to_gregorian_seconds({{1970, 1, 1}, {0, 0, 0}}),
     Y2kEpoch = calendar:datetime_to_gregorian_seconds({{2000, 1, 1}, {0, 0, 0}}),
     Y2kEpoch - NixEpoch.
+
+metadata_config(Tarball) ->
+    {ok, OuterFiles} = hex_erl_tar:extract({binary, Tarball}, [memory]),
+    {_, MetadataBinary} = lists:keyfind("metadata.config", 1, OuterFiles),
+    MetadataBinary.
+
+raw_path(Path) ->
+    case file:native_name_encoding() of
+        utf8 -> unicode:characters_to_binary(Path);
+        latin1 -> list_to_binary(Path)
+    end.
+
+native_path(Path) ->
+    case file:native_name_encoding() of
+        utf8 -> Path;
+        latin1 -> binary_to_list(unicode:characters_to_binary(Path))
+    end.
+
+peer_call(Args, Module, Function, Arguments) ->
+    Peer =
+        case peer:start_link(#{connection => standard_io, args => Args}) of
+            {ok, Pid} -> Pid;
+            {ok, Pid, _Node} -> Pid
+        end,
+    try
+        true = peer:call(Peer, code, add_path, [filename:dirname(code:which(hex_tarball))]),
+        peer:call(Peer, Module, Function, Arguments, 30000)
+    after
+        peer:stop(Peer)
+    end.
+
+tar_names(Tar) ->
+    [unicode:characters_to_list(Name) || {_Type, Name, _Linkname} <- tar_entries(Tar)].
+
+tar_linknames(Tar) ->
+    [unicode:characters_to_list(Linkname) || {$2, _Name, Linkname} <- tar_entries(Tar)].
+
+%% Reads the entries of an uncompressed tar independently of hex_erl_tar,
+%% PAX records are parsed by their declared length
+tar_entries(Tar) ->
+    tar_entries(Tar, #{}, []).
+
+tar_entries(<<Header:512/binary, Rest/binary>>, Pax, Acc) ->
+    case Header of
+        <<0:4096>> ->
+            lists:reverse(Acc);
+        _ ->
+            Size = tar_octal(binary:part(Header, 124, 12)),
+            Padded = (Size + 511) div 512 * 512,
+            <<Data:Size/binary, _:(Padded - Size)/binary, Rest2/binary>> = Rest,
+            case binary:at(Header, 156) of
+                $x ->
+                    tar_entries(Rest2, pax_records(Data), Acc);
+                Type ->
+                    Name = maps:get(<<"path">>, Pax, ustar_name(Header)),
+                    Linkname = maps:get(
+                        <<"linkpath">>, Pax, tar_string(binary:part(Header, 157, 100))
+                    ),
+                    tar_entries(Rest2, #{}, [{Type, Name, Linkname} | Acc])
+            end
+    end.
+
+pax_records(<<>>) ->
+    #{};
+pax_records(Data) ->
+    [LengthBinary, _] = binary:split(Data, <<" ">>),
+    Length = binary_to_integer(LengthBinary),
+    <<Record:Length/binary, Rest/binary>> = Data,
+    <<_:(byte_size(LengthBinary) + 1)/binary, KeyValue/binary>> = Record,
+    $\n = binary:last(KeyValue),
+    [Key, Value] = binary:split(binary:part(KeyValue, 0, byte_size(KeyValue) - 1), <<"=">>),
+    maps:put(Key, Value, pax_records(Rest)).
+
+ustar_name(Header) ->
+    Name = tar_string(binary:part(Header, 0, 100)),
+    case tar_string(binary:part(Header, 345, 155)) of
+        <<>> -> Name;
+        Prefix -> <<Prefix/binary, "/", Name/binary>>
+    end.
+
+tar_string(Field) ->
+    hd(binary:split(Field, <<0>>)).
+
+tar_octal(Field) ->
+    list_to_integer(string:trim(binary_to_list(tar_string(Field))), 8).
 
 shell_quote(String) ->
     "'" ++ lists:flatten(string:replace(String, "'", "'\\''", all)) ++ "'".

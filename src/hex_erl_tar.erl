@@ -6,6 +6,10 @@
 %% 5. When extracting to disk, make_safe_path/2 and safe_link_name/2 return
 %%    binary file names so the UTF-8 bytes of member names and symlink targets
 %%    are written unchanged when the native file name encoding is latin1
+%% 6. add/4 accepts {symlink, Linkname} and directory to add entries without
+%%    reading them from disk
+%% 7. PAX record lengths are counted in bytes instead of characters
+%% 8. The ustar prefix check counts the separator between path components
 %%
 %% OTP commit: ad05823719d77c8faee87348ea39513d4e2f99c5 (OTP-29.1.1)
 %%
@@ -654,9 +658,15 @@ add(Reader, Name, Opts) when is_list(Name) ->
 -spec add(TarDescriptor, Filename, NameInArchive, Options) ->
         ok | {error, term()} when
     TarDescriptor :: tar_descriptor(),
-    Filename :: file:filename_all(),
+    Filename :: file:filename_all() | {symlink, string()} | directory,
     NameInArchive :: name_in_archive(),
     Options :: [add_opt()].
+add(Reader, {symlink, Linkname}, NameInArchive, Options)
+  when is_list(Linkname), is_list(NameInArchive), is_list(Options) ->
+    do_add(Reader, {symlink, Linkname}, NameInArchive, Options);
+add(Reader, directory, NameInArchive, Options)
+  when is_list(NameInArchive), is_list(Options) ->
+    do_add(Reader, directory, NameInArchive, Options);
 add(Reader, NameOrBin, NameInArchive, Options)
   when is_list(NameOrBin); is_binary(NameOrBin),
        is_list(NameInArchive), is_list(Options) ->
@@ -756,23 +766,40 @@ add1(#reader{}=Reader, Name, NameInArchive, #add_opts{read_info=ReadInfo}=Opts)
     end;
 add1(Reader, Bin, NameInArchive, Opts) when is_binary(Bin) ->
     add_verbose(Opts, "a ~ts~n", [NameInArchive]),
-    Now = os:system_time(seconds),
-    Header = #tar_header{
-                name = NameInArchive,
-                size = byte_size(Bin),
-                typeflag = ?TYPE_REGULAR,
-                atime = add_opts_time(Opts#add_opts.atime, Now),
-                mtime = add_opts_time(Opts#add_opts.mtime, Now),
-                ctime = add_opts_time(Opts#add_opts.ctime, Now),
-                uid = Opts#add_opts.uid,
-                gid = Opts#add_opts.gid,
-                mode = Opts#add_opts.mode},
+    Header = opts_to_header(NameInArchive, ?TYPE_REGULAR, byte_size(Bin), Opts),
     {ok, Reader2} = add_header(Reader, Header, Opts),
     Padding = skip_padding(byte_size(Bin)),
     Data = [Bin, <<0:Padding/unit:8>>],
     case do_write(Reader2, Data) of
         {ok, _Reader3} -> ok;
         {error, Reason} -> {error, {NameInArchive, Reason}}
+    end;
+add1(Reader, {symlink, Linkname}, NameInArchive, Opts) ->
+    add_verbose(Opts, "a ~ts~n", [NameInArchive]),
+    Header = opts_to_header(NameInArchive, ?TYPE_SYMLINK, 0, Opts),
+    add_header_entry(Reader, Header#tar_header{linkname=Linkname}, Opts);
+add1(Reader, directory, NameInArchive, Opts) ->
+    add_verbose(Opts, "a ~ts~n", [NameInArchive]),
+    Header = opts_to_header(NameInArchive ++ "/", ?TYPE_DIR, 0, Opts),
+    add_header_entry(Reader, Header, Opts).
+
+opts_to_header(NameInArchive, Typeflag, Size, Opts) ->
+    Now = os:system_time(seconds),
+    #tar_header{
+       name = NameInArchive,
+       size = Size,
+       typeflag = Typeflag,
+       atime = add_opts_time(Opts#add_opts.atime, Now),
+       mtime = add_opts_time(Opts#add_opts.mtime, Now),
+       ctime = add_opts_time(Opts#add_opts.ctime, Now),
+       uid = Opts#add_opts.uid,
+       gid = Opts#add_opts.gid,
+       mode = Opts#add_opts.mode}.
+
+add_header_entry(Reader, Header, Opts) ->
+    case add_header(Reader, Header, Opts) of
+        {ok, _Reader2} -> ok;
+        {error, Reason} -> {error, {Header#tar_header.name, Reason}}
     end.
 
 add_opts_time(undefined, Now) -> Now;
@@ -960,30 +987,24 @@ build_pax_entry(Header, PaxAttrs, Opts) ->
 build_pax_file(Keys, PaxAttrs) ->
     build_pax_file(Keys, PaxAttrs, []).
 build_pax_file([], _, Acc) ->
-    unicode:characters_to_binary(Acc);
+    iolist_to_binary(Acc);
 build_pax_file([K|Rest], Attrs, Acc) ->
-    V = maps:get(K, Attrs),
-    Size = sizeof(K) + sizeof(V) + 3,
-    Size2 = sizeof(Size) + Size,
-    Key = to_string(K),
-    Value = to_string(V),
-    Record = unicode:characters_to_binary(io_lib:format("~B ~ts=~ts\n", [Size2, Key, Value])),
-    if byte_size(Record) =/= Size2 ->
-            Size3 = byte_size(Record),
-            Record2 = io_lib:format("~B ~ts=~ts\n", [Size3, Key, Value]),
-            build_pax_file(Rest, Attrs, [Acc, Record2]);
-       true ->
-            build_pax_file(Rest, Attrs, [Acc, Record])
-    end.
+    Key = unicode:characters_to_binary(to_string(K)),
+    Value = unicode:characters_to_binary(to_string(maps:get(K, Attrs))),
+    %% The record length includes its own decimal digits, the separating
+    %% space, "=" and the trailing newline, all counted in bytes
+    Size = pax_record_size(byte_size(Key) + byte_size(Value) + 3),
+    Record = [integer_to_binary(Size), $\s, Key, $=, Value, $\n],
+    build_pax_file(Rest, Attrs, [Acc, Record]).
 
-sizeof(Bin) when is_binary(Bin) ->
-    byte_size(Bin);
-sizeof(List) when is_list(List) ->
-    length(List);
-sizeof(N) when is_integer(N) ->
-    byte_size(integer_to_binary(N));
-sizeof(N) when is_float(N) ->
-    byte_size(float_to_binary(N)).
+pax_record_size(Base) ->
+    pax_record_size(Base, Base).
+
+pax_record_size(Base, Size) ->
+    case Base + byte_size(integer_to_binary(Size)) of
+        Size -> Size;
+        NewSize -> pax_record_size(Base, NewSize)
+    end.
 
 to_string(Bin) when is_binary(Bin) ->
     unicode:characters_to_list(Bin);
@@ -1021,7 +1042,7 @@ join_split_ustar_path([Part|_], {ok, _, nil})
   when byte_size(Part) > ?USTAR_PREFIX_LEN ->
     false;
 join_split_ustar_path([Part|_], {ok, _Name, Acc})
-  when (byte_size(Part)+byte_size(Acc)) > ?USTAR_PREFIX_LEN ->
+  when (byte_size(Acc)+1+byte_size(Part)) > ?USTAR_PREFIX_LEN ->
     false;
 join_split_ustar_path([Part|Rest], {ok, Name, nil}) ->
     join_split_ustar_path(Rest, {ok, Name, Part});
