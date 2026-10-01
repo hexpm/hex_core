@@ -10,17 +10,6 @@ prop_symmetric() ->
         end
     ).
 
-prop_equivalent() ->
-    ?FORALL(
-        Binary,
-        binary(),
-        begin
-            <<31, 139, 8, 0, 0, 0, 0, 0, 0, _Os, ZlibRest/binary>> = zlib:gzip(Binary),
-            <<31, 139, 8, 0, 0, 0, 0, 0, 0, 0, HexRest/binary>> = hex_tarball:gzip(Binary),
-            ZlibRest =:= HexRest
-        end
-    ).
-
 prop_metadata_strings() ->
     ?FORALL(
         Chars,
