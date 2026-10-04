@@ -18,6 +18,7 @@ all() ->
         read_only_cwd_test,
         pax_record_length_test,
         ustar_prefix_test,
+        incomplete_utf8_name_test,
         timestamps_and_permissions_test,
         normalized_permissions_test,
         executable_option_test,
@@ -371,6 +372,29 @@ ustar_prefix_test(_Config) ->
     ?assertEqual(lists:sort(Names), tar_names(zlib:gunzip(ContentsBinary))),
     {ok, #{contents := Contents}} = hex_tarball:unpack(Tarball, memory),
     ?assertEqual(lists:sort(Names), [Name || {Name, _} <- Contents]).
+
+%% A ustar name that ends in an incomplete UTF-8 sequence is read as its bytes,
+%% without the zero padding of the header field
+incomplete_utf8_name_test(_Config) ->
+    Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, [{"cafx", <<"x">>}]),
+    {ok, OuterFileList} = hex_erl_tar:extract({binary, Tarball}, [memory]),
+    OuterFiles = maps:from_list(OuterFileList),
+    #{
+        "VERSION" := Version,
+        "metadata.config" := MetadataBinary,
+        "contents.tar.gz" := ContentsBinary
+    } = OuterFiles,
+
+    %% 16#E9 starts a three byte UTF-8 sequence, "caf" followed by it is "café"
+    %% in ISO Latin-1
+    Contents = hex_tarball:gzip(set_first_name(zlib:gunzip(ContentsBinary), <<"caf", 16#E9>>)),
+    Checksum = crypto:hash(sha256, [Version, MetadataBinary, Contents]),
+    {ok, #{contents := UnpackedContents}} = unpack_files(OuterFiles#{
+        "contents.tar.gz" => Contents,
+        "CHECKSUM" => hex_tarball:format_checksum(Checksum)
+    }),
+    ?assertEqual([{"caf" ++ [16#E9], <<"x">>}], UnpackedContents).
 
 timestamps_and_permissions_test(Config) ->
     BaseDir = ?config(priv_dir, Config),
@@ -1819,6 +1843,16 @@ ustar_name(Header) ->
         <<>> -> Name;
         Prefix -> <<Prefix/binary, "/", Name/binary>>
     end.
+
+%% Replaces the name in the first header of an uncompressed tar and updates the
+%% checksum of the header
+set_first_name(
+    <<_:100/binary, Fields:48/binary, _Checksum:8/binary, Tail:356/binary, Rest/binary>>, Name
+) ->
+    NameField = <<Name/binary, 0:((100 - byte_size(Name)) * 8)>>,
+    Header = <<NameField/binary, Fields/binary, "        ", Tail/binary>>,
+    Checksum = iolist_to_binary(io_lib:format("~6.8.0B", [lists:sum(binary_to_list(Header))])),
+    <<NameField/binary, Fields/binary, Checksum/binary, 0, $\s, Tail/binary, Rest/binary>>.
 
 tar_string(Field) ->
     hd(binary:split(Field, <<0>>)).

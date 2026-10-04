@@ -10,6 +10,8 @@
 %%    reading them from disk
 %% 7. PAX record lengths are counted in bytes instead of characters
 %% 8. The ustar prefix check counts the separator between path components
+%% 9. parse_string/1 drops the zero padding of names that end in an incomplete
+%%    UTF-8 sequence
 %%
 %% OTP commit: ad05823719d77c8faee87348ea39513d4e2f99c5 (OTP-29.1.1)
 %%
@@ -1493,7 +1495,7 @@ parse_string(Bin) when is_binary(Bin) ->
         Str when is_list(Str) ->
             Str;
         {incomplete, _Str, _Rest} ->
-            binary_to_list(Bin);
+            binary_to_list(Prefix);
         {error, _Str, _Rest} ->
             throw({error, {bad_header, invalid_string}})
     end.
