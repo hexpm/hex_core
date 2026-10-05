@@ -664,7 +664,7 @@ unpack_contents(Contents, Output, MaxSize) ->
 
 %% @private
 copy_metadata_config(Output, MetadataBinary) ->
-    ok = file:write_file(filename:join(Output, "hex_metadata.config"), MetadataBinary).
+    ok = file:write_file(filename:join(Output, "hex_metadata.config"), MetadataBinary, [raw]).
 
 %% @private
 check_files(#{files := Files} = State) ->
@@ -1372,12 +1372,12 @@ update_mtimes(Dir, Time) ->
     end.
 
 update_mtime(Path, Time) ->
-    case file:read_link_info(Path, [{time, universal}]) of
+    case file:read_link_info(Path, [raw, {time, universal}]) of
         {ok, #file_info{type = directory}} ->
-            _ = file:write_file_info(Path, #file_info{mtime = Time}, [{time, universal}]),
+            _ = file:write_file_info(Path, #file_info{mtime = Time}, [raw, {time, universal}]),
             update_mtimes(Path, Time);
         {ok, #file_info{type = regular}} ->
-            _ = file:write_file_info(Path, #file_info{mtime = Time}, [{time, universal}]),
+            _ = file:write_file_info(Path, #file_info{mtime = Time}, [raw, {time, universal}]),
             ok;
         _ ->
             ok
