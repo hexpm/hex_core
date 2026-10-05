@@ -96,7 +96,10 @@ all() ->
         resolve_oauth_token_concurrent_refresh_serialized_test,
         resolve_oauth_token_refresh_failure_clears_once_test,
         device_auth_concurrent_serialized_reuses_login_test,
-        device_auth_lock_released_before_request_test
+        device_auth_lock_released_before_request_test,
+        resolve_repo_auth_no_credentials_skips_locks_test,
+        resolve_repo_auth_valid_oauth_skips_locks_test,
+        resolve_repo_auth_exchange_waits_for_lock_test
     ].
 
 %%====================================================================
@@ -1643,9 +1646,108 @@ device_auth_lock_released_before_request_test(_Config) ->
     end,
     ok.
 
+resolve_repo_auth_no_credentials_skips_locks_test(_Config) ->
+    %% Resolving to no credentials exchanges and refreshes nothing, so it must
+    %% not wait on locks held by another caller.
+    Config = config_with_callbacks(#{oauth_tokens => error}),
+    Holder = hold_locks([
+        {hex_cli_auth, repo, <<"hexpm">>},
+        {hex_cli_auth, token_refresh}
+    ]),
+
+    ?assertEqual(no_auth, resolve_repo_auth_within(Config#{trusted => true}, 1000)),
+    release_locks(Holder),
+    ok.
+
+resolve_repo_auth_valid_oauth_skips_locks_test(_Config) ->
+    %% A stored global token that is still valid is used without waiting on the
+    %% repo or token refresh locks.
+    Now = erlang:system_time(second),
+    Config = config_with_callbacks(#{
+        oauth_tokens =>
+            {ok, #{
+                access_token => <<"global_oauth">>,
+                refresh_token => <<"refresh_token">>,
+                expires_at => Now + 3600
+            }}
+    }),
+    Holder = hold_locks([
+        {hex_cli_auth, repo, <<"hexpm">>},
+        {hex_cli_auth, token_refresh}
+    ]),
+
+    ?assertEqual(
+        {ok, <<"Bearer global_oauth">>, #{has_refresh_token => true}},
+        resolve_repo_auth_within(Config#{trusted => true}, 1000)
+    ),
+    release_locks(Holder),
+    ok.
+
+resolve_repo_auth_exchange_waits_for_lock_test(_Config) ->
+    %% Exchanging an auth_key for a repository token still holds the repo lock,
+    %% so concurrent callers don't each exchange.
+    Config = config_with_callbacks(#{
+        auth_config => #{<<"hexpm">> => #{auth_key => <<"my_auth_key">>}}
+    }),
+    Holder = hold_locks([{hex_cli_auth, repo, <<"hexpm">>}]),
+    Self = self(),
+    spawn_link(fun() ->
+        Self !
+            {resolved,
+                hex_cli_auth:resolve_repo_auth(Config#{trusted => true, oauth_exchange => true})}
+    end),
+
+    receive
+        {resolved, Early} -> error({resolved_while_locked, Early})
+    after 200 ->
+        ok
+    end,
+
+    release_locks(Holder),
+    receive
+        {resolved, Result} ->
+            ?assertMatch({ok, <<"Bearer ", _/binary>>, #{has_refresh_token := false}}, Result)
+    after 5000 ->
+        error(not_resolved_after_release)
+    end,
+    ok.
+
 %%====================================================================
 %% Helper Functions
 %%====================================================================
+
+hold_locks(ResourceIds) ->
+    Parent = self(),
+    Holder = spawn_link(fun() ->
+        [true = global:set_lock({Id, self()}, [node()], 0) || Id <- ResourceIds],
+        Parent ! {locks_held, self()},
+        receive
+            release -> [global:del_lock({Id, self()}, [node()]) || Id <- ResourceIds]
+        end,
+        Parent ! {locks_released, self()}
+    end),
+    receive
+        {locks_held, Holder} -> Holder
+    after 5000 ->
+        error(locks_not_acquired)
+    end.
+
+release_locks(Holder) ->
+    Holder ! release,
+    receive
+        {locks_released, Holder} -> ok
+    after 5000 ->
+        error(locks_not_released)
+    end.
+
+resolve_repo_auth_within(Config, Timeout) ->
+    Self = self(),
+    spawn_link(fun() -> Self ! {resolved, hex_cli_auth:resolve_repo_auth(Config)} end),
+    receive
+        {resolved, Result} -> Result
+    after Timeout ->
+        error(resolve_repo_auth_blocked)
+    end.
 
 organization_reauth_reported_on_refresh_test(_Config) ->
     %% The organizations the server flags on a refresh reach the build tool.

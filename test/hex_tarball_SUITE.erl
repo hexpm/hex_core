@@ -20,6 +20,7 @@ all() ->
         ustar_prefix_test,
         incomplete_utf8_name_test,
         timestamps_and_permissions_test,
+        unpack_bypasses_file_server_test,
         normalized_permissions_test,
         executable_option_test,
         symlinks_test,
@@ -442,6 +443,55 @@ timestamps_and_permissions_test(Config) ->
     8#100755 = FooShFileInfo#file_info.mode,
     [{{Year, _, _}, _}] = calendar:local_time_to_universal_time_dst(FooErlFileInfo#file_info.mtime),
     {{Year, _, _}, _} = calendar:local_time().
+
+unpack_bypasses_file_server_test(Config) ->
+    %% Files and their info are written with raw file operations so concurrent
+    %% unpacks are not serialized through the file server. Directories are
+    %% still created through it, once per directory.
+    BaseDir = ?config(priv_dir, Config),
+    Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+    Files = [
+        {"src/foo.erl", <<"-module(foo).">>},
+        {"src/bar.erl", <<"-module(bar).">>},
+        {"priv/nested/data.txt", <<"data">>}
+    ],
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, Files),
+    UnpackDir = filename:join(BaseDir, "unpack_bypasses_file_server"),
+
+    Requests = trace_file_server_requests(fun() ->
+        {ok, _} = hex_tarball:unpack(Tarball, UnpackDir)
+    end),
+
+    {ok, <<"data">>} = file:read_file(filename:join(UnpackDir, "priv/nested/data.txt")),
+    PerFileRequests = [open, write_file, write_file_info, read_link_info],
+    ?assertEqual([], [Request || Request <- Requests, lists:member(Request, PerFileRequests)]).
+
+trace_file_server_requests(Fun) ->
+    FileServer = whereis(file_server_2),
+    Self = self(),
+    Tracer = spawn_link(fun() -> collect_file_server_requests(Self, []) end),
+    1 = erlang:trace(FileServer, true, ['receive', {tracer, Tracer}]),
+    try
+        Fun()
+    after
+        erlang:trace(FileServer, false, ['receive']),
+        Tracer ! {done, Self}
+    end,
+    receive
+        {file_server_requests, Requests} -> Requests
+    after 5000 ->
+        error(file_server_trace_timeout)
+    end.
+
+collect_file_server_requests(Caller, Acc) ->
+    receive
+        {trace, _, 'receive', {'$gen_call', {Caller, _}, Request}} when is_tuple(Request) ->
+            collect_file_server_requests(Caller, [element(1, Request) | Acc]);
+        {trace, _, 'receive', _} ->
+            collect_file_server_requests(Caller, Acc);
+        {done, Caller} ->
+            Caller ! {file_server_requests, lists:reverse(Acc)}
+    end.
 
 normalized_permissions_test(Config) ->
     BaseDir = ?config(priv_dir, Config),
