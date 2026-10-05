@@ -45,6 +45,8 @@ all() ->
         oauth_win_cmd_args_escapes_metacharacters_test,
         oauth_revoke_test,
         oauth_client_credentials_test,
+        oauth_jwt_bearer_token_test,
+        oauth_oidc_audience_test,
         publish_with_expect_header_test,
         publish_without_expect_header_test
     ].
@@ -605,6 +607,26 @@ oauth_client_credentials_test(_Config) ->
     } = TokenResponse2,
     ?assert(is_binary(AccessToken2)),
     ?assert(is_integer(ExpiresIn2)),
+    ok.
+
+oauth_jwt_bearer_token_test(_Config) ->
+    Scope = <<"package:hexpm/my_package">>,
+    {ok, {200, _, TokenResponse}} = hex_api_oauth:jwt_bearer_token(
+        ?CONFIG, <<"oidc_token">>, Scope
+    ),
+    #{
+        <<"access_token">> := AccessToken,
+        <<"token_type">> := <<"bearer">>,
+        <<"expires_in">> := ExpiresIn,
+        <<"scope">> := Scope
+    } = TokenResponse,
+    ?assert(is_binary(AccessToken)),
+    ?assert(is_integer(ExpiresIn)),
+    ok.
+
+oauth_oidc_audience_test(_Config) ->
+    {ok, {200, _, #{<<"audience">> := Audience}}} = hex_api_oauth:oidc_audience(?CONFIG),
+    ?assert(is_binary(Audience)),
     ok.
 
 publish_with_expect_header_test(_Config) ->

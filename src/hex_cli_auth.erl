@@ -86,6 +86,13 @@
 %%
 %% OAuth access tokens are automatically prefixed with `<<"Bearer ">>' when used
 %% as `api_key' or `repo_key' in the config.
+%%
+%% == Trusted Publishing ==
+%%
+%% `trusted_publisher_auth/2' lets a supported CI job (currently GitHub
+%% Actions) publish without a stored API key, by exchanging the job's OIDC
+%% token for API auth scoped to one package. See its documentation for
+%% details.
 -module(hex_cli_auth).
 
 -export([
@@ -96,7 +103,8 @@
     resolve_api_auth/2,
     resolve_repo_auth/1,
     refresh_tokens/1,
-    is_token_expired/1
+    is_token_expired/1,
+    trusted_publisher_auth/2
 ]).
 
 -export_type([
@@ -106,7 +114,8 @@
     auth_context/0,
     repo_auth_config/0,
     auth_prompt_reason/0,
-    opts/0
+    opts/0,
+    trusted_publisher_error/0
 ]).
 
 %% 5 minute buffer before expiry
@@ -180,6 +189,11 @@
 -type auth_context() :: #{
     has_refresh_token => boolean()
 }.
+
+-type trusted_publisher_error() ::
+    hex_oidc:fetch_error()
+    | {oidc_audience_failed, hex_api:response()}
+    | {token_exchange_failed, hex_api:response()}.
 
 %% How much of each retry budget a request has already spent.
 -type retries() :: #{
@@ -539,6 +553,54 @@ refresh_tokens(Config) ->
 is_token_expired(ExpiresAt) ->
     Now = erlang:system_time(second),
     ExpiresAt - Now < ?EXPIRY_BUFFER_SECONDS.
+
+%% @doc
+%% Authenticates as a trusted publisher, exchanging the CI job's OIDC token
+%% for API auth scoped to Scope (for example `<<"package:hexpm/my_package">>').
+%%
+%% Returns `none' when credentials already resolve through
+%% `resolve_api_auth/2' (any credential the user configured takes precedence)
+%% or when no supported CI provider is detected, in which case the caller
+%% falls back to its ordinary auth resolution. Call this once per publish and
+%% reuse the resulting key for every request the publish makes; do not call
+%% it from inside `with_api/3,4'.
+-spec trusted_publisher_auth(hex_core:config(), Scope :: binary()) ->
+    {ok, binary()} | none | {error, trusted_publisher_error()}.
+trusted_publisher_auth(Config, Scope) ->
+    case resolve_api_auth(write, Config) of
+        {ok, _ApiKey, _AuthContext} ->
+            none;
+        _NoUsableCredentials ->
+            case hex_oidc:detect_provider() of
+                {ok, Provider} ->
+                    authenticate_trusted_publisher(Config, Provider, Scope);
+                none ->
+                    none
+            end
+    end.
+
+%% @private
+authenticate_trusted_publisher(Config, Provider, Scope) ->
+    case hex_api_oauth:oidc_audience(Config) of
+        {ok, {200, _Headers, #{<<"audience">> := Audience}}} when is_binary(Audience) ->
+            case hex_oidc:fetch_token(Config, Provider, Audience) of
+                {ok, OidcToken} ->
+                    exchange_trusted_publisher_token(Config, OidcToken, Scope);
+                {error, _Reason} = Error ->
+                    Error
+            end;
+        Response ->
+            {error, {oidc_audience_failed, Response}}
+    end.
+
+%% @private
+exchange_trusted_publisher_token(Config, OidcToken, Scope) ->
+    case hex_api_oauth:jwt_bearer_token(Config, OidcToken, Scope) of
+        {ok, {200, _Headers, #{<<"access_token">> := AccessToken}}} when is_binary(AccessToken) ->
+            {ok, <<"Bearer ", AccessToken/binary>>};
+        Response ->
+            {error, {token_exchange_failed, Response}}
+    end.
 
 %%====================================================================
 %% Internal functions - Device Auth
