@@ -10,7 +10,9 @@
     format_error/1
 ]).
 -ifdef(TEST).
--export([do_decode_metadata/1, do_decode_metadata/2, gzip/1, normalize_requirements/1]).
+-export([
+    do_decode_metadata/1, do_decode_metadata/2, gzip/1, make_tmp_dir/1, normalize_requirements/1
+]).
 -endif.
 -define(VERSION, <<"3">>).
 -define(HASH_CHUNK_SIZE, 65536).
@@ -266,22 +268,30 @@ unpack(Input, Output, Config) ->
         true ->
             OuterChecksum = outer_checksum(Input),
             Source = tar_source(Input),
-            TmpDir = tmp_path(),
-            ok = file:make_dir(TmpDir),
-            try
-                case hex_erl_tar:extract(Source, [{cwd, TmpDir}]) of
-                    ok ->
-                        case read_outer_files(TmpDir) of
-                            {ok, Files} ->
-                                do_unpack(Files, OuterChecksum, Output, Config);
-                            {error, _} = Error ->
-                                Error
-                        end;
-                    {error, Reason} ->
-                        {error, {tarball, Reason}}
-                end
-            after
-                remove_dir(TmpDir)
+            TmpDir = filename:join(tmp_parent(Output), tmp_path()),
+            case make_tmp_dir(TmpDir) of
+                ok ->
+                    try
+                        case hex_erl_tar:extract(Source, [{cwd, TmpDir}]) of
+                            ok ->
+                                case read_outer_files(TmpDir) of
+                                    {ok, Files} ->
+                                        do_unpack(Files, OuterChecksum, Output, Config);
+                                    {error, _} = Error ->
+                                        Error
+                                end;
+                            {error, Reason} ->
+                                {error, {tarball, Reason}}
+                        end
+                    after
+                        remove_dir(TmpDir)
+                    end;
+                {error, Reason} when Output =:= none ->
+                    {error, {tarball, Reason}};
+                {error, Reason} ->
+                    %% The output directory can't be written to, which is
+                    %% reported the same as failing to extract into it.
+                    {error, {inner_tarball, Reason}}
             end;
         false ->
             {error, {tarball, too_big}}
@@ -1400,6 +1410,67 @@ create_memory_tarball(Files) ->
         Tarball
     after
         ok = file:close(Fd)
+    end.
+
+%% @private
+%% The outer tarball is extracted inside the output directory, so unpacking
+%% needs no write access outside it and doesn't depend on the current
+%% directory. Without an output it goes to the system temporary directory.
+tmp_parent(none) ->
+    system_tmp_dir();
+tmp_parent(Output) ->
+    Output.
+
+%% @private
+%% The first writable directory of TMPDIR, TEMP, TMP and /tmp, the same
+%% candidates as Elixir's System.tmp_dir/0, falling back to the current
+%% directory.
+system_tmp_dir() ->
+    EnvDirs = [Dir || Var <- ["TMPDIR", "TEMP", "TMP"], Dir <- [os:getenv(Var)], is_list(Dir)],
+    case lists:search(fun is_writable_dir/1, EnvDirs ++ ["/tmp"]) of
+        {value, Dir} ->
+            Dir;
+        false ->
+            case file:get_cwd() of
+                {ok, Cwd} -> Cwd;
+                {error, _} -> "."
+            end
+    end.
+
+is_writable_dir(Dir) ->
+    case file:read_file_info(Dir, [raw]) of
+        {ok, #file_info{type = directory, access = Access}} ->
+            Access =:= read_write orelse Access =:= write;
+        _ ->
+            false
+    end.
+
+%% @private
+%% Readable only by the owner, since with the none output it is in a shared
+%% temporary directory and holds the package contents.
+make_tmp_dir(TmpDir) ->
+    case create_dir(TmpDir) of
+        ok ->
+            case file:change_mode(TmpDir, 8#700) of
+                ok ->
+                    ok;
+                {error, _} = Error ->
+                    _ = file:del_dir(TmpDir),
+                    Error
+            end;
+        {error, _} = Error ->
+            Error
+    end.
+
+create_dir(Dir) ->
+    case file:make_dir(Dir) of
+        {error, enoent} ->
+            case filelib:ensure_dir(Dir) of
+                ok -> file:make_dir(Dir);
+                {error, _} = Error -> Error
+            end;
+        Result ->
+            Result
     end.
 
 %% @private
