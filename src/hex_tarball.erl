@@ -1451,7 +1451,7 @@ is_writable_dir(Dir) ->
 make_tmp_dir(TmpDir) ->
     case create_dir(TmpDir) of
         ok ->
-            case file:change_mode(TmpDir, 8#700) of
+            case file:write_file_info(TmpDir, #file_info{mode = 8#700}, [raw]) of
                 ok ->
                     ok;
                 {error, _} = Error ->
