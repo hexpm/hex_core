@@ -16,6 +16,11 @@ all() ->
         latin1_filename_encoding_test,
         empty_directories_test,
         read_only_cwd_test,
+        read_only_output_parent_test,
+        output_under_regular_file_test,
+        none_output_temporary_directory_test,
+        none_output_unusable_tmpdir_test,
+        tmp_dir_owner_only_test,
         pax_record_length_test,
         ustar_prefix_test,
         incomplete_utf8_name_test,
@@ -341,12 +346,123 @@ read_only_cwd_test(Config) ->
     try
         Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
         CreateConfig = maps:put(tarball_files_root, Dir, hex_core:default_config()),
-        {ok, _} = hex_tarball:create(Metadata, ["foo.erl"], CreateConfig),
+        {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, ["foo.erl"], CreateConfig),
         {ok, _} = hex_tarball:create_docs([{"index.html", <<>>}]),
+        UnpackDir = filename:join([BaseDir, "read_only_cwd_unpack", "foo"]),
+        {ok, _} = hex_tarball:unpack(Tarball, UnpackDir),
+        ?assertEqual(
+            {ok, <<"-module(foo).">>}, file:read_file(filename:join(UnpackDir, "foo.erl"))
+        ),
+        ?assertEqual({ok, ["foo"]}, file:list_dir(filename:dirname(UnpackDir))),
         ?assertEqual({ok, ["foo.erl"]}, file:list_dir(Dir))
     after
         ok = file:set_cwd(Cwd),
         ok = file:change_mode(Dir, 8#755)
+    end.
+
+read_only_output_parent_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    Parent = filename:join(BaseDir, "read_only_output_parent"),
+    Output = filename:join(Parent, "foo"),
+    ok = file:make_dir(Parent),
+    ok = file:make_dir(Output),
+    ok = file:change_mode(Parent, 8#555),
+
+    try
+        Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+        {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, [
+            {"foo.erl", <<"-module(foo).">>}
+        ]),
+        {ok, _} = hex_tarball:unpack(Tarball, Output),
+        ?assertEqual({ok, ["foo.erl", "hex_metadata.config"]}, sorted_list_dir(Output)),
+        ?assertEqual({ok, ["foo"]}, file:list_dir(Parent))
+    after
+        ok = file:change_mode(Parent, 8#755)
+    end.
+
+output_under_regular_file_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    File = filename:join(BaseDir, "output_under_regular_file"),
+    ok = file:write_file(File, <<>>),
+    Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, [{"foo.erl", <<"-module(foo).">>}]),
+    ?assertEqual(
+        {error, {inner_tarball, enotdir}},
+        hex_tarball:unpack(Tarball, filename:join(File, "foo"))
+    ).
+
+none_output_temporary_directory_test(Config) ->
+    %% Unpacking without an output doesn't touch the current directory, even
+    %% one with a file named after the output mode, and cleans up after itself.
+    BaseDir = ?config(priv_dir, Config),
+    Cwd = filename:join(BaseDir, "none_output_cwd"),
+    TmpDir = filename:join(BaseDir, "none_output_tmp"),
+    ok = file:make_dir(Cwd),
+    ok = file:make_dir(TmpDir),
+    ok = file:write_file(filename:join(Cwd, "none"), <<>>),
+    Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, [{"foo.erl", <<"-module(foo).">>}]),
+    {ok, OldCwd} = file:get_cwd(),
+    OldTmpDir = os:getenv("TMPDIR"),
+    ok = file:set_cwd(Cwd),
+    true = os:putenv("TMPDIR", TmpDir),
+
+    try
+        ?assertMatch({ok, #{metadata := Metadata}}, hex_tarball:unpack(Tarball, none)),
+        ?assertEqual({ok, ["none"]}, file:list_dir(Cwd)),
+        ?assert(filelib:is_regular(filename:join(Cwd, "none"))),
+        ?assertEqual({ok, []}, file:list_dir(TmpDir))
+    after
+        ok = file:set_cwd(OldCwd),
+        case OldTmpDir of
+            false -> os:unsetenv("TMPDIR");
+            _ -> os:putenv("TMPDIR", OldTmpDir)
+        end
+    end.
+
+none_output_unusable_tmpdir_test(Config) ->
+    %% A TMPDIR that isn't a writable directory is skipped for the next
+    %% candidate instead of failing the unpack.
+    BaseDir = ?config(priv_dir, Config),
+    ReadOnlyDir = filename:join(BaseDir, "unusable_tmpdir_read_only"),
+    RegularFile = filename:join(BaseDir, "unusable_tmpdir_file"),
+    ok = file:make_dir(ReadOnlyDir),
+    ok = file:change_mode(ReadOnlyDir, 8#555),
+    ok = file:write_file(RegularFile, <<>>),
+    Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, [{"foo.erl", <<"-module(foo).">>}]),
+    OldTmpDir = os:getenv("TMPDIR"),
+
+    try
+        lists:foreach(
+            fun(TmpDir) ->
+                true = os:putenv("TMPDIR", TmpDir),
+                ?assertMatch({ok, #{metadata := Metadata}}, hex_tarball:unpack(Tarball, none))
+            end,
+            [ReadOnlyDir, RegularFile]
+        ),
+        ?assertEqual({ok, []}, file:list_dir(ReadOnlyDir))
+    after
+        ok = file:change_mode(ReadOnlyDir, 8#755),
+        case OldTmpDir of
+            false -> os:unsetenv("TMPDIR");
+            _ -> os:putenv("TMPDIR", OldTmpDir)
+        end
+    end.
+
+tmp_dir_owner_only_test(Config) ->
+    %% The outer tarball's files, including the package contents, are only
+    %% readable by the owner while they are on disk.
+    BaseDir = ?config(priv_dir, Config),
+    TmpDir = filename:join([BaseDir, "tmp_dir_owner_only", "tmp"]),
+    ok = hex_tarball:make_tmp_dir(TmpDir),
+    {ok, #file_info{type = directory, mode = Mode}} = file:read_file_info(TmpDir),
+    ?assertEqual(8#700, Mode band 8#777).
+
+sorted_list_dir(Dir) ->
+    case file:list_dir(Dir) of
+        {ok, Names} -> {ok, lists:sort(Names)};
+        Error -> Error
     end.
 
 pax_record_length_test(_Config) ->
