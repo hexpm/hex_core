@@ -466,7 +466,7 @@ fixture(get, <<?TEST_API_URL, "/oidc/audience">>, _, _) ->
         {ok, {200, api_headers(), term_to_binary(Payload)}}
     end;
 
-%% CI OIDC token providers (trusted publishing)
+%% CI OIDC token providers (Workload Identity)
 
 fixture(get, <<?TEST_CI_URL, "/token", _/binary>>, Headers, _) when
     not is_map_key(<<"authorization">>, Headers) orelse

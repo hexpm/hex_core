@@ -1,5 +1,5 @@
 %% @doc
-%% OIDC token issuance for CI providers, used by trusted publishing.
+%% OIDC token issuance for CI providers, used by Workload Identity.
 -module(hex_oidc).
 -export([detect_provider/0, fetch_token/3]).
 -ifdef(TEST).

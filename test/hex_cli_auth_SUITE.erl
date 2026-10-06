@@ -105,19 +105,19 @@ all() ->
         resolve_repo_auth_valid_oauth_skips_locks_test,
         resolve_repo_auth_exchange_waits_for_lock_test,
 
-        %% trusted_publisher_auth tests
-        trusted_publisher_auth_no_provider_test,
-        trusted_publisher_auth_credentials_present_test,
-        trusted_publisher_auth_audience_failed_test,
+        %% workload_identity_auth tests
+        workload_identity_auth_no_provider_test,
+        workload_identity_auth_credentials_present_test,
+        workload_identity_auth_audience_failed_test,
         {group, oidc_token}
     ].
 
 groups() ->
     [
         {oidc_token, [], [
-            trusted_publisher_auth_success_test,
-            trusted_publisher_auth_token_request_failed_test,
-            trusted_publisher_auth_exchange_failed_test
+            workload_identity_auth_success_test,
+            workload_identity_auth_token_request_failed_test,
+            workload_identity_auth_exchange_failed_test
         ]}
     ].
 
@@ -1749,24 +1749,24 @@ resolve_repo_auth_exchange_waits_for_lock_test(_Config) ->
     ok.
 
 %%====================================================================
-%% Test Cases - trusted_publisher_auth
+%% Test Cases - workload_identity_auth
 %%====================================================================
 
-trusted_publisher_auth_no_provider_test(_Config) ->
+workload_identity_auth_no_provider_test(_Config) ->
     Config = config_with_callbacks(#{}),
-    ?assertEqual(none, hex_cli_auth:trusted_publisher_auth(Config, <<"package:hexpm/foo">>)),
+    ?assertEqual(none, hex_cli_auth:workload_identity_auth(Config, <<"package:hexpm/foo">>)),
     ok.
 
-trusted_publisher_auth_credentials_present_test(_Config) ->
+workload_identity_auth_credentials_present_test(_Config) ->
     %% A URL that no fixture answers, so the test crashes if trusted
     %% publishing tries to use it: a configured api_key takes precedence and
     %% is found before the CI provider is even looked at.
     put_github_oidc_env("https://ci.test/unreachable"),
     Config = (config_with_callbacks(#{}))#{api_key => <<"configured_api_key">>},
-    ?assertEqual(none, hex_cli_auth:trusted_publisher_auth(Config, <<"package:hexpm/foo">>)),
+    ?assertEqual(none, hex_cli_auth:workload_identity_auth(Config, <<"package:hexpm/foo">>)),
     ok.
 
-trusted_publisher_auth_success_test(_Config) ->
+workload_identity_auth_success_test(_Config) ->
     put_github_oidc_env("https://ci.test/token"),
     Config = config_with_callbacks(#{}),
 
@@ -1776,11 +1776,11 @@ trusted_publisher_auth_success_test(_Config) ->
 
     ?assertEqual(
         {ok, <<"Bearer minted_token">>},
-        hex_cli_auth:trusted_publisher_auth(Config, <<"package:hexpm/foo">>)
+        hex_cli_auth:workload_identity_auth(Config, <<"package:hexpm/foo">>)
     ),
     ok.
 
-trusted_publisher_auth_audience_failed_test(_Config) ->
+workload_identity_auth_audience_failed_test(_Config) ->
     put_github_oidc_env("https://ci.test/token"),
     Config = config_with_callbacks(#{}),
 
@@ -1791,11 +1791,11 @@ trusted_publisher_auth_audience_failed_test(_Config) ->
 
     ?assertEqual(
         {error, {oidc_audience_failed, {ok, {404, Headers, Body}}}},
-        hex_cli_auth:trusted_publisher_auth(Config, <<"package:hexpm/foo">>)
+        hex_cli_auth:workload_identity_auth(Config, <<"package:hexpm/foo">>)
     ),
     ok.
 
-trusted_publisher_auth_token_request_failed_test(_Config) ->
+workload_identity_auth_token_request_failed_test(_Config) ->
     put_github_oidc_env("https://ci.test/token"),
     Config = config_with_callbacks(#{}),
 
@@ -1804,11 +1804,11 @@ trusted_publisher_auth_token_request_failed_test(_Config) ->
 
     ?assertEqual(
         {error, {oidc_token_request_failed, 403}},
-        hex_cli_auth:trusted_publisher_auth(Config, <<"package:hexpm/foo">>)
+        hex_cli_auth:workload_identity_auth(Config, <<"package:hexpm/foo">>)
     ),
     ok.
 
-trusted_publisher_auth_exchange_failed_test(_Config) ->
+workload_identity_auth_exchange_failed_test(_Config) ->
     put_github_oidc_env("https://ci.test/token"),
     Config = config_with_callbacks(#{}),
 
@@ -1821,7 +1821,7 @@ trusted_publisher_auth_exchange_failed_test(_Config) ->
 
     ?assertEqual(
         {error, {token_exchange_failed, {ok, {403, Headers, Body}}}},
-        hex_cli_auth:trusted_publisher_auth(Config, <<"package:hexpm/foo">>)
+        hex_cli_auth:workload_identity_auth(Config, <<"package:hexpm/foo">>)
     ),
     ok.
 

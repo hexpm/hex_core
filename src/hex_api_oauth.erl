@@ -377,8 +377,8 @@ client_credentials_token(Config, ClientId, ApiKey, Scope, Opts) ->
 
 %% @doc
 %% Exchanges an OIDC token from a CI provider for an access token scoped to
-%% one package, using the JWT bearer grant (RFC 7523). This is what trusted
-%% publishing uses in place of a stored API key.
+%% one package, using the JWT bearer grant (RFC 7523). This is what Workload
+%% Identity uses in place of a stored API key.
 %%
 %% Examples:
 %%
@@ -400,7 +400,7 @@ jwt_bearer_token(Config, Assertion, Scope) ->
     hex_api:post(Config, Path, Params).
 
 %% @doc
-%% Fetches the audience trusted publishing OIDC tokens must be issued for.
+%% Fetches the audience Workload Identity OIDC tokens must be issued for.
 %%
 %% Examples:
 %%
