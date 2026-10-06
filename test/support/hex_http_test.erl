@@ -468,6 +468,11 @@ fixture(get, <<?TEST_API_URL, "/oidc/audience">>, _, _) ->
 
 %% CI OIDC token providers (trusted publishing)
 
+fixture(get, <<?TEST_CI_URL, "/token", _/binary>>, Headers, _) when
+    not is_map_key(<<"authorization">>, Headers) orelse
+        map_get(<<"authorization">>, Headers) =/= <<"Bearer request_token">>
+->
+    {ok, {401, #{}, <<"">>}};
 fixture(get, <<?TEST_CI_URL, "/token", _/binary>> = URI, _Headers, _) ->
     receive
         {hex_http_test, ci_oidc_token_response, Response} ->

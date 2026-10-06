@@ -34,7 +34,8 @@ groups() ->
             fetch_token_transport_error_test,
             fetch_token_missing_value_test,
             fetch_token_empty_value_test,
-            fetch_token_invalid_json_test
+            fetch_token_invalid_json_test,
+            fetch_token_wrong_request_token_test
         ]}
     ].
 
@@ -154,6 +155,17 @@ fetch_token_invalid_json_test(_Config) ->
     queue_ci_token_response({ok, {200, #{}, <<"not json">>}}),
     ?assertEqual(
         {error, oidc_token_missing}, hex_oidc:fetch_token(?CONFIG, Provider, <<"hexpm">>)
+    ),
+    ok.
+
+fetch_token_wrong_request_token_test(_Config) ->
+    Provider =
+        {github_actions, #{
+            url => <<"https://ci.test/token">>, request_token => <<"wrong_token">>
+        }},
+    ?assertEqual(
+        {error, {oidc_token_request_failed, 401}},
+        hex_oidc:fetch_token(?CONFIG, Provider, <<"hexpm">>)
     ),
     ok.
 
