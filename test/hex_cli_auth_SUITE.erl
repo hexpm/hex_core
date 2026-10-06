@@ -108,11 +108,27 @@ all() ->
         %% trusted_publisher_auth tests
         trusted_publisher_auth_no_provider_test,
         trusted_publisher_auth_credentials_present_test,
-        trusted_publisher_auth_success_test,
         trusted_publisher_auth_audience_failed_test,
-        trusted_publisher_auth_token_request_failed_test,
-        trusted_publisher_auth_exchange_failed_test
+        {group, oidc_token}
     ].
+
+groups() ->
+    [
+        {oidc_token, [], [
+            trusted_publisher_auth_success_test,
+            trusted_publisher_auth_token_request_failed_test,
+            trusted_publisher_auth_exchange_failed_test
+        ]}
+    ].
+
+init_per_group(oidc_token, Config) ->
+    case code:ensure_loaded(json) of
+        {module, json} -> Config;
+        {error, _Reason} -> {skip, json_unavailable}
+    end.
+
+end_per_group(oidc_token, _Config) ->
+    ok.
 
 init_per_testcase(_TestCase, Config) ->
     lists:foreach(fun os:unsetenv/1, ?GITHUB_OIDC_ENV_VARS),
