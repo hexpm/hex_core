@@ -33,7 +33,8 @@ groups() ->
             fetch_token_non_200_test,
             fetch_token_transport_error_test,
             fetch_token_missing_value_test,
-            fetch_token_empty_value_test
+            fetch_token_empty_value_test,
+            fetch_token_invalid_json_test
         ]}
     ].
 
@@ -140,6 +141,17 @@ fetch_token_empty_value_test(_Config) ->
             url => <<"https://ci.test/token">>, request_token => <<"request_token">>
         }},
     queue_ci_token_response({ok, {200, #{}, <<"{\"count\":1,\"value\":\"\"}">>}}),
+    ?assertEqual(
+        {error, oidc_token_missing}, hex_oidc:fetch_token(?CONFIG, Provider, <<"hexpm">>)
+    ),
+    ok.
+
+fetch_token_invalid_json_test(_Config) ->
+    Provider =
+        {github_actions, #{
+            url => <<"https://ci.test/token">>, request_token => <<"request_token">>
+        }},
+    queue_ci_token_response({ok, {200, #{}, <<"not json">>}}),
     ?assertEqual(
         {error, oidc_token_missing}, hex_oidc:fetch_token(?CONFIG, Provider, <<"hexpm">>)
     ),

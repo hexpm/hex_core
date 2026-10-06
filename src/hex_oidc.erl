@@ -93,9 +93,12 @@ put_audience(Url, Audience) ->
 %% `json' module (pre-27) neither resolve the call at compile time nor warn
 %% about it.
 oidc_token_value(Body) ->
-    case erlang:apply(json, decode, [Body]) of
+    try erlang:apply(json, decode, [Body]) of
         #{<<"value">> := Token} when is_binary(Token), Token =/= <<>> ->
             {ok, Token};
         _Other ->
+            error
+    catch
+        error:_Reason ->
             error
     end.
