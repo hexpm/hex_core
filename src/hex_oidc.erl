@@ -3,7 +3,7 @@
 -module(hex_oidc).
 -export([detect_provider/0, fetch_token/3]).
 -ifdef(TEST).
--export([put_audience/2, extract_jwt_value/1]).
+-export([put_audience/2]).
 -endif.
 
 -export_type([provider/0, fetch_error/0]).
@@ -13,7 +13,8 @@
 -type fetch_error() ::
     {oidc_token_request_failed, Status :: non_neg_integer()}
     | {oidc_token_unavailable, Reason :: term()}
-    | oidc_token_missing.
+    | oidc_token_missing
+    | json_unavailable.
 
 %% @doc
 %% Detects the CI provider issuing OIDC tokens for the current job, if any.
@@ -34,7 +35,18 @@ detect_provider() ->
 %% @end
 -spec fetch_token(hex_core:config(), provider(), Audience :: binary()) ->
     {ok, binary()} | {error, fetch_error()}.
-fetch_token(Config, {github_actions, #{url := Url, request_token := RequestToken}}, Audience) ->
+fetch_token(Config, Provider, Audience) ->
+    case code:ensure_loaded(json) of
+        {module, json} -> request_token(Config, Provider, Audience);
+        {error, _Reason} -> {error, json_unavailable}
+    end.
+
+%%====================================================================
+%% Internal functions
+%%====================================================================
+
+%% @private
+request_token(Config, {github_actions, #{url := Url, request_token := RequestToken}}, Audience) ->
     Headers = #{
         <<"authorization">> => <<"Bearer ", RequestToken/binary>>,
         <<"accept">> => <<"application/json">>
@@ -50,10 +62,6 @@ fetch_token(Config, {github_actions, #{url := Url, request_token := RequestToken
         {error, Reason} ->
             {error, {oidc_token_unavailable, Reason}}
     end.
-
-%%====================================================================
-%% Internal functions
-%%====================================================================
 
 %% @private
 detect_github_actions() ->
@@ -81,65 +89,13 @@ put_audience(Url, Audience) ->
     iolist_to_binary(uri_string:recompose(Parsed#{query => Query})).
 
 %% @private
-oidc_token_value(Body) ->
-    case decode_json(Body) of
-        {ok, #{<<"value">> := Token}} when is_binary(Token), Token =/= <<>> ->
-            {ok, Token};
-        {ok, _Other} ->
-            error;
-        unavailable ->
-            extract_jwt_value(Body)
-    end.
-
-%% @private
 %% Calls `json:decode/1' through `erlang:apply/3' so OTP releases without the
 %% `json' module (pre-27) neither resolve the call at compile time nor warn
 %% about it.
-decode_json(Body) ->
-    case code:ensure_loaded(json) of
-        {module, json} -> {ok, erlang:apply(json, decode, [Body])};
-        {error, _Reason} -> unavailable
-    end.
-
-%% @private
-%% Without a JSON decoder, take the value directly. A compact JWT is limited
-%% to the base64url alphabet and dots, so it holds no quotes or escapes, and a
-%% bad extraction fails Hex's signature check.
-extract_jwt_value(Body) ->
-    case binary:split(Body, <<"\"value\"">>) of
-        [_Before, Rest] ->
-            case skip_separator(Rest) of
-                <<"\"", Token/binary>> ->
-                    case take_jwt(Token, <<>>) of
-                        {Value, <<"\"", _Rest/binary>>} when Value =/= <<>> ->
-                            {ok, Value};
-                        _Other ->
-                            error
-                    end;
-                _Other ->
-                    error
-            end;
+oidc_token_value(Body) ->
+    case erlang:apply(json, decode, [Body]) of
+        #{<<"value">> := Token} when is_binary(Token), Token =/= <<>> ->
+            {ok, Token};
         _Other ->
             error
     end.
-
-%% @private
-skip_separator(<<Char, Rest/binary>>) when
-    Char =:= $\s; Char =:= $\t; Char =:= $\n; Char =:= $\r; Char =:= $:
-->
-    skip_separator(Rest);
-skip_separator(Rest) ->
-    Rest.
-
-%% @private
-take_jwt(<<Char, Rest/binary>>, Acc) when
-    Char >= $A andalso Char =< $Z;
-    Char >= $a andalso Char =< $z;
-    Char >= $0 andalso Char =< $9;
-    Char =:= $-;
-    Char =:= $_;
-    Char =:= $.
-->
-    take_jwt(Rest, <<Acc/binary, Char>>);
-take_jwt(Rest, Acc) ->
-    {Acc, Rest}.

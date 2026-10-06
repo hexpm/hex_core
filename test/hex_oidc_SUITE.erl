@@ -20,19 +20,31 @@ all() ->
         detect_provider_empty_url_test,
         detect_provider_empty_token_test,
         detect_provider_github_actions_test,
-        fetch_token_success_test,
-        fetch_token_non_200_test,
-        fetch_token_transport_error_test,
-        fetch_token_missing_value_test,
-        fetch_token_empty_value_test,
+        {group, fetch_token},
+        fetch_token_json_unavailable_test,
         put_audience_no_query_test,
-        put_audience_existing_query_test,
-        extract_jwt_value_success_test,
-        extract_jwt_value_whitespace_and_colon_test,
-        extract_jwt_value_missing_key_test,
-        extract_jwt_value_empty_token_test,
-        extract_jwt_value_unterminated_test
+        put_audience_existing_query_test
     ].
+
+groups() ->
+    [
+        {fetch_token, [], [
+            fetch_token_success_test,
+            fetch_token_non_200_test,
+            fetch_token_transport_error_test,
+            fetch_token_missing_value_test,
+            fetch_token_empty_value_test
+        ]}
+    ].
+
+init_per_group(fetch_token, Config) ->
+    case code:ensure_loaded(json) of
+        {module, json} -> Config;
+        {error, _Reason} -> {skip, json_unavailable}
+    end.
+
+end_per_group(fetch_token, _Config) ->
+    ok.
 
 init_per_testcase(_TestCase, Config) ->
     lists:foreach(fun os:unsetenv/1, ?GITHUB_ENV_VARS),
@@ -133,6 +145,21 @@ fetch_token_empty_value_test(_Config) ->
     ),
     ok.
 
+fetch_token_json_unavailable_test(_Config) ->
+    case code:ensure_loaded(json) of
+        {module, json} ->
+            {skip, json_available};
+        {error, _Reason} ->
+            Provider =
+                {github_actions, #{
+                    url => <<"https://ci.test/token">>, request_token => <<"request_token">>
+                }},
+            ?assertEqual(
+                {error, json_unavailable}, hex_oidc:fetch_token(?CONFIG, Provider, <<"hexpm">>)
+            ),
+            ok
+    end.
+
 %%====================================================================
 %% Test Cases - put_audience
 %%====================================================================
@@ -149,36 +176,6 @@ put_audience_existing_query_test(_Config) ->
         <<"https://ci.test/token?api-version=2.0&audience=hexpm">>,
         hex_oidc:put_audience(<<"https://ci.test/token?api-version=2.0">>, <<"hexpm">>)
     ),
-    ok.
-
-%%====================================================================
-%% Test Cases - extract_jwt_value (no-JSON-decoder fallback)
-%%====================================================================
-
-extract_jwt_value_success_test(_Config) ->
-    ?assertEqual(
-        {ok, <<"abc-DEF_123.ghi">>},
-        hex_oidc:extract_jwt_value(<<"{\"count\":1,\"value\":\"abc-DEF_123.ghi\"}">>)
-    ),
-    ok.
-
-extract_jwt_value_whitespace_and_colon_test(_Config) ->
-    ?assertEqual(
-        {ok, <<"the.jwt.token">>},
-        hex_oidc:extract_jwt_value(<<"{\"value\"   :   \"the.jwt.token\"}">>)
-    ),
-    ok.
-
-extract_jwt_value_missing_key_test(_Config) ->
-    ?assertEqual(error, hex_oidc:extract_jwt_value(<<"{\"count\":1}">>)),
-    ok.
-
-extract_jwt_value_empty_token_test(_Config) ->
-    ?assertEqual(error, hex_oidc:extract_jwt_value(<<"{\"value\":\"\"}">>)),
-    ok.
-
-extract_jwt_value_unterminated_test(_Config) ->
-    ?assertEqual(error, hex_oidc:extract_jwt_value(<<"{\"value\":\"abc.def">>)),
     ok.
 
 %%====================================================================
