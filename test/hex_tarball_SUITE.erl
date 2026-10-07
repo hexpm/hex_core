@@ -38,6 +38,7 @@ all() ->
         memory_test,
         build_tools_test,
         requirements_test,
+        malformed_metadata_test,
         metadata_key_order_test,
         metadata_encoding_test,
         metadata_long_string_test,
@@ -1168,6 +1169,28 @@ requirements_test(_Config) ->
     ExpectedRequirements = hex_tarball:normalize_requirements(Legacy),
     ok.
 
+%% Metadata that only a hand-built tarball has, such as legacy requirements
+%% without a name or files that aren't binaries, unpacks as it is.
+malformed_metadata_test(_Config) ->
+    Unpack = fun(MetadataConfig) ->
+        {ok, #{metadata := Metadata}} = unpack_metadata_config(MetadataConfig),
+        Metadata
+    end,
+
+    #{<<"requirements">> := [[{<<"app">>, <<"foo">>}]]} =
+        Unpack(<<"{<<\"requirements\">>,[[{<<\"app\">>,<<\"foo\">>}]]}.\n">>),
+
+    #{<<"files">> := [123, <<"mix.exs">>], <<"build_tools">> := [<<"mix">>]} =
+        Unpack(<<"{<<\"files\">>,[123,<<\"mix.exs\">>]}.\n">>),
+    NotAList = Unpack(<<"{<<\"files\">>,<<\"mix.exs\">>}.\n">>),
+    #{<<"files">> := <<"mix.exs">>} = NotAList,
+    false = maps:is_key(<<"build_tools">>, NotAList),
+
+    {error, {metadata, {illegal, "|"}}} =
+        unpack_metadata_config(<<"{<<\"files\">>,[<<\"mix.exs\">>|1]}.\n">>),
+
+    ok.
+
 %% Small maps with atom keys iterate in atom creation order, so the atoms are
 %% created in reverse alphabetical order at runtime.
 metadata_key_order_test(_Config) ->
@@ -2028,6 +2051,18 @@ tar_octal(Field) ->
 
 shell_quote(String) ->
     "'" ++ lists:flatten(string:replace(String, "'", "'\\''", all)) ++ "'".
+
+unpack_metadata_config(MetadataConfig) ->
+    {ok, #{tarball := Tarball}} = hex_tarball:create(
+        #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>}, []
+    ),
+    {ok, OuterFileList} = hex_erl_tar:extract({binary, Tarball}, [memory]),
+    #{"VERSION" := Version, "contents.tar.gz" := Contents} =
+        OuterFiles = maps:from_list(OuterFileList),
+    Checksum = binary:encode_hex(
+        crypto:hash(sha256, <<Version/binary, MetadataConfig/binary, Contents/binary>>)
+    ),
+    unpack_files(OuterFiles#{"metadata.config" => MetadataConfig, "CHECKSUM" => Checksum}).
 
 unpack_files(Files) ->
     FileList = maps:to_list(Files),
