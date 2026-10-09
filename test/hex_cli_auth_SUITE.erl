@@ -16,6 +16,10 @@
     repo_public_key => ct:get_config({ssl_certs, test_pub})
 }).
 
+-define(GITHUB_OIDC_ENV_VARS, [
+    "ACTIONS_ID_TOKEN_REQUEST_URL", "ACTIONS_ID_TOKEN_REQUEST_TOKEN"
+]).
+
 suite() ->
     [{require, {ssl_certs, [test_pub, test_priv]}}].
 
@@ -99,8 +103,40 @@ all() ->
         device_auth_lock_released_before_request_test,
         resolve_repo_auth_no_credentials_skips_locks_test,
         resolve_repo_auth_valid_oauth_skips_locks_test,
-        resolve_repo_auth_exchange_waits_for_lock_test
+        resolve_repo_auth_exchange_waits_for_lock_test,
+
+        %% workload_identity_auth tests
+        workload_identity_auth_no_provider_test,
+        workload_identity_auth_credentials_present_test,
+        workload_identity_auth_audience_failed_test,
+        {group, oidc_token}
     ].
+
+groups() ->
+    [
+        {oidc_token, [], [
+            workload_identity_auth_success_test,
+            workload_identity_auth_token_request_failed_test,
+            workload_identity_auth_exchange_failed_test
+        ]}
+    ].
+
+init_per_group(oidc_token, Config) ->
+    case code:ensure_loaded(json) of
+        {module, json} -> Config;
+        {error, _Reason} -> {skip, json_unavailable}
+    end.
+
+end_per_group(oidc_token, _Config) ->
+    ok.
+
+init_per_testcase(_TestCase, Config) ->
+    lists:foreach(fun os:unsetenv/1, ?GITHUB_OIDC_ENV_VARS),
+    Config.
+
+end_per_testcase(_TestCase, _Config) ->
+    lists:foreach(fun os:unsetenv/1, ?GITHUB_OIDC_ENV_VARS),
+    ok.
 
 %%====================================================================
 %% Test Cases - resolve_api_auth
@@ -1713,6 +1749,83 @@ resolve_repo_auth_exchange_waits_for_lock_test(_Config) ->
     ok.
 
 %%====================================================================
+%% Test Cases - workload_identity_auth
+%%====================================================================
+
+workload_identity_auth_no_provider_test(_Config) ->
+    Config = config_with_callbacks(#{}),
+    ?assertEqual(none, hex_cli_auth:workload_identity_auth(Config, <<"package:hexpm/foo">>)),
+    ok.
+
+workload_identity_auth_credentials_present_test(_Config) ->
+    %% A URL that no fixture answers, so the test crashes if trusted
+    %% publishing tries to use it: a configured api_key takes precedence and
+    %% is found before the CI provider is even looked at.
+    put_github_oidc_env("https://ci.test/unreachable"),
+    Config = (config_with_callbacks(#{}))#{api_key => <<"configured_api_key">>},
+    ?assertEqual(none, hex_cli_auth:workload_identity_auth(Config, <<"package:hexpm/foo">>)),
+    ok.
+
+workload_identity_auth_success_test(_Config) ->
+    put_github_oidc_env("https://ci.test/token"),
+    Config = config_with_callbacks(#{}),
+
+    queue_oidc_audience_response(#{<<"audience">> => <<"hexpm">>}),
+    queue_ci_token_response({ok, {200, #{}, <<"{\"count\":1,\"value\":\"the.oidc.token\"}">>}}),
+    queue_jwt_bearer_response(#{<<"access_token">> => <<"minted_token">>}),
+
+    ?assertEqual(
+        {ok, <<"Bearer minted_token">>},
+        hex_cli_auth:workload_identity_auth(Config, <<"package:hexpm/foo">>)
+    ),
+    ok.
+
+workload_identity_auth_audience_failed_test(_Config) ->
+    put_github_oidc_env("https://ci.test/token"),
+    Config = config_with_callbacks(#{}),
+
+    Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+    Body = #{<<"status">> => 404, <<"message">> => <<"Not found">>},
+    self() !
+        {hex_http_test, oidc_audience_response, {ok, {404, Headers, term_to_binary(Body)}}},
+
+    ?assertEqual(
+        {error, {oidc_audience_failed, {ok, {404, Headers, Body}}}},
+        hex_cli_auth:workload_identity_auth(Config, <<"package:hexpm/foo">>)
+    ),
+    ok.
+
+workload_identity_auth_token_request_failed_test(_Config) ->
+    put_github_oidc_env("https://ci.test/token"),
+    Config = config_with_callbacks(#{}),
+
+    queue_oidc_audience_response(#{<<"audience">> => <<"hexpm">>}),
+    queue_ci_token_response({ok, {403, #{}, <<"">>}}),
+
+    ?assertEqual(
+        {error, {oidc_token_request_failed, 403}},
+        hex_cli_auth:workload_identity_auth(Config, <<"package:hexpm/foo">>)
+    ),
+    ok.
+
+workload_identity_auth_exchange_failed_test(_Config) ->
+    put_github_oidc_env("https://ci.test/token"),
+    Config = config_with_callbacks(#{}),
+
+    Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+    Body = #{<<"error">> => <<"access_denied">>, <<"error_description">> => <<"No match">>},
+
+    queue_oidc_audience_response(#{<<"audience">> => <<"hexpm">>}),
+    queue_ci_token_response({ok, {200, #{}, <<"{\"count\":1,\"value\":\"the.oidc.token\"}">>}}),
+    self() ! {hex_http_test, jwt_bearer_response, {ok, {403, Headers, term_to_binary(Body)}}},
+
+    ?assertEqual(
+        {error, {token_exchange_failed, {ok, {403, Headers, Body}}}},
+        hex_cli_auth:workload_identity_auth(Config, <<"package:hexpm/foo">>)
+    ),
+    ok.
+
+%%====================================================================
 %% Helper Functions
 %%====================================================================
 
@@ -1909,6 +2022,43 @@ queue_device_response(AccessToken) ->
     Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
     self() !
         {hex_http_test, oauth_device_response, {ok, {200, Headers, term_to_binary(Payload)}}},
+    ok.
+
+%% @private
+put_github_oidc_env(Url) ->
+    os:putenv("ACTIONS_ID_TOKEN_REQUEST_URL", Url),
+    os:putenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "request_token").
+
+%% @private
+%% Plants the next OIDC audience response the test HTTP adapter will hand back.
+queue_oidc_audience_response(Payload) ->
+    Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+    self() !
+        {hex_http_test, oidc_audience_response, {ok, {200, Headers, term_to_binary(Payload)}}},
+    ok.
+
+%% @private
+%% Plants the next response the CI provider's own OIDC token endpoint hands
+%% back.
+queue_ci_token_response(Response) ->
+    self() ! {hex_http_test, ci_oidc_token_response, Response},
+    ok.
+
+%% @private
+%% Plants the next response the jwt-bearer token exchange hands back, merged
+%% over a working one so a test only states what it cares about.
+queue_jwt_bearer_response(Overrides) ->
+    Payload = maps:merge(
+        #{
+            <<"access_token">> => <<"minted_token">>,
+            <<"token_type">> => <<"bearer">>,
+            <<"expires_in">> => 900
+        },
+        Overrides
+    ),
+    Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+    self() !
+        {hex_http_test, jwt_bearer_response, {ok, {200, Headers, term_to_binary(Payload)}}},
     ok.
 
 %% @private

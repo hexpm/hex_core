@@ -3,6 +3,7 @@
 -export([request/5, request_to_file/6]).
 -define(TEST_REPO_URL, "https://repo.test").
 -define(TEST_API_URL, "https://api.test").
+-define(TEST_CI_URL, "https://ci.test").
 -define(PRIVATE_KEY, ct:get_config({ssl_certs, test_priv})).
 -define(PUBLIC_KEY, ct:get_config({ssl_certs, test_pub})).
 
@@ -420,6 +421,21 @@ fixture(post, <<?TEST_API_URL, "/oauth/token">>, _, {_, Body}) ->
                 <<"scope">> => Scope
             },
             {ok, {200, api_headers(), term_to_binary(Payload)}};
+        <<"urn:ietf:params:oauth:grant-type:jwt-bearer">> ->
+            receive
+                {hex_http_test, jwt_bearer_response, Response} ->
+                    Response
+            after 0 ->
+                #{<<"scope">> := Scope} = DecodedBody,
+                AccessToken = base64:encode(crypto:strong_rand_bytes(32)),
+                Payload = #{
+                    <<"access_token">> => AccessToken,
+                    <<"token_type">> => <<"bearer">>,
+                    <<"expires_in">> => 900,
+                    <<"scope">> => Scope
+                },
+                {ok, {200, api_headers(), term_to_binary(Payload)}}
+            end;
         _ ->
             ErrorPayload = #{
                 <<"error">> => <<"unsupported_grant_type">>,
@@ -440,6 +456,34 @@ fixture(post, <<?TEST_API_URL, "/oauth/organization_authorization">>, _, {_, Bod
 fixture(post, <<?TEST_API_URL, "/oauth/revoke">>, _, _) ->
     % OAuth revoke always returns 200 OK per RFC 7009
     {ok, {200, api_headers(), term_to_binary(nil)}};
+
+fixture(get, <<?TEST_API_URL, "/oidc/audience">>, _, _) ->
+    receive
+        {hex_http_test, oidc_audience_response, Response} ->
+            Response
+    after 0 ->
+        Payload = #{<<"audience">> => <<"hexpm">>},
+        {ok, {200, api_headers(), term_to_binary(Payload)}}
+    end;
+
+%% CI OIDC token providers (Workload Identity)
+
+fixture(get, <<?TEST_CI_URL, "/token", _/binary>>, Headers, _) when
+    not is_map_key(<<"authorization">>, Headers) orelse
+        map_get(<<"authorization">>, Headers) =/= <<"Bearer request_token">>
+->
+    {ok, {401, #{}, <<"">>}};
+fixture(get, <<?TEST_CI_URL, "/token", _/binary>> = URI, _Headers, _) ->
+    receive
+        {hex_http_test, ci_oidc_token_response, Response} ->
+            Response
+    after 0 ->
+        #{query := Query} = uri_string:parse(URI),
+        #{<<"audience">> := Audience} = maps:from_list(uri_string:dissect_query(Query)),
+        Value = <<"oidc.", Audience/binary, ".token">>,
+        Headers = #{<<"content-type">> => <<"application/json">>},
+        {ok, {200, Headers, <<"{\"count\":1,\"value\":\"", Value/binary, "\"}">>}}
+    end;
 
 %% Other
 
