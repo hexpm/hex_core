@@ -109,6 +109,14 @@ all() ->
         workload_identity_auth_no_provider_test,
         workload_identity_auth_credentials_present_test,
         workload_identity_auth_audience_failed_test,
+
+        %% resolve_repo_auth tests - Workload Identity
+        resolve_repo_auth_workload_identity_kept_test,
+        resolve_repo_auth_workload_identity_kept_failure_test,
+        resolve_repo_auth_workload_identity_not_kept_test,
+        resolve_repo_auth_workload_identity_no_provider_test,
+        resolve_repo_auth_workload_identity_hexpm_test,
+        resolve_repo_auth_workload_identity_after_oauth_test,
         {group, oidc_token}
     ].
 
@@ -117,7 +125,17 @@ groups() ->
         {oidc_token, [], [
             workload_identity_auth_success_test,
             workload_identity_auth_token_request_failed_test,
-            workload_identity_auth_exchange_failed_test
+            workload_identity_auth_exchange_failed_test,
+            resolve_repo_auth_workload_identity_test,
+            resolve_repo_auth_workload_identity_expired_test,
+            resolve_repo_auth_workload_identity_concurrent_test,
+            resolve_repo_auth_workload_identity_concurrent_failure_test,
+            with_repo_workload_identity_failed_test,
+            with_repo_workload_identity_failed_unauthenticated_test,
+            with_repo_workload_identity_failed_required_test,
+            with_repo_token_expired_workload_identity_test,
+            with_repo_token_expired_workload_identity_renewed_test,
+            with_repo_token_expired_workload_identity_failed_test
         ]}
     ].
 
@@ -1826,6 +1844,355 @@ workload_identity_auth_exchange_failed_test(_Config) ->
     ok.
 
 %%====================================================================
+%% Test Cases - resolve_repo_auth with Workload Identity
+%%====================================================================
+
+resolve_repo_auth_workload_identity_test(_Config) ->
+    %% An organization repository with no other credentials exchanges the CI
+    %% job's OIDC token for a token scoped to the organization's repository,
+    %% and hands it to the build tool to keep.
+    put_github_oidc_env("https://ci.test/token"),
+    Config = workload_identity_config(self(), error),
+    Before = erlang:system_time(second),
+
+    ?assertEqual(
+        {ok, <<"Bearer minted.repository:acme">>, #{has_refresh_token => false}},
+        hex_cli_auth:resolve_repo_auth(Config)
+    ),
+
+    receive
+        {workload_identity_persisted, <<"hexpm:acme">>,
+            {ok, #{access_token := AccessToken, expires_at := ExpiresAt}}} ->
+            ?assertEqual(<<"minted.repository:acme">>, AccessToken),
+            ?assert(ExpiresAt >= Before + 900)
+    after 100 ->
+        error(token_not_persisted)
+    end,
+    ok.
+
+resolve_repo_auth_workload_identity_kept_test(_Config) ->
+    %% A kept token that is still valid is used without exchanging and without
+    %% waiting on the repo lock. No fixture answers the CI token URL, so the
+    %% test crashes if an OIDC token is requested.
+    put_github_oidc_env("https://ci.test/unreachable"),
+    Now = erlang:system_time(second),
+    Kept = {ok, #{access_token => <<"kept_token">>, expires_at => Now + 900}},
+    Config = workload_identity_config(self(), Kept),
+    Holder = hold_locks([{hex_cli_auth, repo, <<"hexpm:acme">>}]),
+
+    ?assertEqual(
+        {ok, <<"Bearer kept_token">>, #{has_refresh_token => false}},
+        resolve_repo_auth_within(Config, 1000)
+    ),
+    release_locks(Holder),
+    ok.
+
+resolve_repo_auth_workload_identity_kept_failure_test(_Config) ->
+    %% A failed exchange is kept and returned without exchanging again, since
+    %% every failed exchange counts against the CI job's limit at Hex. No
+    %% fixture answers the CI token URL, so the test crashes if an OIDC token is
+    %% requested.
+    put_github_oidc_env("https://ci.test/unreachable"),
+    Config = workload_identity_config(self(), {error, {oidc_token_request_failed, 403}}),
+
+    ?assertEqual(
+        {error, {auth_error, {workload_identity_failed, {oidc_token_request_failed, 403}}}},
+        hex_cli_auth:resolve_repo_auth(Config)
+    ),
+    ok.
+
+resolve_repo_auth_workload_identity_expired_test(_Config) ->
+    %% A kept token that is about to expire is exchanged again.
+    put_github_oidc_env("https://ci.test/token"),
+    Now = erlang:system_time(second),
+    Kept = {ok, #{access_token => <<"old_token">>, expires_at => Now + 60}},
+    Config = workload_identity_config(self(), Kept),
+
+    ?assertEqual(
+        {ok, <<"Bearer minted.repository:acme">>, #{has_refresh_token => false}},
+        hex_cli_auth:resolve_repo_auth(Config)
+    ),
+
+    receive
+        {workload_identity_persisted, <<"hexpm:acme">>,
+            {ok, #{access_token := <<"minted.repository:acme">>}}} ->
+            ok
+    after 100 ->
+        error(token_not_persisted)
+    end,
+    ok.
+
+resolve_repo_auth_workload_identity_concurrent_test(_Config) ->
+    %% Exchanging holds the repo lock, and the callers that waited for it find
+    %% the kept token, so concurrent requests to one organization share a
+    %% single exchange.
+    put_github_oidc_env("https://ci.test/token"),
+    Self = self(),
+    Store = ets:new(workload_identity_tokens, [public]),
+    Config = workload_identity_store_config(Self, Store),
+    Holder = hold_locks([{hex_cli_auth, repo, <<"hexpm:acme">>}]),
+
+    [
+        spawn_link(fun() -> Self ! {resolved, hex_cli_auth:resolve_repo_auth(Config)} end)
+     || _ <- lists:seq(1, 3)
+    ],
+
+    receive
+        {resolved, Early} -> error({resolved_while_locked, Early})
+    after 200 ->
+        ok
+    end,
+
+    release_locks(Holder),
+    [
+        receive
+            {resolved, Result} ->
+                ?assertEqual(
+                    {ok, <<"Bearer minted.repository:acme">>, #{has_refresh_token => false}},
+                    Result
+                )
+        after 5000 ->
+            error(not_resolved_after_release)
+        end
+     || _ <- lists:seq(1, 3)
+    ],
+
+    receive
+        {workload_identity_persisted, <<"hexpm:acme">>, {ok, _Token}} -> ok
+    after 0 ->
+        error(token_not_persisted)
+    end,
+    receive
+        {workload_identity_persisted, _, _} = Again -> error({exchanged_again, Again})
+    after 0 ->
+        ok
+    end,
+    ets:delete(Store),
+    ok.
+
+resolve_repo_auth_workload_identity_concurrent_failure_test(_Config) ->
+    %% The callers that waited for the repo lock find the failed exchange kept
+    %% and return it, so a refusal is exchanged once rather than once per
+    %% request.
+    put_github_oidc_env("https://ci.test/token"),
+    Self = self(),
+    Store = ets:new(workload_identity_tokens, [public]),
+    Config = workload_identity_store_config(Self, Store),
+    Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+    Body = #{<<"error">> => <<"access_denied">>, <<"error_description">> => <<"No match">>},
+    Refusal = {ok, {403, Headers, term_to_binary(Body)}},
+    Holder = hold_locks([{hex_cli_auth, repo, <<"hexpm:acme">>}]),
+
+    [
+        spawn_link(fun() ->
+            self() ! {hex_http_test, jwt_bearer_response, Refusal},
+            Self ! {resolved, hex_cli_auth:resolve_repo_auth(Config)}
+        end)
+     || _ <- lists:seq(1, 3)
+    ],
+
+    receive
+        {resolved, Early} -> error({resolved_while_locked, Early})
+    after 200 ->
+        ok
+    end,
+
+    release_locks(Holder),
+    Expected =
+        {error,
+            {auth_error,
+                {workload_identity_failed, {token_exchange_failed, {ok, {403, Headers, Body}}}}}},
+    [
+        receive
+            {resolved, Result} -> ?assertEqual(Expected, Result)
+        after 5000 ->
+            error(not_resolved_after_release)
+        end
+     || _ <- lists:seq(1, 3)
+    ],
+
+    receive
+        {workload_identity_persisted, <<"hexpm:acme">>, {error, _Reason}} -> ok
+    after 0 ->
+        error(failure_not_persisted)
+    end,
+    receive
+        {workload_identity_persisted, _, _} = Again -> error({exchanged_again, Again})
+    after 0 ->
+        ok
+    end,
+    ets:delete(Store),
+    ok.
+
+resolve_repo_auth_workload_identity_not_kept_test(_Config) ->
+    %% A build tool without the Workload Identity callbacks would have every
+    %% request exchange a new OIDC token, so repositories don't use it.
+    put_github_oidc_env("https://ci.test/unreachable"),
+    Config = config_with_callbacks(#{oauth_tokens => error}),
+
+    ?assertEqual(
+        no_auth,
+        hex_cli_auth:resolve_repo_auth(Config#{repo_organization => <<"acme">>, trusted => true})
+    ),
+    ok.
+
+resolve_repo_auth_workload_identity_no_provider_test(_Config) ->
+    Config = workload_identity_config(self(), error),
+    ?assertEqual(no_auth, hex_cli_auth:resolve_repo_auth(Config)),
+    ok.
+
+resolve_repo_auth_workload_identity_hexpm_test(_Config) ->
+    %% The public repository needs no credentials, so nothing is exchanged for
+    %% it.
+    put_github_oidc_env("https://ci.test/unreachable"),
+    Config = workload_identity_config(self(), error),
+
+    ?assertEqual(
+        no_auth, hex_cli_auth:resolve_repo_auth(maps:remove(repo_organization, Config))
+    ),
+    ok.
+
+resolve_repo_auth_workload_identity_after_oauth_test(_Config) ->
+    %% A user's own credentials take precedence over the CI job's.
+    put_github_oidc_env("https://ci.test/unreachable"),
+    Now = erlang:system_time(second),
+    Config = workload_identity_config(self(), error),
+    Callbacks = maps:get(cli_auth_callbacks, Config),
+    GetOAuthTokens = fun() ->
+        {ok, #{access_token => <<"global_oauth">>, expires_at => Now + 3600}}
+    end,
+
+    ?assertEqual(
+        {ok, <<"Bearer global_oauth">>, #{has_refresh_token => false}},
+        hex_cli_auth:resolve_repo_auth(
+            Config#{cli_auth_callbacks => Callbacks#{get_oauth_tokens => GetOAuthTokens}}
+        )
+    ),
+    ok.
+
+with_repo_workload_identity_failed_test(_Config) ->
+    %% After a refused exchange the request runs without credentials, and the
+    %% repository refusing it is answered with why the exchange failed.
+    put_github_oidc_env("https://ci.test/token"),
+    Config = workload_identity_config(self(), error),
+    {Headers, Body} = queue_jwt_bearer_refusal(),
+
+    Fun = fun(RequestConfig) ->
+        ?assertEqual(undefined, maps:get(repo_key, RequestConfig, undefined)),
+        {ok, {401, #{}, <<"">>}}
+    end,
+
+    ?assertEqual(
+        {error,
+            {auth_error,
+                {workload_identity_failed, {token_exchange_failed, {ok, {403, Headers, Body}}}}}},
+        hex_cli_auth:with_repo(Config, Fun)
+    ),
+
+    receive
+        {workload_identity_persisted, <<"hexpm:acme">>, {error, {token_exchange_failed, _}}} -> ok
+    after 100 ->
+        error(failure_not_persisted)
+    end,
+    ok.
+
+with_repo_workload_identity_failed_unauthenticated_test(_Config) ->
+    %% The workload identity was only picked up from the CI job, so a mirror
+    %% that authenticates another way still answers the request it would have
+    %% got outside CI.
+    put_github_oidc_env("https://ci.test/token"),
+    Config = workload_identity_config(self(), error),
+    queue_jwt_bearer_refusal(),
+
+    Fun = fun(RequestConfig) ->
+        ?assertEqual(undefined, maps:get(repo_key, RequestConfig, undefined)),
+        {ok, {200, #{}, <<"body">>}}
+    end,
+
+    ?assertEqual({ok, {200, #{}, <<"body">>}}, hex_cli_auth:with_repo(Config, Fun)),
+    ok.
+
+with_repo_workload_identity_failed_required_test(_Config) ->
+    put_github_oidc_env("https://ci.test/token"),
+    Config = workload_identity_config(self(), error),
+    {Headers, Body} = queue_jwt_bearer_refusal(),
+
+    ?assertEqual(
+        {error,
+            {auth_error,
+                {workload_identity_failed, {token_exchange_failed, {ok, {403, Headers, Body}}}}}},
+        hex_cli_auth:with_repo(
+            Config, fun(_RequestConfig) -> error(request_made) end, [{optional, false}]
+        )
+    ),
+    ok.
+
+with_repo_token_expired_workload_identity_test(_Config) ->
+    %% A kept token the repository answers token_expired for is exchanged again
+    %% even though its expiry has not passed.
+    put_github_oidc_env("https://ci.test/token"),
+    Now = erlang:system_time(second),
+    Kept = {ok, #{access_token => <<"stale_token">>, expires_at => Now + 900}},
+    Config = workload_identity_config(self(), Kept),
+
+    Fun = fun(Cfg) ->
+        case maps:get(repo_key, Cfg) of
+            <<"Bearer stale_token">> -> token_expired_response();
+            RepoKey -> RepoKey
+        end
+    end,
+
+    ?assertEqual(<<"Bearer minted.repository:acme">>, hex_cli_auth:with_repo(Config, Fun)),
+    ok.
+
+with_repo_token_expired_workload_identity_renewed_test(_Config) ->
+    %% A token another request already renewed is used instead of exchanging
+    %% again. No fixture answers the CI token URL, so the test crashes if an
+    %% OIDC token is requested.
+    put_github_oidc_env("https://ci.test/unreachable"),
+    Now = erlang:system_time(second),
+    Reads = counters:new(1, []),
+    Config = workload_identity_config(self(), fun() ->
+        counters:add(Reads, 1, 1),
+        case counters:get(Reads, 1) of
+            1 -> {ok, #{access_token => <<"stale_token">>, expires_at => Now + 900}};
+            _ -> {ok, #{access_token => <<"renewed_token">>, expires_at => Now + 900}}
+        end
+    end),
+
+    Fun = fun(Cfg) ->
+        case maps:get(repo_key, Cfg) of
+            <<"Bearer stale_token">> -> token_expired_response();
+            RepoKey -> RepoKey
+        end
+    end,
+
+    ?assertEqual(<<"Bearer renewed_token">>, hex_cli_auth:with_repo(Config, Fun)),
+    ok.
+
+with_repo_token_expired_workload_identity_failed_test(_Config) ->
+    %% The request needed the token it was renewing, so a refused renewal is
+    %% returned instead of the 401 that asked for it.
+    put_github_oidc_env("https://ci.test/token"),
+    Now = erlang:system_time(second),
+    Kept = {ok, #{access_token => <<"stale_token">>, expires_at => Now + 900}},
+    Config = workload_identity_config(self(), Kept),
+    {Headers, Body} = queue_jwt_bearer_refusal(),
+
+    Fun = fun(Cfg) ->
+        <<"Bearer stale_token">> = maps:get(repo_key, Cfg),
+        token_expired_response()
+    end,
+
+    ?assertEqual(
+        {error,
+            {auth_error,
+                {workload_identity_failed, {token_exchange_failed, {ok, {403, Headers, Body}}}}}},
+        hex_cli_auth:with_repo(Config, Fun)
+    ),
+    ok.
+
+%%====================================================================
 %% Helper Functions
 %%====================================================================
 
@@ -2030,6 +2397,55 @@ put_github_oidc_env(Url) ->
     os:putenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "request_token").
 
 %% @private
+%% The acme organization's repository with no configured credentials, where
+%% the build tool keeps Workload Identity outcomes, holds Kept (or what the
+%% Kept fun returns on each read), and reports what it is asked to keep to Pid.
+workload_identity_config(Pid, Kept) ->
+    Read =
+        case is_function(Kept, 0) of
+            true -> Kept;
+            false -> fun() -> Kept end
+        end,
+    Config = config_with_callbacks(#{
+        oauth_tokens => error,
+        get_workload_identity_token => fun(<<"hexpm:acme">>) -> Read() end,
+        persist_workload_identity_token => fun(RepoName, Result) ->
+            Pid ! {workload_identity_persisted, RepoName, Result},
+            ok
+        end
+    }),
+    Config#{repo_organization => <<"acme">>, trusted => true}.
+
+%% @private
+%% Like workload_identity_config/2, but the outcomes are kept in Store, so
+%% concurrent callers see what the others kept.
+workload_identity_store_config(Pid, Store) ->
+    Config = config_with_callbacks(#{
+        oauth_tokens => error,
+        get_workload_identity_token => fun(RepoName) ->
+            case ets:lookup(Store, RepoName) of
+                [{RepoName, Result}] -> Result;
+                [] -> error
+            end
+        end,
+        persist_workload_identity_token => fun(RepoName, Result) ->
+            ets:insert(Store, {RepoName, Result}),
+            Pid ! {workload_identity_persisted, RepoName, Result},
+            ok
+        end
+    }),
+    Config#{repo_organization => <<"acme">>, trusted => true}.
+
+%% @private
+%% Plants a refusal for the next jwt-bearer token exchange and returns the
+%% headers and decoded body it is answered with.
+queue_jwt_bearer_refusal() ->
+    Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
+    Body = #{<<"error">> => <<"access_denied">>, <<"error_description">> => <<"No match">>},
+    self() ! {hex_http_test, jwt_bearer_response, {ok, {403, Headers, term_to_binary(Body)}}},
+    {Headers, Body}.
+
+%% @private
 %% Plants the next OIDC audience response the test HTTP adapter will hand back.
 queue_oidc_audience_response(Payload) ->
     Headers = #{<<"content-type">> => <<"application/vnd.hex+erlang; charset=utf-8">>},
@@ -2120,7 +2536,7 @@ make_callbacks(Opts) ->
     DefaultGetOAuthTokens = fun() -> maps:get(oauth_tokens, Opts, error) end,
     GetOAuthTokensFn = maps:get(get_oauth_tokens, Opts, DefaultGetOAuthTokens),
 
-    #{
+    Callbacks = #{
         get_auth_config => fun(RepoName) -> maps:get(RepoName, AuthConfig, undefined) end,
         get_oauth_tokens => GetOAuthTokensFn,
         persist_oauth_tokens => PersistFn,
@@ -2129,4 +2545,8 @@ make_callbacks(Opts) ->
         prompt_otp => PromptOtp,
         should_authenticate => ShouldAuthenticate,
         get_client_id => fun() -> <<"test_client">> end
-    }.
+    },
+    WorkloadIdentityCallbacks = maps:with(
+        [get_workload_identity_token, persist_workload_identity_token], Opts
+    ),
+    maps:merge(Callbacks, WorkloadIdentityCallbacks).

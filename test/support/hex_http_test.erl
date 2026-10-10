@@ -426,8 +426,9 @@ fixture(post, <<?TEST_API_URL, "/oauth/token">>, _, {_, Body}) ->
                 {hex_http_test, jwt_bearer_response, Response} ->
                     Response
             after 0 ->
+                % Named after the scope, so a test can tell what was asked for
                 #{<<"scope">> := Scope} = DecodedBody,
-                AccessToken = base64:encode(crypto:strong_rand_bytes(32)),
+                AccessToken = <<"minted.", Scope/binary>>,
                 Payload = #{
                     <<"access_token">> => AccessToken,
                     <<"token_type">> => <<"bearer">>,
