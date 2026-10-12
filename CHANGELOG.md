@@ -1,5 +1,28 @@
 # CHANGELOG
 
+## v0.20.0 (2026-10-12)
+
+* Limit decompressed registry resources to the new `registry_max_uncompressed_size` config option, 16 MiB by default, and reject compressed Erlang terms in API responses ([GHSA-7c4r-cgf9-9jmq](https://github.com/hexpm/hex_core/security/advisories/GHSA-7c4r-cgf9-9jmq), CVE-2026-105274).
+* Return `{error, {cacerts_unavailable, Reason}}` from `hex_http_httpc` for HTTPS requests on OTP 24 and when the OS CA certificates can't be loaded, instead of sending them without verifying the server certificate. Also verify the server certificate for URLs with an uppercase `HTTPS` scheme ([GHSA-p26c-h8c2-rwqj](https://github.com/hexpm/hex_core/security/advisories/GHSA-p26c-h8c2-rwqj), CVE-2026-103502).
+* Add Workload Identity. `hex_cli_auth:workload_identity_auth/2` exchanges the OIDC token of a GitHub Actions job for API auth scoped to one package, and repository requests to Hex.pm organizations exchange it for a repository token when the build tool provides the new `get_workload_identity_token` and `persist_workload_identity_token` callbacks.
+* Add the `hex_oidc` module and `hex_api_oauth:jwt_bearer_token/3` and `hex_api_oauth:oidc_audience/1`.
+* Report the organizations whose SSO or 2FA requirements the session has to complete through the optional `organization_reauth` callback. Add `hex_cli_auth:refresh_tokens/1`, `hex_api_oauth:organization_authorization/2` and `hex_api_oauth:organization_reauth_required/1`.
+* Return `{auth_error, token_refresh_unavailable}` when a token refresh gets no usable response, and keep `{auth_error, token_refresh_failed}` for when the server refuses the refresh token.
+* Only use the global OAuth token for Hex.pm repositories.
+* Add the `ADVISORY`, `RETIREMENT` and `COOLDOWN` policy override actions and the `advisory_id`, `retirement_reason` and `comment` override fields.
+* Create identical package tarballs from identical files and metadata, independent of file order, umask, operating system and Unicode normalization of file names. Files can be given as `{Name, ContentsOrPath, #{executable => boolean()}}` to set their mode.
+* Compress package and docs tarballs with the new `hex_deflate` module, so their bytes and checksums don't depend on the zlib library the VM links.
+* Fix PAX record lengths for file names with non-ASCII characters, and file paths that need a 156 byte ustar prefix.
+* Stop serializing concurrent requests on global locks when the credentials need no exchange or refresh, and concurrent unpacks on the file server.
+* Create the unpack temporary directory inside the output directory instead of the current working directory, and build package tarballs in memory.
+* Write UTF-8 file names when unpacking with the latin1 native file name encoding.
+* Decode metadata strings and quoted atoms that end in a backslash.
+* Drop the zero padding from tar member names that end in incomplete UTF-8.
+* Unpack docs tarball binaries and package contents made of several gzip members.
+* Unpack hand-built metadata with nameless legacy requirements or a `files` field that isn't a list of binaries instead of crashing.
+* Don't follow symlinks when updating the modification time of unpacked files.
+* Update the vendored `erl_tar` to OTP 29.1.1.
+
 ## v0.19.0 (2026-07-21)
 
 * Add `hex_cli_auth` module with callback-based authentication handling for build tools: `with_api/3,4` and `with_repo/2,3` request wrappers, credential resolution, OAuth token exchange and automatic refresh, OTP prompt handling, and device authentication.
