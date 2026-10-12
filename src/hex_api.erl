@@ -39,18 +39,7 @@ delete(Config, Path) ->
 %% @private
 encode_query_string(List) ->
     Pairs = lists:map(fun({K, V}) -> {to_list(K), to_list(V)} end, List),
-    list_to_binary(compose_query(Pairs)).
-
-%% OTP 21+
-%% @private
--ifdef(OTP_RELEASE).
-compose_query(Pairs) ->
-    uri_string:compose_query(Pairs).
--else.
-compose_query(Pairs) ->
-    String = join("&", lists:map(fun({K, V}) -> K ++ "=" ++ V end, Pairs)),
-    http_uri:encode(String).
--endif.
+    list_to_binary(uri_string:compose_query(Pairs)).
 
 %% @private
 build_repository_path(#{api_repository := Repo}, Path) when is_binary(Repo) ->
@@ -68,24 +57,12 @@ build_organization_path(#{api_organization := undefined}, Path) ->
 join_path_segments(Segments) ->
     iolist_to_binary(recompose(Segments)).
 
-%% OTP 21+
 %% @private
--ifdef(OTP_RELEASE).
 recompose(Segments) ->
-    Concatenated = join(<<"/">>, Segments),
+    Concatenated = lists:join(<<"/">>, Segments),
     %% uri_string:recompose/1 accepts path segments as a list,
     %% both strings and binaries
     uri_string:recompose(#{path => Concatenated}).
--else.
-recompose(Segments) ->
-    join(<<"/">>, lists:map(fun encode_segment/1, Segments)).
-
-%% @private
-encode_segment(Binary) when is_binary(Binary) ->
-    encode_segment(binary_to_list(Binary));
-encode_segment(String) when is_list(String) ->
-    http_uri:encode(String).
--endif.
 
 %%====================================================================
 %% Internal functions
@@ -153,17 +130,6 @@ put_new(Key, Value, Map) ->
         {ok, _} -> Map;
         error -> maps:put(Key, Value, Map)
     end.
-
-%% TODO: not needed after exdoc is fixed
-%% @private
-%% https://github.com/erlang/otp/blob/OTP-20.3/lib/stdlib/src/lists.erl#L1449:L1453
-join(_Sep, []) -> [];
-join(Sep, [H | T]) -> [H | join_prepend(Sep, T)].
-
-%% TODO: not needed after exdoc is fixed
-%% @private
-join_prepend(_Sep, []) -> [];
-join_prepend(Sep, [H | T]) -> [Sep, H | join_prepend(Sep, T)].
 
 %% TODO: not needed after exdoc is fixed
 %% @private
