@@ -178,6 +178,10 @@ fixture(get, <<?TEST_REPO_URL, "/docs/ecto-1.0.0.tar.gz">>, _, _) ->
     {ok, Docs} = hex_tarball:create_docs([]),
     {ok, {200, Headers, Docs}};
 
+fixture(get, <<?TEST_REPO_URL, "/repos/my%20org/docs/a%2F..%2Fb-1.0.0%3Fx.tar.gz">>, _, _) ->
+    {ok, Docs} = hex_tarball:create_docs([]),
+    {ok, {200, #{}, Docs}};
+
 fixture(get, <<?TEST_REPO_URL, "/installs/hex-1.x.csv">>, _, _) ->
     Headers = #{
       <<"etag">> => <<"\"dummy\"">>
@@ -197,6 +201,9 @@ fixture(get, <<?TEST_REPO_URL, _/binary>>, _, _) ->
 %% HTTP API
 
 fixture(get, <<?TEST_API_URL, "/auth?domain=repository&resource=gustafson_motors">>, _, _) ->
+    {ok, {204, api_headers(), term_to_binary(nil)}};
+
+fixture(get, <<?TEST_API_URL, "/auth?domain=package&resource=acme%2Fecto">>, _, _) ->
     {ok, {204, api_headers(), term_to_binary(nil)}};
 
 fixture(get, <<?TEST_API_URL, "/users/josevalim">>, _, _) ->

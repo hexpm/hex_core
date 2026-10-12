@@ -49,7 +49,10 @@ all() ->
         oauth_jwt_bearer_token_test,
         oauth_oidc_audience_test,
         publish_with_expect_header_test,
-        publish_without_expect_header_test
+        publish_without_expect_header_test,
+        path_encoding_test,
+        key_name_encoding_test,
+        auth_resource_test
     ].
 
 compressed_term_test(_Config) ->
@@ -654,4 +657,29 @@ publish_without_expect_header_test(_Config) ->
     Config = maps:put(send_100_continue, false, ?CONFIG),
     {ok, {200, _, Release}} = hex_api_release:publish(Config, Tarball),
     #{<<"version">> := <<"1.0.0">>} = Release,
+    ok.
+
+path_encoding_test(_Config) ->
+    <<"packages/foo%2F..%2Fbar%3Fx%3D1%23frag/releases/1.0.0%20beta">> =
+        hex_api:join_path_segments([
+            "packages", <<"foo/../bar?x=1#frag">>, "releases", <<"1.0.0 beta">>
+        ]),
+    <<"%2E/%2E%2E/a.b-c_d~e">> = hex_api:join_path_segments([".", "..", "a.b-c_d~e"]),
+    <<"k%C3%BC">> = hex_api:join_path_segments([<<"kü"/utf8>>]),
+    <<"k%C3%BC">> = hex_api:join_path_segments(["kü"]),
+    {'EXIT', {badarg, _}} = (catch hex_api:join_path_segments([<<255>>])),
+    {'EXIT', {badarg, _}} = (catch hex_api:join_path_segments([[16#110000]])),
+    <<"">> = hex_api:join_path_segments([]),
+    ok.
+
+key_name_encoding_test(_Config) ->
+    {ok, {200, _, #{<<"name">> := <<"my%20laptop%2Fci">>}}} =
+        hex_api_key:get(?CONFIG, <<"my laptop/ci">>),
+    {ok, {200, _, #{<<"name">> := <<"%2E%2E">>}}} = hex_api_key:delete(?CONFIG, <<"..">>),
+    ok.
+
+auth_resource_test(_Config) ->
+    {ok, {204, _, nil}} = hex_api_auth:test(?CONFIG, #{
+        domain => <<"package">>, resource => <<"acme/ecto">>
+    }),
     ok.

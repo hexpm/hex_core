@@ -35,7 +35,8 @@ all() ->
         get_public_key_test,
         repo_org_not_set,
         fingerprint_test,
-        fingerprint_equal_test
+        fingerprint_equal_test,
+        path_encoding_test
     ].
 
 get_names_test(_Config) ->
@@ -250,4 +251,10 @@ fingerprint_equal_test(_Config) ->
     ?assert(hex_repo:fingerprint_equal(PublicKeyPem, CorrectFingerprint)),
     ?assertNot(hex_repo:fingerprint_equal(PublicKeyPem, WrongFingerprint)),
     ?assertNot(hex_repo:fingerprint_equal(PublicKeyPem, DifferentLengthFingerprint)),
+    ok.
+
+path_encoding_test(_Config) ->
+    Config = ?CONFIG#{repo_organization => <<"my org">>},
+    {ok, {200, _, Docs}} = hex_repo:get_docs(Config, <<"a/../b">>, <<"1.0.0?x">>),
+    {ok, _} = hex_tarball:unpack_docs(Docs, memory),
     ok.

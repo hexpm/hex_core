@@ -54,15 +54,47 @@ build_organization_path(#{api_organization := undefined}, Path) ->
     Path.
 
 %% @private
+%% Percent-encodes each segment on its own, so a `/' inside a segment stays
+%% inside that segment. The dot segments `.' and `..' are encoded in full
+%% because a server resolves them against the parent path otherwise.
 join_path_segments(Segments) ->
-    iolist_to_binary(recompose(Segments)).
+    iolist_to_binary(lists:join(<<"/">>, lists:map(fun encode_path_segment/1, Segments))).
 
 %% @private
-recompose(Segments) ->
-    Concatenated = lists:join(<<"/">>, Segments),
-    %% uri_string:recompose/1 accepts path segments as a list,
-    %% both strings and binaries
-    uri_string:recompose(#{path => Concatenated}).
+%% Raises `badarg' for a segment that is not valid UTF-8, so every OTP release
+%% rejects the same input.
+encode_path_segment(Segment) ->
+    case unicode:characters_to_binary(Segment) of
+        <<".">> -> <<"%2E">>;
+        <<"..">> -> <<"%2E%2E">>;
+        Binary when is_binary(Binary) -> quote(Binary);
+        _ -> error(badarg, [Segment])
+    end.
+
+-if(?OTP_RELEASE >= 25).
+quote(Segment) ->
+    uri_string:quote(Segment).
+-else.
+quote(Segment) ->
+    <<<<(encode_path_byte(Byte))/binary>> || <<Byte>> <= Segment>>.
+
+%% The unreserved set of RFC 3986 section 2.3.
+encode_path_byte(Byte) when
+    Byte >= $a andalso Byte =< $z;
+    Byte >= $A andalso Byte =< $Z;
+    Byte >= $0 andalso Byte =< $9;
+    Byte =:= $-;
+    Byte =:= $.;
+    Byte =:= $_;
+    Byte =:= $~
+->
+    <<Byte>>;
+encode_path_byte(Byte) ->
+    <<$%, (hex_digit(Byte bsr 4)), (hex_digit(Byte band 15))>>.
+
+hex_digit(N) when N < 10 -> $0 + N;
+hex_digit(N) -> $A + N - 10.
+-endif.
 
 %%====================================================================
 %% Internal functions

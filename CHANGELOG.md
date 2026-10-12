@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## Unreleased
+
+* Percent-encode every path segment and query value that `hex_api` and `hex_repo` place in a URL, so a `/`, `?`, `#` or `..` in a caller-supplied value can no longer change the request path. A value that is not valid UTF-8 raises `badarg`.
+
 ## v0.20.0 (2026-10-12)
 
 * Limit decompressed registry resources to the new `registry_max_uncompressed_size` config option, 16 MiB by default, and reject compressed Erlang terms in API responses ([GHSA-7c4r-cgf9-9jmq](https://github.com/hexpm/hex_core/security/advisories/GHSA-7c4r-cgf9-9jmq), CVE-2026-105274).
