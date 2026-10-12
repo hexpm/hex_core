@@ -215,6 +215,13 @@ fixture(get, <<?TEST_API_URL, "/packages/ecto">>, _, _) ->
     },
     {ok, {200, api_headers(), term_to_binary(Payload)}};
 
+fixture(get, <<?TEST_API_URL, "/packages/compressed">>, _, _) ->
+    Payload = #{
+        <<"name">> => <<"compressed">>,
+        <<"releases">> => lists:duplicate(1000, #{<<"version">> => <<"1.0.0">>})
+    },
+    {ok, {200, api_headers(), term_to_binary(Payload, [compressed])}};
+
 fixture(get, <<?TEST_API_URL, "/packages/nonexisting">>, _, _) ->
     Payload = #{
         <<"message">> => <<"Page not found">>,

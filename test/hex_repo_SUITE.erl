@@ -25,6 +25,8 @@ all() ->
         get_package_test,
         get_policy_test,
         get_policy_without_org_test,
+        get_registry_too_big_test,
+        get_registry_without_limit_config_test,
         get_tarball_test,
         get_tarball_to_file_test,
         get_docs_test,
@@ -60,6 +62,22 @@ get_package_test(_Config) ->
         lists:filter(fun(#{version := Version}) -> Version == <<"1.0.0">> end, Releases),
 
     {ok, {403, _, _}} = hex_repo:get_package(?CONFIG, <<"nonexisting">>),
+    ok.
+
+get_registry_too_big_test(_Config) ->
+    Config = maps:put(registry_max_uncompressed_size, 10, ?CONFIG),
+    {error, {too_big_uncompressed, 10}} = hex_repo:get_names(Config),
+    {error, {too_big_uncompressed, 10}} = hex_repo:get_versions(Config),
+    {error, {too_big_uncompressed, 10}} = hex_repo:get_package(Config, <<"ecto">>),
+    {error, {too_big_uncompressed, 10}} = hex_repo:get_policy(
+        maps:put(repo_organization, <<"myorg">>, Config), <<"strict-prod">>
+    ),
+    ok.
+
+get_registry_without_limit_config_test(_Config) ->
+    Config = maps:remove(registry_max_uncompressed_size, ?CONFIG),
+    {ok, {200, _, #{packages := [_ | _]}}} = hex_repo:get_names(Config),
+    {ok, {200, _, #{releases := [_ | _]}}} = hex_repo:get_package(Config, <<"ecto">>),
     ok.
 
 get_policy_test(_Config) ->

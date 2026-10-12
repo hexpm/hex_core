@@ -25,7 +25,8 @@ all() ->
         unsafe_function_in_map_value_test,
         unsafe_port_test,
         invalid_binary_test,
-        rejects_unknown_atoms_test
+        rejects_unknown_atoms_test,
+        rejects_compressed_term_test
     ].
 
 %% Safe term tests
@@ -164,5 +165,11 @@ invalid_binary_test(_Config) ->
 rejects_unknown_atoms_test(_Config) ->
     %% Binary encoding of atom 'griffin' which shouldn't exist
     Binary = <<131, 100, 0, 7, 103, 114, 105, 102, 102, 105, 110>>,
+    {error, invalid_term} = hex_safe_binary_to_term:safe_binary_to_term(Binary),
+    ok.
+
+rejects_compressed_term_test(_Config) ->
+    Binary = term_to_binary(lists:duplicate(10000, 0), [compressed]),
+    <<131, 80, _/binary>> = Binary,
     {error, invalid_term} = hex_safe_binary_to_term:safe_binary_to_term(Binary),
     ok.

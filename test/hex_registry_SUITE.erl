@@ -10,7 +10,18 @@ suite() ->
     [{require, {ssl_certs, [test_pub, test_priv, hexpm_pub]}}].
 
 all() ->
-    [names_test, versions_test, package_test, policy_test, policy_malformed_test, signed_test].
+    [
+        names_test,
+        versions_test,
+        package_test,
+        policy_test,
+        policy_malformed_test,
+        signed_test,
+        gunzip_test,
+        gunzip_empty_members_test,
+        gunzip_one_byte_members_test,
+        unpack_too_big_test
+    ].
 
 names_test(_Config) ->
     TestPublicKey = ct:get_config({ssl_certs, test_pub}),
@@ -233,4 +244,59 @@ signed_test(_Config) ->
 
     {error, bad_signature} = hex_registry:decode_and_verify_signed(Signed, HexpmPublicKey),
 
+    ok.
+
+gunzip_test(_Config) ->
+    Data = binary:copy(<<0>>, 100000),
+    Compressed = zlib:gzip(Data),
+    ?assertEqual({ok, Data}, hex_registry:gunzip(Compressed, 100000)),
+    ?assertEqual({ok, Data}, hex_registry:gunzip(Compressed, infinity)),
+    ?assertEqual({error, {too_big_uncompressed, 99999}}, hex_registry:gunzip(Compressed, 99999)),
+    ?assertEqual({error, {too_big_uncompressed, 100}}, hex_registry:gunzip(Compressed, 100)),
+
+    Concatenated = <<(zlib:gzip(<<"foo">>))/binary, (zlib:gzip(<<"bar">>))/binary>>,
+    ?assertEqual({ok, <<"foobar">>}, hex_registry:gunzip(Concatenated, 6)),
+    ?assertEqual({error, {too_big_uncompressed, 5}}, hex_registry:gunzip(Concatenated, 5)),
+
+    Truncated = binary:part(Compressed, 0, byte_size(Compressed) - 4),
+    ?assertError(data_error, hex_registry:gunzip(Truncated, infinity)),
+    ?assertError(data_error, hex_registry:gunzip(<<"not gzip">>, infinity)),
+    ok.
+
+gunzip_empty_members_test(_Config) ->
+    Empty = zlib:gzip(<<>>),
+    Compressed = iolist_to_binary([lists:duplicate(200000, Empty), zlib:gzip(<<"foo">>)]),
+    %% The heap limit fails the gunzip if every empty member adds to the
+    %% accumulated output
+    {Pid, Ref} = spawn_opt(
+        fun() -> exit({result, hex_registry:gunzip(Compressed, infinity)}) end,
+        [monitor, {max_heap_size, #{size => 100000, kill => true, error_logger => false}}]
+    ),
+    receive
+        {'DOWN', Ref, process, Pid, Reason} -> ?assertEqual({result, {ok, <<"foo">>}}, Reason)
+    end,
+    ok.
+
+gunzip_one_byte_members_test(_Config) ->
+    Compressed = binary:copy(zlib:gzip(<<"a">>), 200000),
+    Expected = {ok, binary:copy(<<"a">>, 200000)},
+    %% The heap limit fails the gunzip if every member adds an element to the
+    %% accumulated output
+    {Pid, Ref} = spawn_opt(
+        fun() -> exit({result, hex_registry:gunzip(Compressed, infinity) =:= Expected}) end,
+        [monitor, {max_heap_size, #{size => 100000, kill => true, error_logger => false}}]
+    ),
+    receive
+        {'DOWN', Ref, process, Pid, Reason} -> ?assertEqual({result, true}, Reason)
+    end,
+    ok.
+
+unpack_too_big_test(_Config) ->
+    TestPublicKey = ct:get_config({ssl_certs, test_pub}),
+    MaxSize = maps:get(registry_max_uncompressed_size, hex_core:default_config()),
+    Payload = zlib:gzip(binary:copy(<<0>>, MaxSize + 1)),
+    ?assertEqual(
+        {error, {too_big_uncompressed, MaxSize}},
+        hex_registry:unpack_names(Payload, <<"hexpm">>, TestPublicKey)
+    ),
     ok.

@@ -21,6 +21,7 @@ suite() ->
 all() ->
     [
         package_test,
+        compressed_term_test,
         release_test,
         replace_test,
         user_test,
@@ -50,6 +51,10 @@ all() ->
         publish_with_expect_header_test,
         publish_without_expect_header_test
     ].
+
+compressed_term_test(_Config) ->
+    {error, invalid_term} = hex_api_package:get(?CONFIG, <<"compressed">>),
+    ok.
 
 package_test(_Config) ->
     {ok, {200, _, Package}} = hex_api_package:get(?CONFIG, <<"ecto">>),

@@ -77,6 +77,10 @@
 %% * `docs_tarball_max_uncompressed_size' - Maximum size of uncompressed docs tarball, defaults to
 %%   `134_217_728' (128 MiB). Set to `infinity' to not enforce the limit.
 %%
+%% * `registry_max_uncompressed_size' - Maximum size of a decompressed registry resource,
+%%   checked before its signature is verified, defaults to `16_777_216' (16 MiB). Set to
+%%   `infinity' to not enforce the limit.
+%%
 %% * `metadata_fields' - Either `all' or a list of metadata.config keys (binaries) to read.
 %%   When set to a list, the metadata decoder streams past unrequested fields without
 %%   buffering their tokens, which keeps peak memory bounded for packages with very
@@ -123,6 +127,7 @@
     tarball_max_uncompressed_size => pos_integer() | infinity,
     docs_tarball_max_size => pos_integer() | infinity,
     docs_tarball_max_uncompressed_size => pos_integer() | infinity,
+    registry_max_uncompressed_size => pos_integer() | infinity,
     metadata_fields => all | [binary()],
     trusted => boolean(),
     oauth_exchange => boolean(),
@@ -155,6 +160,7 @@ default_config() ->
         tarball_max_uncompressed_size => 128 * 1024 * 1024,
         docs_tarball_max_size => 16 * 1024 * 1024,
         docs_tarball_max_uncompressed_size => 128 * 1024 * 1024,
+        registry_max_uncompressed_size => 16 * 1024 * 1024,
         metadata_fields => all,
         trusted => true,
         oauth_exchange => true,

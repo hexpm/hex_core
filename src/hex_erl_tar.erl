@@ -14,6 +14,9 @@
 %%    UTF-8 sequence
 %% 10. Extraction reads and writes files and file info with the raw option so
 %%     concurrent extractions are not serialized through the file server
+%% 11. Compressed binary input is inflated in reset mode instead of cut mode,
+%%     so it reads concatenated gzip members like file input opened with
+%%     compressed does
 %%
 %% OTP commit: ad05823719d77c8faee87348ea39513d4e2f99c5 (OTP-29.1.1)
 %%
@@ -178,7 +181,7 @@ maybe_inflate_with_limit(Handle, Opts) ->
 inflate_with_limit(Bin, MaxSize) ->
     Z = zlib:open(),
     try
-        zlib:inflateInit(Z, 31, cut),
+        zlib:inflateInit(Z, 31, reset),
         inflate_with_limit_loop(Z, Bin, MaxSize, 0, [])
     catch
         _:_ -> {ok, Bin}
@@ -507,9 +510,9 @@ do_open(Name, Mode) when is_list(Mode) ->
 open1({binary,Bin0}=Handle, read, _Raw, Opts) when is_binary(Bin0) ->
     Bin = case lists:member(compressed, Opts) of
         true ->
-            %% emulate file:open with Modes = [compressed_one ...]
+            %% emulate file:open with Modes = [compressed ...]
             Z = zlib:open(),
-            zlib:inflateInit(Z, 31, cut),
+            zlib:inflateInit(Z, 31, reset),
             try
                 IoList = zlib:inflate(Z, Bin0),
                 zlib:inflateEnd(Z),

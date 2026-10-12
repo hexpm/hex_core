@@ -70,7 +70,10 @@ all() ->
         too_big_uncompressed_to_unpack_test,
         docs_too_big_uncompressed_to_unpack_test,
         file_unpack_too_big_uncompressed_test,
-        file_unpack_docs_too_big_uncompressed_test
+        file_unpack_docs_too_big_uncompressed_test,
+        gzip_members_test,
+        docs_gzip_members_test,
+        gzip_members_too_big_uncompressed_test
     ].
 
 too_big_to_create_test(_Config) ->
@@ -1945,6 +1948,90 @@ file_unpack_docs_too_big_uncompressed_test(Config) ->
         hex_tarball:unpack_docs({file, TarballPath}, UnpackDir, SmallConfig),
     ok.
 
+gzip_members_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    Metadata = #{
+        <<"name">> => <<"foo">>,
+        <<"version">> => <<"1.0.0">>
+    },
+    Contents = [{"src/foo.erl", <<"-module(foo).">>}],
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, Contents),
+    OuterFiles = outer_files(Tarball),
+    ContentsTar = zlib:gunzip(maps:get("contents.tar.gz", OuterFiles)),
+
+    lists:foreach(
+        fun({Name, ContentsTarball}) ->
+            MembersTarball = outer_tarball(with_contents(OuterFiles, ContentsTarball)),
+            {ok, #{contents := Contents}} = hex_tarball:unpack(MembersTarball, memory),
+
+            UnpackDir = filename:join(BaseDir, Name),
+            {ok, _} = hex_tarball:unpack(MembersTarball, UnpackDir),
+            {ok, <<"-module(foo).">>} = file:read_file(filename:join([UnpackDir, "src", "foo.erl"]))
+        end,
+        gzip_members(ContentsTar)
+    ),
+    ok.
+
+docs_gzip_members_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    Files = [{"index.html", <<"Docs">>}],
+    {ok, Tarball} = hex_tarball:create_docs(Files),
+    NoLimitConfig = maps:put(
+        docs_tarball_max_uncompressed_size, infinity, hex_core:default_config()
+    ),
+
+    lists:foreach(
+        fun({Name, MembersTarball}) ->
+            {ok, Files} = hex_tarball:unpack_docs(MembersTarball, memory),
+            {ok, Files} = hex_tarball:unpack_docs(MembersTarball, memory, NoLimitConfig),
+
+            UnpackDir = filename:join(BaseDir, Name),
+            ok = hex_tarball:unpack_docs(MembersTarball, UnpackDir),
+            {ok, <<"Docs">>} = file:read_file(filename:join(UnpackDir, "index.html")),
+
+            TarballPath = filename:join(BaseDir, Name ++ ".tar.gz"),
+            ok = file:write_file(TarballPath, MembersTarball),
+            {ok, Files} = hex_tarball:unpack_docs({file, TarballPath}, memory)
+        end,
+        gzip_members(zlib:gunzip(Tarball))
+    ),
+    ok.
+
+gzip_members_too_big_uncompressed_test(_Config) ->
+    %% Each half of the split tar is within the limit, the whole tar isn't
+    Files = [{"index.html", <<"Docs">>}],
+    {ok, DocsTarball} = hex_tarball:create_docs(Files),
+    DocsTar = zlib:gunzip(DocsTarball),
+    {_, DocsSplit} = lists:keyfind("split", 1, gzip_members(DocsTar)),
+    DocsMaxSize = byte_size(DocsTar) - 1,
+    DocsConfig = maps:put(
+        docs_tarball_max_uncompressed_size, DocsMaxSize, hex_core:default_config()
+    ),
+    {error, {tarball, {too_big_uncompressed, DocsMaxSize}}} =
+        hex_tarball:unpack_docs(DocsSplit, memory, DocsConfig),
+    {ok, Files} = hex_tarball:unpack_docs(DocsSplit, memory, DocsConfig#{
+        docs_tarball_max_uncompressed_size := byte_size(DocsTar)
+    }),
+
+    Metadata = #{
+        <<"name">> => <<"foo">>,
+        <<"version">> => <<"1.0.0">>
+    },
+    Contents = [{"src/foo.erl", <<"-module(foo).">>}],
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, Contents),
+    OuterFiles = outer_files(Tarball),
+    ContentsTar = zlib:gunzip(maps:get("contents.tar.gz", OuterFiles)),
+    {_, ContentsSplit} = lists:keyfind("split", 1, gzip_members(ContentsTar)),
+    SplitTarball = outer_tarball(with_contents(OuterFiles, ContentsSplit)),
+    MaxSize = byte_size(ContentsTar) - 1,
+    Config = maps:put(tarball_max_uncompressed_size, MaxSize, hex_core:default_config()),
+    {error, {inner_tarball, {too_big_uncompressed, MaxSize}}} =
+        hex_tarball:unpack(SplitTarball, memory, Config),
+    {ok, #{contents := Contents}} = hex_tarball:unpack(SplitTarball, memory, Config#{
+        tarball_max_uncompressed_size := byte_size(ContentsTar)
+    }),
+    ok.
+
 %%====================================================================
 %% Helpers
 %%====================================================================
@@ -2065,11 +2152,31 @@ unpack_metadata_config(MetadataConfig) ->
     unpack_files(OuterFiles#{"metadata.config" => MetadataConfig, "CHECKSUM" => Checksum}).
 
 unpack_files(Files) ->
+    hex_tarball:unpack(outer_tarball(Files), memory).
+
+outer_files(Tarball) ->
+    {ok, FileList} = hex_erl_tar:extract({binary, Tarball}, [memory]),
+    maps:from_list(FileList).
+
+outer_tarball(Files) ->
     FileList = maps:to_list(Files),
     ok = hex_erl_tar:create("test.tar", FileList, [write]),
     {ok, Binary} = file:read_file("test.tar"),
     ok = file:delete("test.tar"),
-    hex_tarball:unpack(Binary, memory).
+    Binary.
+
+with_contents(#{"VERSION" := Version, "metadata.config" := MetadataConfig} = Files, Contents) ->
+    Checksum = crypto:hash(sha256, [Version, MetadataConfig, Contents]),
+    Files#{"contents.tar.gz" := Contents, "CHECKSUM" := hex_tarball:format_checksum(Checksum)}.
+
+%% The tar after an empty gzip member, and the tar split across two gzip members
+gzip_members(Tar) ->
+    Half = byte_size(Tar) div 2,
+    <<First:Half/binary, Second/binary>> = Tar,
+    [
+        {"empty_first", <<(zlib:gzip(<<>>))/binary, (zlib:gzip(Tar))/binary>>},
+        {"split", <<(zlib:gzip(First))/binary, (zlib:gzip(Second))/binary>>}
+    ].
 
 with_peer(EncodingFlag, Fun) ->
     Ebin = filename:dirname(code:which(hex_tarball)),
