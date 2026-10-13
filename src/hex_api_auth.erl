@@ -16,5 +16,5 @@
 %% @end
 -spec test(hex_core:config(), map()) -> hex_api:response().
 test(Config, #{domain := Domain, resource := Resource}) ->
-    URI = ["auth", "?domain=", Domain, "&resource=", Resource],
-    hex_api:get(Config, list_to_binary(URI)).
+    QueryString = hex_api:encode_query_string([{domain, Domain}, {resource, Resource}]),
+    hex_api:get(Config, <<"auth?", QueryString/binary>>).
