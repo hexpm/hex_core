@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+* Fix `hex_tarball:unpack/2,3` and `hex_tarball:unpack_docs/2,3` looping forever when unpacking to disk a tarball with a GNU sparse member that ends in a hole, and failing on a sparse hole that crosses a 64 KiB boundary in the file, by updating the vendored `erl_tar` to OTP 29.1.2 ([GHSA-phm5-m6cj-5382](https://github.com/erlang/otp/security/advisories/GHSA-phm5-m6cj-5382), CVE-2026-96596).
 * Percent-encode every path segment and query value that `hex_api` and `hex_repo` place in a URL, so a `/`, `?`, `#` or `..` in a caller-supplied value can no longer change the request path. A value that is not valid UTF-8 raises `badarg`.
 
 ## v0.20.0 (2026-10-12)
