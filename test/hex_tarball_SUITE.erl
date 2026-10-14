@@ -64,6 +64,8 @@ all() ->
         oversized_outer_files_test,
         too_big_metadata_to_create_test,
         streamed_extract_test,
+        sparse_hole_test,
+        sparse_unpack_test,
         file_unpack_docs_memory_test,
         file_unpack_docs_disk_test,
         file_unpack_docs_too_big_test,
@@ -1821,6 +1823,44 @@ streamed_extract_test(Config) ->
 
     ok.
 
+%% A GNU sparse member is extracted to disk with its holes written as zeros, also
+%% when a hole ends the member or is longer than a read chunk
+sparse_hole_test(Config) ->
+    Dir = ?config(priv_dir, Config),
+    File = filename:join(Dir, "file"),
+    Size = 1 bsl 20,
+
+    ok = with_timeout(fun() -> hex_erl_tar:extract({binary, sparse_tar(0)}, [{cwd, Dir}]) end),
+    {ok, <<"data", 0:((Size - 4) * 8)>>} = file:read_file(File),
+    ok = file:delete(File),
+
+    ok = with_timeout(fun() -> hex_erl_tar:extract({binary, sparse_tar(70000)}, [{cwd, Dir}]) end),
+    {ok, <<0:(70000 * 8), "data", 0:((Size - 4 - 70000) * 8)>>} = file:read_file(File),
+    ok = file:delete(File),
+
+    ok.
+
+sparse_unpack_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    SparseTar = sparse_tar(0),
+    Size = 1 bsl 20,
+
+    {error, {tarball, {missing_files, ["VERSION"]}}} =
+        with_timeout(fun() -> hex_tarball:unpack(SparseTar, filename:join(BaseDir, "outer")) end),
+
+    Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, []),
+    SparseTarball = outer_tarball(with_contents(outer_files(Tarball), zlib:gzip(SparseTar))),
+    ContentsDir = filename:join(BaseDir, "contents"),
+    {ok, _} = with_timeout(fun() -> hex_tarball:unpack(SparseTarball, ContentsDir) end),
+    {ok, <<"data", 0:((Size - 4) * 8)>>} = file:read_file(filename:join(ContentsDir, "file")),
+
+    DocsDir = filename:join(BaseDir, "docs"),
+    ok = with_timeout(fun() -> hex_tarball:unpack_docs(zlib:gzip(SparseTar), DocsDir) end),
+    {ok, <<"data", 0:((Size - 4) * 8)>>} = file:read_file(filename:join(DocsDir, "file")),
+
+    ok.
+
 file_unpack_docs_memory_test(Config) ->
     BaseDir = ?config(priv_dir, Config),
 
@@ -2132,6 +2172,52 @@ set_first_name(
 
 tar_string(Field) ->
     hd(binary:split(Field, <<0>>)).
+
+%% An uncompressed GNU tar with the sparse member "file" of 1 MiB, its only data
+%% is the 4 bytes "data" at DataOffset
+sparse_tar(DataOffset) ->
+    Header = <<
+        "file",
+        0:(96 * 8),
+        "0000644",
+        0,
+        "0000000",
+        0,
+        "0000000",
+        0,
+        (tar_octal_field(4))/binary,
+        (tar_octal_field(0))/binary,
+        "        ",
+        "S",
+        0:(100 * 8),
+        "ustar  ",
+        0,
+        0:(121 * 8),
+        (tar_octal_field(DataOffset))/binary,
+        (tar_octal_field(4))/binary,
+        0:(3 * 24 * 8),
+        0,
+        (tar_octal_field(1 bsl 20))/binary,
+        0:(17 * 8)
+    >>,
+    <<BeforeChecksum:148/binary, _:8/binary, AfterChecksum/binary>> = Header,
+    Checksum = iolist_to_binary(io_lib:format("~6.8.0B", [lists:sum(binary_to_list(Header))])),
+    <<BeforeChecksum/binary, Checksum/binary, 0, $\s, AfterChecksum/binary, "data", 0:(508 * 8),
+        0:(1024 * 8)>>.
+
+tar_octal_field(N) ->
+    <<(iolist_to_binary(io_lib:format("~11.8.0B", [N])))/binary, 0>>.
+
+%% Runs Fun in a new process and fails if it doesn't return within 10 seconds
+with_timeout(Fun) ->
+    {Pid, Ref} = spawn_monitor(fun() -> exit({result, Fun()}) end),
+    receive
+        {'DOWN', Ref, process, Pid, {result, Result}} -> Result;
+        {'DOWN', Ref, process, Pid, Reason} -> error(Reason)
+    after 10000 ->
+        exit(Pid, kill),
+        error(timeout)
+    end.
 
 tar_octal(Field) ->
     list_to_integer(string:trim(binary_to_list(tar_string(Field))), 8).
