@@ -52,14 +52,16 @@ get(Config, UsernameOrEmail) when is_map(Config) and is_binary(UsernameOrEmail) 
     hex_api:get(Config, Path).
 
 %% @doc
-%% Adds an organization member.
+%% Invites a user to the organization. The user becomes a member once they
+%% accept the invitation, and the invitation expires at `expires_at'.
 %%
 %% Examples:
 %%
 %% ```
 %% > hex_api_organization_member:add(hex_core:default_config(), #{api_organization => <<"acme">>}, <<"user">>, write).
-%% {ok, {200, ..., #{
+%% {ok, {202, ..., #{
 %%      <<"email">> => <<"user@example.com">>,
+%%      <<"expires_at">> => <<"2026-10-23T14:00:00.000000Z">>,
 %%      <<"role">> => <<"write">>,
 %%      <<"url">> => <<"https://hex.pm/api/users/user">>,
 %%      <<"username">> => <<"user">>
