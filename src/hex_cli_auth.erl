@@ -145,8 +145,8 @@
 %% Maximum OTP retry attempts
 -define(MAX_OTP_RETRIES, 3).
 
-%% Maximum times a 401 that says the token expired is answered by renewing the
-%% credential and running the request again.
+%% Maximum times a 401 that says the token is invalid is answered by renewing
+%% the credential and running the request again.
 -define(MAX_TOKEN_RETRIES, 1).
 
 %% Both ways a refresh can leave us without a usable token: the server refused
@@ -368,8 +368,9 @@ with_repo(BaseConfig, Fun) ->
 %% <li>Prompt via `should_authenticate' when `auth_inline' is true</li>
 %% </ol>
 %%
-%% A resolved token the server answers with a `token_expired' 401 is renewed at
-%% its source (a per-repo or Workload Identity token is exchanged again, the
+%% A resolved token the server answers with a 401 carrying the RFC 6750
+%% challenge `Bearer realm="hex", error="invalid_token"' is renewed at its
+%% source (a per-repo or Workload Identity token is exchanged again, the
 %% global token is refreshed) and the request is run once more. A `repo_key'
 %% from `get_auth_config' can't be renewed, so the request is run once more
 %% with the credentials that come after it in this order, when there are any.
@@ -557,7 +558,7 @@ execute_repo_with_retry(BaseConfig, Fun, RepoKey) ->
     case Fun(BaseConfig#{repo_key => RepoKey}) of
         {ok, {401, Headers, _Body}} = Response ->
             case detect_auth_error(Headers) of
-                token_expired ->
+                invalid_token ->
                     renew_repo_auth_and_retry(BaseConfig, Fun, RepoKey, Response);
                 _Other ->
                     Response
@@ -1159,7 +1160,7 @@ execute_with_retry(Config, Fun, AuthContext, Retries, Opts) ->
                             _ -> <<"Enter OTP code:">>
                         end,
                     handle_otp_retry(Config, Fun, AuthContext, Retries, Msg, Opts);
-                token_expired ->
+                invalid_token ->
                     handle_token_refresh_retry(Config, Fun, AuthContext, Retries, Response, Opts);
                 none ->
                     Response
@@ -1184,9 +1185,9 @@ handle_otp_retry(Config, Fun, AuthContext, #{otp := OtpRetries} = Retries, Messa
     end.
 
 %% @private
-%% A 401 that says the token expired is answered by renewing the credential at
-%% its source and running the request once more, the way a repository request
-%% is. The renewal is counted, so a server that answers token_expired to every
+%% A 401 that says the token is invalid is answered by renewing the credential
+%% at its source and running the request once more, the way a repository request
+%% is. The renewal is counted, so a server that answers invalid_token to every
 %% bearer we send it gets a bounded number of requests rather than a loop.
 handle_token_refresh_retry(
     _Config, _Fun, _AuthContext, #{token := TokenRetries}, Response, _Opts
@@ -1225,7 +1226,7 @@ maybe_reauthenticate(Config, Fun, Retries, Opts) ->
     end.
 
 %% @private
--spec detect_auth_error(hex_http:headers()) -> otp_required | invalid_totp | token_expired | none.
+-spec detect_auth_error(hex_http:headers()) -> otp_required | invalid_totp | invalid_token | none.
 detect_auth_error(Headers) ->
     case maps:get(<<"www-authenticate">>, Headers, undefined) of
         undefined ->
@@ -1241,8 +1242,8 @@ parse_www_authenticate(Value) when is_binary(Value) ->
             otp_required;
         <<"Bearer realm=\"hex\", error=\"invalid_totp\"", _/binary>> ->
             invalid_totp;
-        <<"Bearer realm=\"hex\", error=\"token_expired\"", _/binary>> ->
-            token_expired;
+        <<"Bearer realm=\"hex\", error=\"invalid_token\"", _/binary>> ->
+            invalid_token;
         _ ->
             none
     end.

@@ -64,15 +64,15 @@ all() ->
         refresh_tokens_without_credentials_test,
 
         %% with_api tests - token refresh on 401
-        with_api_token_expired_refresh_test,
-        with_api_token_expired_renews_test,
-        with_api_token_expired_retry_bounded_test,
-        with_api_token_expired_reauth_retry_bounded_test,
+        with_api_invalid_token_refresh_test,
+        with_api_invalid_token_renews_test,
+        with_api_invalid_token_retry_bounded_test,
+        with_api_invalid_token_reauth_retry_bounded_test,
 
         %% with_api tests - reauthentication after refresh failure
-        with_api_token_expired_reauth_yes_test,
-        with_api_token_expired_reauth_no_test,
-        with_api_token_expired_reauth_inline_false_test,
+        with_api_invalid_token_reauth_yes_test,
+        with_api_invalid_token_reauth_no_test,
+        with_api_invalid_token_reauth_inline_false_test,
 
         %% with_api tests - wrapper behavior
         with_api_optional_test,
@@ -87,8 +87,8 @@ all() ->
         with_repo_optional_token_refresh_failed_test,
         with_repo_optional_401_does_not_prompt_test,
         with_repo_device_auth_sets_repo_key_test,
-        with_repo_token_expired_refresh_test,
-        with_repo_token_expired_exchange_test,
+        with_repo_invalid_token_refresh_test,
+        with_repo_invalid_token_exchange_test,
         with_repo_rejected_repo_key_oauth_test,
         with_repo_rejected_repo_key_no_fallback_test,
         with_repo_rejected_config_repo_key_test,
@@ -138,9 +138,9 @@ groups() ->
             with_repo_workload_identity_failed_test,
             with_repo_workload_identity_failed_unauthenticated_test,
             with_repo_workload_identity_failed_required_test,
-            with_repo_token_expired_workload_identity_test,
-            with_repo_token_expired_workload_identity_renewed_test,
-            with_repo_token_expired_workload_identity_failed_test,
+            with_repo_invalid_token_workload_identity_test,
+            with_repo_invalid_token_workload_identity_renewed_test,
+            with_repo_invalid_token_workload_identity_failed_test,
             with_repo_rejected_repo_key_workload_identity_test
         ]}
     ].
@@ -625,8 +625,8 @@ with_api_otp_max_retries_test(_Config) ->
 %% Test Cases - with_api token refresh on 401
 %%====================================================================
 
-with_api_token_expired_refresh_test(_Config) ->
-    %% Test token refresh when server returns token_expired
+with_api_invalid_token_refresh_test(_Config) ->
+    %% Test token refresh when server returns invalid_token
     Now = erlang:system_time(second),
     Self = self(),
     Config = config_with_callbacks(#{
@@ -660,7 +660,7 @@ with_api_token_expired_refresh_test(_Config) ->
                         {401,
                             #{
                                 <<"www-authenticate">> =>
-                                    <<"Bearer realm=\"hex\", error=\"token_expired\"">>
+                                    <<"Bearer realm=\"hex\", error=\"invalid_token\"">>
                             },
                             <<>>}};
                 _ ->
@@ -681,8 +681,8 @@ with_api_token_expired_refresh_test(_Config) ->
     end,
     ok.
 
-with_api_token_expired_renews_test(_Config) ->
-    %% An API token the server rejects as expired is refreshed even though its
+with_api_invalid_token_renews_test(_Config) ->
+    %% An API token the server rejects as invalid is refreshed even though its
     %% stored expiry has not passed, the way a repository token is, and the
     %% request runs again with the token that came back.
     Now = erlang:system_time(second),
@@ -699,7 +699,7 @@ with_api_token_expired_renews_test(_Config) ->
 
     Fun = fun(Cfg) ->
         case maps:get(api_key, Cfg) of
-            <<"Bearer stale_token">> -> token_expired_response();
+            <<"Bearer stale_token">> -> invalid_token_response();
             ApiKey -> {ok, {200, #{}, ApiKey}}
         end
     end,
@@ -710,8 +710,8 @@ with_api_token_expired_renews_test(_Config) ->
     ),
     ok.
 
-with_api_token_expired_retry_bounded_test(_Config) ->
-    %% A server that answers token_expired to every bearer it is sent gets a
+with_api_invalid_token_retry_bounded_test(_Config) ->
+    %% A server that answers invalid_token to every bearer it is sent gets a
     %% bounded number of requests: the renewed token is tried once and the 401
     %% is handed back, rather than renewed and retried without end.
     Now = erlang:system_time(second),
@@ -728,17 +728,17 @@ with_api_token_expired_retry_bounded_test(_Config) ->
     CallCount = counters:new(1, []),
     Result = hex_cli_auth:with_api(write, Config, fun(_Cfg) ->
         counters:add(CallCount, 1, 1),
-        token_expired_response()
+        invalid_token_response()
     end),
 
     ?assertMatch({ok, {401, _Headers, _Body}}, Result),
     ?assertEqual(2, counters:get(CallCount, 1)),
     ok.
 
-with_api_token_expired_reauth_retry_bounded_test(_Config) ->
+with_api_invalid_token_reauth_retry_bounded_test(_Config) ->
     %% Same bound when the renewal is a device auth: the user authenticates
     %% once, the request runs again with the new token, and a second
-    %% token_expired is the caller's to handle rather than a second prompt.
+    %% invalid_token is the caller's to handle rather than a second prompt.
     Now = erlang:system_time(second),
     PromptCount = counters:new(1, []),
     CallCount = counters:new(1, []),
@@ -762,7 +762,7 @@ with_api_token_expired_reauth_retry_bounded_test(_Config) ->
         Config,
         fun(_Cfg) ->
             counters:add(CallCount, 1, 1),
-            token_expired_response()
+            invalid_token_response()
         end,
         [{oauth_open_browser, false}]
     ),
@@ -776,7 +776,7 @@ with_api_token_expired_reauth_retry_bounded_test(_Config) ->
 %% Test Cases - with_api reauthentication after refresh failure
 %%====================================================================
 
-with_api_token_expired_reauth_yes_test(_Config) ->
+with_api_invalid_token_reauth_yes_test(_Config) ->
     %% When token refresh fails and user agrees to re-authenticate,
     %% device auth flow is triggered and the operation retried.
     Self = self(),
@@ -786,7 +786,7 @@ with_api_token_expired_reauth_yes_test(_Config) ->
             {ok, #{
                 access_token => <<"initial_token">>,
                 %% No refresh_token; token is valid so it's used, but server
-                %% returns token_expired 401, triggering the reauth path
+                %% returns invalid_token 401, triggering the reauth path
                 expires_at => Now + 3600
             }},
         should_authenticate => fun(token_refresh_failed) ->
@@ -825,7 +825,7 @@ with_api_token_expired_reauth_yes_test(_Config) ->
                         {401,
                             #{
                                 <<"www-authenticate">> =>
-                                    <<"Bearer realm=\"hex\", error=\"token_expired\"">>
+                                    <<"Bearer realm=\"hex\", error=\"invalid_token\"">>
                             },
                             <<>>}};
                 _ ->
@@ -849,7 +849,7 @@ with_api_token_expired_reauth_yes_test(_Config) ->
     end,
     ok.
 
-with_api_token_expired_reauth_no_test(_Config) ->
+with_api_invalid_token_reauth_no_test(_Config) ->
     %% When token refresh fails and user declines to re-authenticate,
     %% returns auth_declined error.
     Self = self(),
@@ -859,7 +859,7 @@ with_api_token_expired_reauth_no_test(_Config) ->
             {ok, #{
                 access_token => <<"initial_token">>,
                 %% No refresh_token; token is valid so it's used, but server
-                %% returns token_expired 401, triggering the reauth path
+                %% returns invalid_token 401, triggering the reauth path
                 expires_at => Now + 3600
             }},
         should_authenticate => fun(token_refresh_failed) ->
@@ -876,7 +876,7 @@ with_api_token_expired_reauth_no_test(_Config) ->
                 {401,
                     #{
                         <<"www-authenticate">> =>
-                            <<"Bearer realm=\"hex\", error=\"token_expired\"">>
+                            <<"Bearer realm=\"hex\", error=\"invalid_token\"">>
                     },
                     <<>>}}
         end
@@ -890,7 +890,7 @@ with_api_token_expired_reauth_no_test(_Config) ->
     end,
     ok.
 
-with_api_token_expired_reauth_inline_false_test(_Config) ->
+with_api_invalid_token_reauth_inline_false_test(_Config) ->
     %% When auth_inline is false, token refresh failure returns error directly
     %% without prompting the user.
     Now = erlang:system_time(second),
@@ -899,7 +899,7 @@ with_api_token_expired_reauth_inline_false_test(_Config) ->
             {ok, #{
                 access_token => <<"initial_token">>,
                 %% No refresh_token; token is valid so it's used, but server
-                %% returns token_expired 401, triggering the reauth path
+                %% returns invalid_token 401, triggering the reauth path
                 expires_at => Now + 3600
             }},
         should_authenticate => fun(_) -> error(should_not_be_called) end
@@ -913,7 +913,7 @@ with_api_token_expired_reauth_inline_false_test(_Config) ->
                 {401,
                     #{
                         <<"www-authenticate">> =>
-                            <<"Bearer realm=\"hex\", error=\"token_expired\"">>
+                            <<"Bearer realm=\"hex\", error=\"invalid_token\"">>
                     },
                     <<>>}}
         end,
@@ -1169,8 +1169,8 @@ with_repo_device_auth_sets_repo_key_test(_Config) ->
     ets:delete(TokenStore),
     ok.
 
-with_repo_token_expired_refresh_test(_Config) ->
-    %% A repository token the server rejects as expired is refreshed and the
+with_repo_invalid_token_refresh_test(_Config) ->
+    %% A repository token the server rejects as invalid is refreshed and the
     %% request runs again, rather than the 401 reaching the caller.
     Now = erlang:system_time(second),
     Config = config_with_callbacks(#{
@@ -1186,7 +1186,7 @@ with_repo_token_expired_refresh_test(_Config) ->
 
     Fun = fun(Cfg) ->
         case maps:get(repo_key, Cfg) of
-            <<"Bearer stale_token">> -> token_expired_response();
+            <<"Bearer stale_token">> -> invalid_token_response();
             RepoKey -> RepoKey
         end
     end,
@@ -1195,7 +1195,7 @@ with_repo_token_expired_refresh_test(_Config) ->
     ?assertEqual(<<"Bearer renewed_token">>, Result),
     ok.
 
-with_repo_token_expired_exchange_test(_Config) ->
+with_repo_invalid_token_exchange_test(_Config) ->
     %% Same for a per-repo token: it is exchanged again from the auth_key it
     %% came from, even though its stored expiry has not passed.
     Now = erlang:system_time(second),
@@ -1218,7 +1218,7 @@ with_repo_token_expired_exchange_test(_Config) ->
 
     Fun = fun(Cfg) ->
         case maps:get(repo_key, Cfg) of
-            <<"Bearer stale_repo_token">> -> token_expired_response();
+            <<"Bearer stale_repo_token">> -> invalid_token_response();
             RepoKey -> RepoKey
         end
     end,
@@ -1255,7 +1255,7 @@ with_repo_rejected_repo_key_oauth_test(_Config) ->
 
     Fun = fun(Cfg) ->
         case maps:get(repo_key, Cfg) of
-            <<"Bearer org_token">> -> token_expired_response();
+            <<"Bearer org_token">> -> invalid_token_response();
             RepoKey -> RepoKey
         end
     end,
@@ -1279,11 +1279,11 @@ with_repo_rejected_repo_key_no_fallback_test(_Config) ->
     Fun = fun(Cfg) ->
         counters:add(Requests, 1, 1),
         <<"Bearer org_token">> = maps:get(repo_key, Cfg),
-        token_expired_response()
+        invalid_token_response()
     end,
 
     ?assertEqual(
-        token_expired_response(),
+        invalid_token_response(),
         hex_cli_auth:with_repo(Config#{repo_organization => <<"acme">>, trusted => true}, Fun)
     ),
     ?assertEqual(1, counters:get(Requests, 1)),
@@ -1299,11 +1299,11 @@ with_repo_rejected_config_repo_key_test(_Config) ->
 
     Fun = fun(Cfg) ->
         <<"Bearer config_token">> = maps:get(repo_key, Cfg),
-        token_expired_response()
+        invalid_token_response()
     end,
 
     ?assertEqual(
-        token_expired_response(),
+        invalid_token_response(),
         hex_cli_auth:with_repo(
             Config#{
                 repo_organization => <<"acme">>,
@@ -1353,7 +1353,7 @@ with_repo_replaced_repo_key_test(_Config) ->
 
     Fun = fun(Cfg) ->
         case maps:get(repo_key, Cfg) of
-            <<"Bearer old_org_token">> -> token_expired_response();
+            <<"Bearer old_org_token">> -> invalid_token_response();
             RepoKey -> RepoKey
         end
     end,
@@ -2269,8 +2269,8 @@ with_repo_workload_identity_failed_required_test(_Config) ->
     ),
     ok.
 
-with_repo_token_expired_workload_identity_test(_Config) ->
-    %% A kept token the repository answers token_expired for is exchanged again
+with_repo_invalid_token_workload_identity_test(_Config) ->
+    %% A kept token the repository answers invalid_token for is exchanged again
     %% even though its expiry has not passed.
     put_github_oidc_env("https://ci.test/token"),
     Now = erlang:system_time(second),
@@ -2279,7 +2279,7 @@ with_repo_token_expired_workload_identity_test(_Config) ->
 
     Fun = fun(Cfg) ->
         case maps:get(repo_key, Cfg) of
-            <<"Bearer stale_token">> -> token_expired_response();
+            <<"Bearer stale_token">> -> invalid_token_response();
             RepoKey -> RepoKey
         end
     end,
@@ -2287,7 +2287,7 @@ with_repo_token_expired_workload_identity_test(_Config) ->
     ?assertEqual(<<"Bearer minted.repository:acme">>, hex_cli_auth:with_repo(Config, Fun)),
     ok.
 
-with_repo_token_expired_workload_identity_renewed_test(_Config) ->
+with_repo_invalid_token_workload_identity_renewed_test(_Config) ->
     %% A token another request already renewed is used instead of exchanging
     %% again. No fixture answers the CI token URL, so the test crashes if an
     %% OIDC token is requested.
@@ -2304,7 +2304,7 @@ with_repo_token_expired_workload_identity_renewed_test(_Config) ->
 
     Fun = fun(Cfg) ->
         case maps:get(repo_key, Cfg) of
-            <<"Bearer stale_token">> -> token_expired_response();
+            <<"Bearer stale_token">> -> invalid_token_response();
             RepoKey -> RepoKey
         end
     end,
@@ -2312,7 +2312,7 @@ with_repo_token_expired_workload_identity_renewed_test(_Config) ->
     ?assertEqual(<<"Bearer renewed_token">>, hex_cli_auth:with_repo(Config, Fun)),
     ok.
 
-with_repo_token_expired_workload_identity_failed_test(_Config) ->
+with_repo_invalid_token_workload_identity_failed_test(_Config) ->
     %% The request needed the token it was renewing, so a refused renewal is
     %% returned instead of the 401 that asked for it.
     put_github_oidc_env("https://ci.test/token"),
@@ -2323,7 +2323,7 @@ with_repo_token_expired_workload_identity_failed_test(_Config) ->
 
     Fun = fun(Cfg) ->
         <<"Bearer stale_token">> = maps:get(repo_key, Cfg),
-        token_expired_response()
+        invalid_token_response()
     end,
 
     ?assertEqual(
@@ -2345,7 +2345,7 @@ with_repo_rejected_repo_key_workload_identity_test(_Config) ->
 
     Fun = fun(Cfg) ->
         case maps:get(repo_key, Cfg) of
-            <<"Bearer org_token">> -> token_expired_response();
+            <<"Bearer org_token">> -> invalid_token_response();
             RepoKey -> RepoKey
         end
     end,
@@ -2650,9 +2650,10 @@ queue_jwt_bearer_response(Overrides) ->
     ok.
 
 %% @private
-%% The 401 hexpm answers a request whose token it considers expired.
-token_expired_response() ->
-    Headers = #{<<"www-authenticate">> => <<"Bearer realm=\"hex\", error=\"token_expired\"">>},
+%% The 401 Hex.pm answers a request whose access token is expired, revoked or
+%% doesn't verify.
+invalid_token_response() ->
+    Headers = #{<<"www-authenticate">> => <<"Bearer realm=\"hex\", error=\"invalid_token\"">>},
     {ok, {401, Headers, <<"">>}}.
 
 %% @private

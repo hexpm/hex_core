@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-* When the server answers the `repo_key` from the `get_auth_config` callback with a `token_expired` 401, `hex_cli_auth:with_repo/2,3` skips that `repo_key` and runs the request again with the parent repository's credentials, the global OAuth token or Workload Identity, instead of returning the 401. The fallback credentials are resolved the way a first request resolves them, so a stored token that hasn't expired is used without a refresh.
+* Renew a credential and run the request again when the server answers with a 401 carrying `WWW-Authenticate: Bearer realm="hex", error="invalid_token"`, the RFC 6750 challenge for an access token that has expired, been revoked or doesn't verify. The `error="token_expired"` challenge is no longer recognized.
+* When the server answers the `repo_key` from the `get_auth_config` callback with an `invalid_token` 401, `hex_cli_auth:with_repo/2,3` skips that `repo_key` and runs the request again with the parent repository's credentials, the global OAuth token or Workload Identity, instead of returning the 401. The fallback credentials are resolved the way a first request resolves them, so a stored token that hasn't expired is used without a refresh.
 
 ## v0.20.1 (2026-10-14)
 
