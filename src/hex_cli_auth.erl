@@ -368,9 +368,9 @@ with_repo(BaseConfig, Fun) ->
 %% <li>Prompt via `should_authenticate' when `auth_inline' is true</li>
 %% </ol>
 %%
-%% A resolved token the server answers with a 401 carrying the RFC 6750
-%% challenge `Bearer realm="hex", error="invalid_token"' is renewed at its
-%% source (a per-repo or Workload Identity token is exchanged again, the
+%% A resolved token the server answers with a 401 carrying a Bearer
+%% challenge with `error="invalid_token"' (RFC 6750 section 3.1) is renewed
+%% at its source (a per-repo or Workload Identity token is exchanged again, the
 %% global token is refreshed) and the request is run once more. A `repo_key'
 %% from `get_auth_config' can't be renewed, so the request is run once more
 %% with the credentials that come after it in this order, when there are any.
@@ -1228,24 +1228,11 @@ maybe_reauthenticate(Config, Fun, Retries, Opts) ->
 %% @private
 -spec detect_auth_error(hex_http:headers()) -> otp_required | invalid_totp | invalid_token | none.
 detect_auth_error(Headers) ->
-    case maps:get(<<"www-authenticate">>, Headers, undefined) of
-        undefined ->
-            none;
-        Value ->
-            parse_www_authenticate(Value)
-    end.
-
-%% @private
-parse_www_authenticate(Value) when is_binary(Value) ->
-    case Value of
-        <<"Bearer realm=\"hex\", error=\"totp_required\"", _/binary>> ->
-            otp_required;
-        <<"Bearer realm=\"hex\", error=\"invalid_totp\"", _/binary>> ->
-            invalid_totp;
-        <<"Bearer realm=\"hex\", error=\"invalid_token\"", _/binary>> ->
-            invalid_token;
-        _ ->
-            none
+    case hex_http:bearer_error(Headers) of
+        <<"totp_required">> -> otp_required;
+        <<"invalid_totp">> -> invalid_totp;
+        <<"invalid_token">> -> invalid_token;
+        _ -> none
     end.
 
 %%====================================================================

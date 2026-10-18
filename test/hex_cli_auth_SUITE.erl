@@ -92,6 +92,7 @@ all() ->
         with_repo_rejected_repo_key_oauth_test,
         with_repo_rejected_repo_key_no_fallback_test,
         with_repo_rejected_config_repo_key_test,
+        with_repo_insufficient_scope_test,
         with_repo_repo_key_before_oauth_test,
         with_repo_replaced_repo_key_test,
 
@@ -1284,6 +1285,41 @@ with_repo_rejected_repo_key_no_fallback_test(_Config) ->
 
     ?assertEqual(
         invalid_token_response(),
+        hex_cli_auth:with_repo(Config#{repo_organization => <<"acme">>, trusted => true}, Fun)
+    ),
+    ?assertEqual(1, counters:get(Requests, 1)),
+    ok.
+
+with_repo_insufficient_scope_test(_Config) ->
+    %% A 403 for a token without the scope is returned as it is: a new token
+    %% won't get access, so the session isn't refreshed and the request
+    %% doesn't run again.
+    Now = erlang:system_time(second),
+    Requests = counters:new(1, []),
+    Config = config_with_callbacks(#{
+        oauth_tokens =>
+            {ok, #{
+                access_token => <<"global_oauth">>,
+                refresh_token => <<"refresh_token">>,
+                expires_at => Now + 3600
+            }},
+        persist_oauth_tokens => fun(_Scope, _Access, _Refresh, _Expires) ->
+            error(refreshed)
+        end
+    }),
+    Headers = #{
+        <<"www-authenticate">> => <<"Bearer realm=\"hex\", error=\"insufficient_scope\"">>
+    },
+    Response = {ok, {403, Headers, <<"">>}},
+
+    Fun = fun(Cfg) ->
+        counters:add(Requests, 1, 1),
+        <<"Bearer global_oauth">> = maps:get(repo_key, Cfg),
+        Response
+    end,
+
+    ?assertEqual(
+        Response,
         hex_cli_auth:with_repo(Config#{repo_organization => <<"acme">>, trusted => true}, Fun)
     ),
     ?assertEqual(1, counters:get(Requests, 1)),

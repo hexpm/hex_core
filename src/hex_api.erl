@@ -173,10 +173,10 @@ to_list(Str) -> unicode:characters_to_list(Str).
 %% TODO: not needed after exdoc is fixed
 %% @private
 detect_otp_error({ok, {401, Headers, Body}}) ->
-    case maps:get(<<"www-authenticate">>, Headers, nil) of
-        <<"Bearer realm=\"hex\", error=\"totp_required\"", _/binary>> ->
+    case hex_http:bearer_error(Headers) of
+        <<"totp_required">> ->
             {error, otp_required};
-        <<"Bearer realm=\"hex\", error=\"invalid_totp\"", _/binary>> ->
+        <<"invalid_totp">> ->
             {error, invalid_totp};
         _ ->
             {ok, {401, Headers, Body}}
