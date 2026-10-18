@@ -370,7 +370,10 @@ with_repo(BaseConfig, Fun) ->
 %%
 %% A resolved token the server answers with a `token_expired' 401 is renewed at
 %% its source (a per-repo or Workload Identity token is exchanged again, the
-%% global token is refreshed) and the request is run once more.
+%% global token is refreshed) and the request is run once more. A `repo_key'
+%% from `get_auth_config' can't be renewed, so the request is run once more
+%% with the credentials that come after it in this order, when there are any.
+%% A `repo_key' in config is the caller's choice and its 401 is returned.
 %%
 %% The repository name is taken from the config (`repo_name' or `repo_organization').
 %%
@@ -731,7 +734,7 @@ resolve_api_auth(_Permission, Config) ->
 %% @private
 %% Resolve repo auth credentials in this order:
 %% 0. repo_key in config => passthrough
-%% 1. repo_key from get_auth_config => passthrough
+%% 1. repo_key from get_auth_config, unless the server rejected it => passthrough
 %% 2. trusted + auth_key + oauth_exchange => exchange for OAuth token
 %% 3. trusted + auth_key => use directly
 %% 4. trusted Hex.pm or child repository + global OAuth tokens => use those
@@ -745,9 +748,12 @@ resolve_repo_auth(Config) ->
 %% @private
 %% Renew is `{rejected, RepoKey}' when the server rejected the credential we
 %% have, so a stored token that has not run out of time is exchanged or
-%% refreshed anyway, and `false' otherwise.
+%% refreshed anyway, and `false' otherwise. A rejected `repo_key' from
+%% `get_auth_config' can't be renewed, so it's skipped instead, see
+%% skip_rejected_repo_key/2.
 resolve_repo_auth(#{repo_key := RepoKey}, _Renew) when is_binary(RepoKey) ->
-    %% repo_key already in config, pass through directly
+    %% repo_key already in config, pass through directly. The caller chose it
+    %% for this request, so a rejection is the caller's to handle.
     {ok, RepoKey, #{has_refresh_token => false}};
 resolve_repo_auth(Config, Renew) ->
     RepoName = repo_name(Config),
@@ -769,12 +775,15 @@ resolve_repo_auth(Config, Renew) ->
             Result
     end.
 
-do_resolve_repo_auth(RepoName, LookupRepo, Config, Renew, Lock) ->
+do_resolve_repo_auth(RepoName, LookupRepo, Config, Renew0, Lock) ->
     Trusted = maps:get(trusted, Config, false),
     OAuthExchange = maps:get(oauth_exchange, Config, false),
-    case call_callback(Config, get_auth_config, [LookupRepo]) of
+    {AuthConfig, Renew} = skip_rejected_repo_key(
+        call_callback(Config, get_auth_config, [LookupRepo]), Renew0
+    ),
+    case AuthConfig of
         #{repo_key := RepoKey} when is_binary(RepoKey) ->
-            %% 1. repo_key from get_auth_config => passthrough
+            %% 1. repo_key from get_auth_config, unless the server rejected it => passthrough
             {ok, RepoKey, #{has_refresh_token => false}};
         #{oauth_token := OAuthToken, auth_key := AuthKey} when
             is_binary(AuthKey) and OAuthExchange, Trusted
@@ -811,6 +820,25 @@ do_resolve_repo_auth(RepoName, LookupRepo, Config, Renew, Lock) ->
     end.
 
 %% @private
+%% A repo_key the server rejected is skipped, and the resolution continues as
+%% if the build tool hadn't returned it. Renew becomes `{skipped, RepoKey}', so
+%% the same repo_key is skipped for the parent repository too, and the
+%% credentials resolved after it, which the server didn't reject, aren't
+%% renewed.
+skip_rejected_repo_key(#{repo_key := RepoKey} = AuthConfig, Renew) when
+    Renew =:= {rejected, RepoKey}; Renew =:= {skipped, RepoKey}
+->
+    {maps:remove(repo_key, AuthConfig), {skipped, RepoKey}};
+skip_rejected_repo_key(AuthConfig, Renew) ->
+    {AuthConfig, Renew}.
+
+%% @private
+%% Whether a stored token that hasn't run out of time is exchanged or
+%% refreshed anyway.
+renew_stored_token({rejected, _RepoKey}) -> true;
+renew_stored_token(_Renew) -> false.
+
+%% @private
 resolve_global_oauth_for_repo(<<"hexpm">>, Config, Renew) ->
     resolve_global_oauth_for_repo(Config, Renew);
 resolve_global_oauth_for_repo(<<"hexpm:", _/binary>>, Config, Renew) ->
@@ -819,7 +847,7 @@ resolve_global_oauth_for_repo(_RepoName, _Config, _Renew) ->
     no_auth.
 
 resolve_global_oauth_for_repo(Config, Renew) ->
-    case resolve_oauth_token_with_context(Config, Renew =/= false) of
+    case resolve_oauth_token_with_context(Config, renew_stored_token(Renew)) of
         {ok, Token, AuthContext} ->
             {ok, Token, AuthContext};
         {error, no_auth} ->
@@ -902,7 +930,7 @@ resolve_repo_oauth_token(
     Renew,
     Lock
 ) ->
-    case {Renew =/= false orelse is_token_expired(ExpiresAt), Lock} of
+    case {renew_stored_token(Renew) orelse is_token_expired(ExpiresAt), Lock} of
         {false, _} ->
             %% Token is still valid, use it
             BearerToken = <<"Bearer ", AccessToken/binary>>,

@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## Unreleased
+
+* When the server answers the `repo_key` from the `get_auth_config` callback with a `token_expired` 401, `hex_cli_auth:with_repo/2,3` skips that `repo_key` and runs the request again with the parent repository's credentials, the global OAuth token or Workload Identity, instead of returning the 401. The fallback credentials are resolved the way a first request resolves them, so a stored token that hasn't expired is used without a refresh.
+
 ## v0.20.1 (2026-10-14)
 
 * Fix `hex_tarball:unpack/2,3` and `hex_tarball:unpack_docs/2,3` looping forever when unpacking to disk a tarball with a GNU sparse member that ends in a hole, and failing on a sparse hole that crosses a 64 KiB boundary in the file, by updating the vendored `erl_tar` to OTP 29.1.2 ([GHSA-phm5-m6cj-5382](https://github.com/erlang/otp/security/advisories/GHSA-phm5-m6cj-5382), CVE-2026-96596).

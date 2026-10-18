@@ -89,6 +89,11 @@ all() ->
         with_repo_device_auth_sets_repo_key_test,
         with_repo_token_expired_refresh_test,
         with_repo_token_expired_exchange_test,
+        with_repo_rejected_repo_key_oauth_test,
+        with_repo_rejected_repo_key_no_fallback_test,
+        with_repo_rejected_config_repo_key_test,
+        with_repo_repo_key_before_oauth_test,
+        with_repo_replaced_repo_key_test,
 
         %% token refresh failure modes
         refresh_transport_error_keeps_token_test,
@@ -135,7 +140,8 @@ groups() ->
             with_repo_workload_identity_failed_required_test,
             with_repo_token_expired_workload_identity_test,
             with_repo_token_expired_workload_identity_renewed_test,
-            with_repo_token_expired_workload_identity_failed_test
+            with_repo_token_expired_workload_identity_failed_test,
+            with_repo_rejected_repo_key_workload_identity_test
         ]}
     ].
 
@@ -1229,6 +1235,142 @@ with_repo_token_expired_exchange_test(_Config) ->
     end,
     ok.
 
+with_repo_rejected_repo_key_oauth_test(_Config) ->
+    %% A repo_key from get_auth_config can't be renewed, so after the server
+    %% rejects it the request runs again with the session. The build tool hands
+    %% back the same repo_key for the parent repository, which is skipped too.
+    %% The session token isn't what the server rejected, so it's used without
+    %% a refresh, which would have replaced it with a random token.
+    Now = erlang:system_time(second),
+    OrganizationAuth = #{repo_key => <<"Bearer org_token">>},
+    Config = config_with_callbacks(#{
+        auth_config => #{<<"hexpm:acme">> => OrganizationAuth, <<"hexpm">> => OrganizationAuth},
+        oauth_tokens =>
+            {ok, #{
+                access_token => <<"global_oauth">>,
+                refresh_token => <<"refresh_token">>,
+                expires_at => Now + 3600
+            }}
+    }),
+
+    Fun = fun(Cfg) ->
+        case maps:get(repo_key, Cfg) of
+            <<"Bearer org_token">> -> token_expired_response();
+            RepoKey -> RepoKey
+        end
+    end,
+
+    ?assertEqual(
+        <<"Bearer global_oauth">>,
+        hex_cli_auth:with_repo(Config#{repo_organization => <<"acme">>, trusted => true}, Fun)
+    ),
+    ok.
+
+with_repo_rejected_repo_key_no_fallback_test(_Config) ->
+    %% With nothing after the rejected repo_key, the rejection is returned
+    %% after one request instead of the request running again with the same
+    %% repo_key.
+    Requests = counters:new(1, []),
+    Config = config_with_callbacks(#{
+        auth_config => #{<<"hexpm:acme">> => #{repo_key => <<"Bearer org_token">>}},
+        oauth_tokens => error
+    }),
+
+    Fun = fun(Cfg) ->
+        counters:add(Requests, 1, 1),
+        <<"Bearer org_token">> = maps:get(repo_key, Cfg),
+        token_expired_response()
+    end,
+
+    ?assertEqual(
+        token_expired_response(),
+        hex_cli_auth:with_repo(Config#{repo_organization => <<"acme">>, trusted => true}, Fun)
+    ),
+    ?assertEqual(1, counters:get(Requests, 1)),
+    ok.
+
+with_repo_rejected_config_repo_key_test(_Config) ->
+    %% A repo_key in config is the caller's choice for this request, so its
+    %% rejection is returned instead of the request running with the session.
+    Now = erlang:system_time(second),
+    Config = config_with_callbacks(#{
+        oauth_tokens => {ok, #{access_token => <<"global_oauth">>, expires_at => Now + 3600}}
+    }),
+
+    Fun = fun(Cfg) ->
+        <<"Bearer config_token">> = maps:get(repo_key, Cfg),
+        token_expired_response()
+    end,
+
+    ?assertEqual(
+        token_expired_response(),
+        hex_cli_auth:with_repo(
+            Config#{
+                repo_organization => <<"acme">>,
+                repo_key => <<"Bearer config_token">>,
+                trusted => true
+            },
+            Fun
+        )
+    ),
+    ok.
+
+with_repo_repo_key_before_oauth_test(_Config) ->
+    %% A repo_key from get_auth_config that the server accepts is used ahead
+    %% of the session.
+    Now = erlang:system_time(second),
+    Config = config_with_callbacks(#{
+        auth_config => #{<<"hexpm:acme">> => #{repo_key => <<"Bearer org_token">>}},
+        oauth_tokens => {ok, #{access_token => <<"global_oauth">>, expires_at => Now + 3600}}
+    }),
+
+    ?assertEqual(
+        <<"Bearer org_token">>,
+        hex_cli_auth:with_repo(
+            Config#{repo_organization => <<"acme">>, trusted => true},
+            fun(Cfg) -> maps:get(repo_key, Cfg) end
+        )
+    ),
+    ok.
+
+with_repo_replaced_repo_key_test(_Config) ->
+    %% A repo_key the build tool replaced after the server rejected the old
+    %% one isn't the rejected credential, so the request runs again with it
+    %% rather than with the session.
+    Now = erlang:system_time(second),
+    Reads = counters:new(1, []),
+    Config = config_with_callbacks(#{
+        oauth_tokens => {ok, #{access_token => <<"global_oauth">>, expires_at => Now + 3600}}
+    }),
+    Callbacks = maps:get(cli_auth_callbacks, Config),
+    GetAuthConfig = fun(<<"hexpm:acme">>) ->
+        counters:add(Reads, 1, 1),
+        case counters:get(Reads, 1) of
+            1 -> #{repo_key => <<"Bearer old_org_token">>};
+            _ -> #{repo_key => <<"Bearer new_org_token">>}
+        end
+    end,
+
+    Fun = fun(Cfg) ->
+        case maps:get(repo_key, Cfg) of
+            <<"Bearer old_org_token">> -> token_expired_response();
+            RepoKey -> RepoKey
+        end
+    end,
+
+    ?assertEqual(
+        <<"Bearer new_org_token">>,
+        hex_cli_auth:with_repo(
+            Config#{
+                cli_auth_callbacks => Callbacks#{get_auth_config => GetAuthConfig},
+                repo_organization => <<"acme">>,
+                trusted => true
+            },
+            Fun
+        )
+    ),
+    ok.
+
 refresh_transport_error_keeps_token_test(_Config) ->
     %% A refresh that never reached the server says nothing about the stored
     %% token, so it is kept and the caller is told the difference.
@@ -2190,6 +2332,36 @@ with_repo_token_expired_workload_identity_failed_test(_Config) ->
                 {workload_identity_failed, {token_exchange_failed, {ok, {403, Headers, Body}}}}}},
         hex_cli_auth:with_repo(Config, Fun)
     ),
+    ok.
+
+with_repo_rejected_repo_key_workload_identity_test(_Config) ->
+    %% Without a session, a rejected repo_key from get_auth_config falls back
+    %% to the CI job's workload identity. The exchange resolves again under the
+    %% repo lock, which skips the rejected repo_key too.
+    put_github_oidc_env("https://ci.test/token"),
+    Config = workload_identity_config(self(), error),
+    Callbacks = maps:get(cli_auth_callbacks, Config),
+    GetAuthConfig = fun(_RepoName) -> #{repo_key => <<"Bearer org_token">>} end,
+
+    Fun = fun(Cfg) ->
+        case maps:get(repo_key, Cfg) of
+            <<"Bearer org_token">> -> token_expired_response();
+            RepoKey -> RepoKey
+        end
+    end,
+
+    ?assertEqual(
+        <<"Bearer minted.repository:acme">>,
+        hex_cli_auth:with_repo(
+            Config#{cli_auth_callbacks => Callbacks#{get_auth_config => GetAuthConfig}}, Fun
+        )
+    ),
+
+    receive
+        {workload_identity_persisted, <<"hexpm:acme">>, {ok, _Token}} -> ok
+    after 100 ->
+        error(token_not_persisted)
+    end,
     ok.
 
 %%====================================================================
