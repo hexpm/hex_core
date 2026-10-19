@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## Unreleased
+
+* Don't send the config's `api_key` with the device authorization, token and OIDC audience requests in `hex_api_oauth`. The server refuses a request carrying a credential it refuses, so renewing a refused API token had its refresh or device authorization refused too, and the refused refresh cleared the stored token.
+* Renew a credential and run the request again when the server answers with a 401 whose Bearer challenge has `error="invalid_token"`, the RFC 6750 error for an access token that has expired, been revoked or doesn't verify. A stored token is only refreshed or exchanged when it's the one the server rejected, so requests rejected together share one renewal. A refresh that gets no usable answer returns `{error, {auth_error, token_refresh_unavailable}}`, and when the token can't be renewed, a session another request stored in the meantime is used before asking to authenticate again. The `error="token_expired"` challenge is no longer recognized.
+* Read the `WWW-Authenticate` header the way RFC 9110 defines it when looking for `invalid_token` and the two-factor `totp_required` and `invalid_totp` errors: the header can hold several challenges, the Bearer challenge's parameters can come in any order with any case, values can be tokens or quoted strings, and `realm` is optional. Only the exact `Bearer realm="hex", error="..."` prefix was recognized before. Add `hex_http:bearer_error/1`.
+* When the server answers the `repo_key` from the `get_auth_config` callback with an `invalid_token` 401, `hex_cli_auth:with_repo/2,3` skips that `repo_key` and runs the request again with the parent repository's credentials, the global OAuth token or Workload Identity, instead of returning the 401. The fallback credentials are resolved the way a first request resolves them, so a stored token that hasn't expired is used without a refresh.
+
 ## v0.20.1 (2026-10-14)
 
 * Fix `hex_tarball:unpack/2,3` and `hex_tarball:unpack_docs/2,3` looping forever when unpacking to disk a tarball with a GNU sparse member that ends in a hole, and failing on a sparse hole that crosses a 64 KiB boundary in the file, by updating the vendored `erl_tar` to OTP 29.1.2 ([GHSA-phm5-m6cj-5382](https://github.com/erlang/otp/security/advisories/GHSA-phm5-m6cj-5382), CVE-2026-96596).

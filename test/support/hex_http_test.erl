@@ -374,6 +374,20 @@ fixture(post, <<?TEST_API_URL, "/short_url">>, _, {_, Body}) ->
 
 %% OAuth API
 
+%% hexpm authenticates an API request before routing it, so a device or token
+%% request that carries a credential it refuses gets a 401 and never reaches
+%% the grant. Every credential in these tests is one it would refuse.
+fixture(Method, <<?TEST_API_URL, Path/binary>>, #{<<"authorization">> := _}, _) when
+    (Method =:= post andalso
+        (Path =:= <<"/oauth/device_authorization">> orelse Path =:= <<"/oauth/token">>)) orelse
+        (Method =:= get andalso Path =:= <<"/oidc/audience">>)
+->
+    Headers = maps:put(
+        <<"www-authenticate">>, <<"Bearer realm=\"hex\", error=\"invalid_token\"">>, api_headers()
+    ),
+    Payload = #{<<"message">> => <<"invalid or expired access token">>},
+    {ok, {401, Headers, term_to_binary(Payload)}};
+
 fixture(post, <<?TEST_API_URL, "/oauth/device_authorization">>, _, {_, Body}) ->
     DecodedBody = binary_to_term(Body),
     #{<<"client_id">> := _ClientId, <<"scope">> := _Scope} = DecodedBody,
