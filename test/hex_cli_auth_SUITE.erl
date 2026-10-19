@@ -119,6 +119,7 @@ all() ->
         workload_identity_auth_no_provider_test,
         workload_identity_auth_credentials_present_test,
         workload_identity_auth_audience_failed_test,
+        workload_identity_auth_audience_not_allowed_test,
 
         %% resolve_repo_auth tests - Workload Identity
         resolve_repo_auth_workload_identity_kept_test,
@@ -134,6 +135,7 @@ groups() ->
     [
         {oidc_token, [], [
             workload_identity_auth_success_test,
+            workload_identity_auth_configured_audience_test,
             workload_identity_auth_token_request_failed_test,
             workload_identity_auth_exchange_failed_test,
             resolve_repo_auth_workload_identity_test,
@@ -2109,6 +2111,40 @@ workload_identity_auth_audience_failed_test(_Config) ->
     ?assertEqual(
         {error, {oidc_audience_failed, {ok, {404, Headers, Body}}}},
         hex_cli_auth:workload_identity_auth(Config, <<"package:hexpm/foo">>)
+    ),
+    ok.
+
+workload_identity_auth_audience_not_allowed_test(_Config) ->
+    %% No fixture answers the CI token URL, so the test crashes if an OIDC
+    %% token is requested for the advertised audience.
+    put_github_oidc_env("https://ci.test/unreachable"),
+    Config = config_with_callbacks(#{}),
+
+    queue_oidc_audience_response(#{<<"audience">> => <<"sts.amazonaws.com">>}),
+
+    ?assertEqual(
+        {error, {oidc_audience_not_allowed, <<"sts.amazonaws.com">>}},
+        hex_cli_auth:workload_identity_auth(Config, <<"package:hexpm/foo">>)
+    ),
+    ok.
+
+workload_identity_auth_configured_audience_test(_Config) ->
+    put_github_oidc_env("https://ci.test/token"),
+    Config = (config_with_callbacks(#{}))#{workload_identity_audience => <<"internal">>},
+
+    queue_oidc_audience_response(#{<<"audience">> => <<"internal">>}),
+    queue_jwt_bearer_response(#{<<"access_token">> => <<"minted_token">>}),
+
+    ?assertEqual(
+        {ok, <<"Bearer minted_token">>},
+        hex_cli_auth:workload_identity_auth(Config, <<"package:hexpm/foo">>)
+    ),
+    ?assertEqual(
+        {error, {oidc_audience_not_allowed, <<"hexpm">>}},
+        hex_cli_auth:workload_identity_auth(
+            (config_with_callbacks(#{}))#{workload_identity_audience => <<"internal">>},
+            <<"package:hexpm/foo">>
+        )
     ),
     ok.
 
