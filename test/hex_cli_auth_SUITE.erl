@@ -68,6 +68,9 @@ all() ->
         with_api_invalid_token_renews_test,
         with_api_invalid_token_retry_bounded_test,
         with_api_invalid_token_reauth_retry_bounded_test,
+        with_api_invalid_token_refreshed_elsewhere_test,
+        with_api_invalid_token_replaced_session_test,
+        with_api_invalid_token_refresh_unavailable_test,
 
         %% with_api tests - reauthentication after refresh failure
         with_api_invalid_token_reauth_yes_test,
@@ -90,6 +93,7 @@ all() ->
         with_repo_invalid_token_refresh_test,
         with_repo_invalid_token_exchange_test,
         with_repo_rejected_repo_key_oauth_test,
+        with_repo_rejected_repo_key_same_token_test,
         with_repo_rejected_repo_key_no_fallback_test,
         with_repo_rejected_config_repo_key_test,
         with_repo_insufficient_scope_test,
@@ -777,6 +781,94 @@ with_api_invalid_token_reauth_retry_bounded_test(_Config) ->
 %% Test Cases - with_api reauthentication after refresh failure
 %%====================================================================
 
+with_api_invalid_token_refreshed_elsewhere_test(_Config) ->
+    %% A token another request refreshed while this one waited for the lock is
+    %% used without refreshing it again.
+    Now = erlang:system_time(second),
+    Reads = counters:new(1, []),
+    Config = config_with_callbacks(#{
+        get_oauth_tokens => fun() ->
+            counters:add(Reads, 1, 1),
+            AccessToken =
+                case counters:get(Reads, 1) of
+                    1 -> <<"stale_token">>;
+                    _ -> <<"refreshed_token">>
+                end,
+            {ok, #{
+                access_token => AccessToken,
+                refresh_token => <<"refresh_token">>,
+                expires_at => Now + 3600
+            }}
+        end,
+        persist_oauth_tokens => fun(_Scope, _Access, _Refresh, _Expires) ->
+            error(refreshed_again)
+        end
+    }),
+
+    Fun = fun(Cfg) ->
+        case maps:get(api_key, Cfg) of
+            <<"Bearer stale_token">> -> invalid_token_response();
+            ApiKey -> ApiKey
+        end
+    end,
+
+    ?assertEqual(<<"Bearer refreshed_token">>, hex_cli_auth:with_api(read, Config, Fun)),
+    ok.
+
+with_api_invalid_token_replaced_session_test(_Config) ->
+    %% A session that can't be refreshed and was replaced by another request
+    %% is used instead of asking to authenticate again.
+    Now = erlang:system_time(second),
+    Reads = counters:new(1, []),
+    Config = config_with_callbacks(#{
+        get_oauth_tokens => fun() ->
+            counters:add(Reads, 1, 1),
+            AccessToken =
+                case counters:get(Reads, 1) of
+                    1 -> <<"stale_token">>;
+                    _ -> <<"replaced_token">>
+                end,
+            {ok, #{access_token => AccessToken, expires_at => Now + 3600}}
+        end,
+        should_authenticate => fun(_Reason) -> error(prompted) end
+    }),
+
+    Fun = fun(Cfg) ->
+        case maps:get(api_key, Cfg) of
+            <<"Bearer stale_token">> -> invalid_token_response();
+            ApiKey -> ApiKey
+        end
+    end,
+
+    ?assertEqual(<<"Bearer replaced_token">>, hex_cli_auth:with_api(read, Config, Fun)),
+    ok.
+
+with_api_invalid_token_refresh_unavailable_test(_Config) ->
+    %% A refresh that got no usable answer says nothing about the token, so
+    %% it's returned rather than answered with an offer to authenticate again.
+    Now = erlang:system_time(second),
+    Config = config_with_callbacks(#{
+        oauth_tokens =>
+            {ok, #{
+                access_token => <<"stale_token">>,
+                refresh_token => <<"refresh_token">>,
+                expires_at => Now + 3600
+            }},
+        should_authenticate => fun(_Reason) -> error(prompted) end
+    }),
+    self() ! {hex_http_test, oauth_refresh_response, {ok, {503, #{}, <<"">>}}},
+
+    Fun = fun(Cfg) ->
+        <<"Bearer stale_token">> = maps:get(api_key, Cfg),
+        invalid_token_response()
+    end,
+
+    ?assertEqual(
+        {error, {auth_error, token_refresh_unavailable}},
+        hex_cli_auth:with_api(read, Config, Fun)
+    ),
+    ok.
+
 with_api_invalid_token_reauth_yes_test(_Config) ->
     %% When token refresh fails and user agrees to re-authenticate,
     %% device auth flow is triggered and the operation retried.
@@ -1263,6 +1355,35 @@ with_repo_rejected_repo_key_oauth_test(_Config) ->
 
     ?assertEqual(
         <<"Bearer global_oauth">>,
+        hex_cli_auth:with_repo(Config#{repo_organization => <<"acme">>, trusted => true}, Fun)
+    ),
+    ok.
+
+with_repo_rejected_repo_key_same_token_test(_Config) ->
+    %% A fallback credential that is the token the server rejected is renewed
+    %% rather than sent again.
+    Now = erlang:system_time(second),
+    OrganizationAuth = #{repo_key => <<"Bearer same_token">>},
+    Config = config_with_callbacks(#{
+        auth_config => #{<<"hexpm:acme">> => OrganizationAuth, <<"hexpm">> => OrganizationAuth},
+        oauth_tokens =>
+            {ok, #{
+                access_token => <<"same_token">>,
+                refresh_token => <<"refresh_token">>,
+                expires_at => Now + 3600
+            }}
+    }),
+    queue_refresh_response(#{<<"access_token">> => <<"renewed_token">>}),
+
+    Fun = fun(Cfg) ->
+        case maps:get(repo_key, Cfg) of
+            <<"Bearer same_token">> -> invalid_token_response();
+            RepoKey -> RepoKey
+        end
+    end,
+
+    ?assertEqual(
+        <<"Bearer renewed_token">>,
         hex_cli_auth:with_repo(Config#{repo_organization => <<"acme">>, trusted => true}, Fun)
     ),
     ok.

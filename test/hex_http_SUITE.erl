@@ -63,6 +63,17 @@ bearer_error_several_challenges_test(_Config) ->
         <<"invalid_token">>,
         bearer_error(<<", , Bearer error=\"invalid_token\",, realm=\"hex\"">>)
     ),
+    ?assertEqual(<<"invalid_token">>, bearer_error(<<"Bearer , error=invalid_token">>)),
+    ?assertEqual(
+        <<"invalid_token">>,
+        bearer_error(<<"Basic , realm=\"hex\", Bearer error=invalid_token">>)
+    ),
+    %% The first Bearer challenge with an error is the one that counts, so one
+    %% for another realm without an error doesn't hide it.
+    ?assertEqual(
+        <<"invalid_token">>,
+        bearer_error(<<"Bearer realm=\"first\", Bearer realm=\"hex\", error=invalid_token">>)
+    ),
     ?assertEqual(
         undefined,
         bearer_error(

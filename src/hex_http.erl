@@ -47,9 +47,9 @@ request_to_file(Config, Method, URI, Headers, Body, Filename) when
     Adapter:request_to_file(Method, URI, Headers2, Body, Filename, AdapterConfig).
 
 %% @doc
-%% The `error' parameter of the Bearer challenge in a response's
-%% `www-authenticate' header (RFC 6750 section 3), or `undefined' when there
-%% is none.
+%% The `error' parameter of the first Bearer challenge that has one in a
+%% response's `www-authenticate' header (RFC 6750 section 3), or `undefined'
+%% when there is none.
 %%
 %% The header is read the way RFC 9110 section 11.6.1 defines it: it can hold
 %% several challenges, a scheme can be followed by a token68 or by
@@ -59,8 +59,8 @@ request_to_file(Config, Method, URI, Headers, Body, Filename) when
 bearer_error(Headers) ->
     case maps:get(<<"www-authenticate">>, Headers, undefined) of
         Value when is_binary(Value) ->
-            case [Params || {<<"bearer">>, Params} <- parse_challenges(Value)] of
-                [Params | _] -> maps:get(<<"error">>, Params, undefined);
+            case [Error || {<<"bearer">>, #{<<"error">> := Error}} <- parse_challenges(Value)] of
+                [Error | _] -> Error;
                 [] -> undefined
             end;
         undefined ->
@@ -135,7 +135,8 @@ parse_challenge_params(<<C, _/binary>> = Value) when C =:= $\s ->
                 _ -> parse_params(Value1, #{})
             end;
         {<<>>, _Rest} ->
-            parse_params(Value1, #{})
+            %% The parameter list can start with empty elements
+            parse_params(skip_separators(Value1), #{})
     end;
 parse_challenge_params(Value) ->
     {#{}, Value}.

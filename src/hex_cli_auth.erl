@@ -303,15 +303,14 @@ with_api(Permission, BaseConfig, Fun, Opts) ->
     AuthInline = proplists:get_value(auth_inline, Opts, true),
     case resolve_api_auth(Permission, BaseConfig) of
         {ok, ApiKey, AuthContext} ->
-            Config = BaseConfig#{api_key => ApiKey},
-            execute_with_retry(Config, Fun, AuthContext, initial_retries(), Opts);
+            execute_with_retry(BaseConfig, ApiKey, Fun, AuthContext, initial_retries(), Opts);
         {error, no_auth} when Optional =:= true ->
             %% Auth is optional, try without credentials first
             execute_optional_with_retry(api, BaseConfig, Fun, AuthInline, Opts);
         {error, no_auth} when AuthInline =:= true ->
             %% No auth found, ask user if they want to authenticate
             maybe_authenticate_and_retry(
-                api, BaseConfig, Fun, no_credentials, initial_retries(), Opts
+                api, BaseConfig, undefined, Fun, no_credentials, initial_retries(), Opts
             );
         {error, no_auth} ->
             %% auth_inline is false, just return error
@@ -330,7 +329,7 @@ with_api(Permission, BaseConfig, Fun, Opts) ->
             %% is wrong. Offering a device flow that needs the same network is no
             %% help.
             maybe_authenticate_and_retry(
-                api, BaseConfig, Fun, token_refresh_failed, initial_retries(), Opts
+                api, BaseConfig, undefined, Fun, token_refresh_failed, initial_retries(), Opts
             );
         {error, _} = Error ->
             Error
@@ -410,7 +409,7 @@ with_repo(BaseConfig, Fun, Opts) ->
         no_auth when AuthInline =:= true ->
             %% No auth found, ask user if they want to authenticate
             maybe_authenticate_and_retry(
-                repo, BaseConfig, Fun, no_credentials, initial_retries(), Opts
+                repo, BaseConfig, undefined, Fun, no_credentials, initial_retries(), Opts
             );
         no_auth ->
             %% auth_inline is false, return error
@@ -451,6 +450,8 @@ repo_name(_) ->
 %%
 %% Kind says which credential the retried request needs: `api' takes the token
 %% as api_key, `repo' resolves repository auth and takes it as repo_key.
+%% Rejected is the credential the server refused, or `undefined' when the
+%% request had none.
 %%
 %% Acquiring the credential is serialized with a global lock so concurrent
 %% callers don't each trigger their own device auth flow. The first caller to
@@ -460,11 +461,11 @@ repo_name(_) ->
 %% A 401 brings it back here, and global:trans/4 on a lock this process already
 %% holds does not take a second reference: the inner transaction's exit deletes
 %% the lock entry while the outer one is still running.
-maybe_authenticate_and_retry(Kind, BaseConfig, Fun, Reason, Retries, Opts) ->
+maybe_authenticate_and_retry(Kind, BaseConfig, Rejected, Fun, Reason, Retries, Opts) ->
     Credential = global:trans(
         {{?MODULE, device_auth}, self()},
         fun() ->
-            acquire_credential(Kind, BaseConfig, Reason, Opts)
+            acquire_credential(Kind, BaseConfig, Rejected, Reason, Opts)
         end,
         [node()],
         infinity
@@ -477,22 +478,20 @@ maybe_authenticate_and_retry(Kind, BaseConfig, Fun, Reason, Retries, Opts) ->
     end.
 
 %% @private
-%% Another caller may have authenticated while we waited for the lock. Re-resolve
-%% and, if we get a token that differs from the one we arrived with (none when
-%% credentials were missing; the rejected one on token_refresh_failed), reuse it
-%% instead of prompting again. Otherwise proceed to prompt + device auth.
-acquire_credential(api, BaseConfig, Reason, Opts) ->
-    CurrentApiKey = maps:get(api_key, BaseConfig, undefined),
+%% Another caller may have authenticated while we waited for the lock. Resolve
+%% again from the caller's config and, if that gives a credential other than the
+%% one the server rejected, reuse it instead of prompting again. Otherwise
+%% proceed to prompt + device auth.
+acquire_credential(api, BaseConfig, Rejected, Reason, Opts) ->
     case resolve_api_auth(write, BaseConfig) of
-        {ok, ApiKey, AuthContext} when ApiKey =/= CurrentApiKey ->
+        {ok, ApiKey, AuthContext} when ApiKey =/= Rejected ->
             {ok, ApiKey, AuthContext};
         _ ->
             prompt_and_device_auth(api, BaseConfig, Reason, Opts)
     end;
-acquire_credential(repo, BaseConfig, Reason, Opts) ->
-    CurrentRepoKey = maps:get(repo_key, BaseConfig, undefined),
+acquire_credential(repo, BaseConfig, Rejected, Reason, Opts) ->
     case resolve_repo_auth(BaseConfig) of
-        {ok, RepoKey, AuthContext} when is_binary(RepoKey), RepoKey =/= CurrentRepoKey ->
+        {ok, RepoKey, AuthContext} when is_binary(RepoKey), RepoKey =/= Rejected ->
             {ok, RepoKey, AuthContext};
         _ ->
             prompt_and_device_auth(repo, BaseConfig, Reason, Opts)
@@ -530,7 +529,7 @@ authenticated_credential(repo, BaseConfig, _Tokens) ->
 
 %% @private
 execute_authenticated(api, BaseConfig, Fun, ApiKey, AuthContext, Retries, Opts) ->
-    execute_with_retry(BaseConfig#{api_key => ApiKey}, Fun, AuthContext, Retries, Opts);
+    execute_with_retry(BaseConfig, ApiKey, Fun, AuthContext, Retries, Opts);
 execute_authenticated(repo, BaseConfig, Fun, RepoKey, _AuthContext, _Retries, _Opts) ->
     execute_repo_with_retry(BaseConfig, Fun, RepoKey).
 
@@ -541,7 +540,7 @@ execute_optional_with_retry(Kind, BaseConfig, Fun, AuthInline, Opts) ->
         {ok, {401, _Headers, _Body}} when AuthInline =:= true ->
             %% Got 401, need auth - ask user if they want to authenticate
             maybe_authenticate_and_retry(
-                Kind, BaseConfig, Fun, no_credentials, initial_retries(), Opts
+                Kind, BaseConfig, undefined, Fun, no_credentials, initial_retries(), Opts
             );
         {ok, {401, _Headers, _Body}} ->
             %% Got 401 but auth_inline is false, return error
@@ -748,10 +747,11 @@ resolve_repo_auth(Config) ->
 
 %% @private
 %% Renew is `{rejected, RepoKey}' when the server rejected the credential we
-%% have, so a stored token that has not run out of time is exchanged or
-%% refreshed anyway, and `false' otherwise. A rejected `repo_key' from
-%% `get_auth_config' can't be renewed, so it's skipped instead, see
-%% skip_rejected_repo_key/2.
+%% have, and `false' otherwise. A stored token that is the rejected one is
+%% exchanged or refreshed even though it has not run out of time, and one that
+%% isn't, because another caller already renewed it or because it comes after
+%% a rejected `repo_key' from `get_auth_config', is used as it is. A rejected
+%% `repo_key' can't be renewed, so it's skipped, see skip_rejected_repo_key/2.
 resolve_repo_auth(#{repo_key := RepoKey}, _Renew) when is_binary(RepoKey) ->
     %% repo_key already in config, pass through directly. The caller chose it
     %% for this request, so a rejection is the caller's to handle.
@@ -776,11 +776,11 @@ resolve_repo_auth(Config, Renew) ->
             Result
     end.
 
-do_resolve_repo_auth(RepoName, LookupRepo, Config, Renew0, Lock) ->
+do_resolve_repo_auth(RepoName, LookupRepo, Config, Renew, Lock) ->
     Trusted = maps:get(trusted, Config, false),
     OAuthExchange = maps:get(oauth_exchange, Config, false),
-    {AuthConfig, Renew} = skip_rejected_repo_key(
-        call_callback(Config, get_auth_config, [LookupRepo]), Renew0
+    AuthConfig = skip_rejected_repo_key(
+        call_callback(Config, get_auth_config, [LookupRepo]), Renew
     ),
     case AuthConfig of
         #{repo_key := RepoKey} when is_binary(RepoKey) ->
@@ -822,22 +822,18 @@ do_resolve_repo_auth(RepoName, LookupRepo, Config, Renew0, Lock) ->
 
 %% @private
 %% A repo_key the server rejected is skipped, and the resolution continues as
-%% if the build tool hadn't returned it. Renew becomes `{skipped, RepoKey}', so
-%% the same repo_key is skipped for the parent repository too, and the
-%% credentials resolved after it, which the server didn't reject, aren't
-%% renewed.
-skip_rejected_repo_key(#{repo_key := RepoKey} = AuthConfig, Renew) when
-    Renew =:= {rejected, RepoKey}; Renew =:= {skipped, RepoKey}
-->
-    {maps:remove(repo_key, AuthConfig), {skipped, RepoKey}};
-skip_rejected_repo_key(AuthConfig, Renew) ->
-    {AuthConfig, Renew}.
+%% if the build tool hadn't returned it, for the parent repository too.
+skip_rejected_repo_key(#{repo_key := RepoKey} = AuthConfig, {rejected, RepoKey}) ->
+    maps:remove(repo_key, AuthConfig);
+skip_rejected_repo_key(AuthConfig, _Renew) ->
+    AuthConfig.
 
 %% @private
-%% Whether a stored token that hasn't run out of time is exchanged or
-%% refreshed anyway.
-renew_stored_token({rejected, _RepoKey}) -> true;
-renew_stored_token(_Renew) -> false.
+%% Whether the stored token is the credential the server rejected.
+is_rejected({rejected, BearerToken}, #{access_token := AccessToken}) ->
+    BearerToken =:= <<"Bearer ", AccessToken/binary>>;
+is_rejected(false, _Tokens) ->
+    false.
 
 %% @private
 resolve_global_oauth_for_repo(<<"hexpm">>, Config, Renew) ->
@@ -848,7 +844,7 @@ resolve_global_oauth_for_repo(_RepoName, _Config, _Renew) ->
     no_auth.
 
 resolve_global_oauth_for_repo(Config, Renew) ->
-    case resolve_oauth_token_with_context(Config, renew_stored_token(Renew)) of
+    case resolve_oauth_token_with_context(Config, Renew) of
         {ok, Token, AuthContext} ->
             {ok, Token, AuthContext};
         {error, no_auth} ->
@@ -927,11 +923,11 @@ resolve_repo_oauth_token(
     RepoName,
     Config,
     AuthKey,
-    #{access_token := AccessToken, expires_at := ExpiresAt},
+    #{access_token := AccessToken, expires_at := ExpiresAt} = OAuthToken,
     Renew,
     Lock
 ) ->
-    case {renew_stored_token(Renew) orelse is_token_expired(ExpiresAt), Lock} of
+    case {is_rejected(Renew, OAuthToken) orelse is_token_expired(ExpiresAt), Lock} of
         {false, _} ->
             %% Token is still valid, use it
             BearerToken = <<"Bearer ", AccessToken/binary>>,
@@ -988,12 +984,14 @@ get_parent_repo_key(Config, RepoName, KeyType) ->
 
 %% @private
 %% Resolve OAuth token with global lock to prevent concurrent refresh attempts.
-%% Renew refreshes a token that has not run out of time, for when the server
-%% has rejected it anyway.
+%% Renew is `{rejected, BearerToken}' when the server rejected a token, which
+%% refreshes the stored token if it's that one, even though it has not run out
+%% of time.
 %%
 %% A stored token that is still valid, or no stored token, is answered without
-%% the lock. Only a refresh takes it, and the tokens are read again under the
-%% lock in case another caller refreshed them while this one waited.
+%% the lock. A renewal or a refresh takes it, and the tokens are read again
+%% under the lock, so a caller that waited for another caller's refresh uses
+%% the refreshed token instead of refreshing again.
 resolve_oauth_token_with_context(Config, false) ->
     case call_callback(Config, get_oauth_tokens, []) of
         {ok, #{expires_at := ExpiresAt} = Tokens} ->
@@ -1004,12 +1002,12 @@ resolve_oauth_token_with_context(Config, false) ->
         error ->
             {error, no_auth}
     end;
-resolve_oauth_token_with_context(Config, true) ->
-    resolve_oauth_token_with_lock(Config, true).
+resolve_oauth_token_with_context(Config, {rejected, _BearerToken} = Renew) ->
+    resolve_oauth_token_with_lock(Config, Renew).
 
 resolve_oauth_token_with_lock(Config, Renew) ->
     Resolve = fun(#{expires_at := ExpiresAt} = Tokens) ->
-        case Renew orelse is_token_expired(ExpiresAt) of
+        case is_rejected(Renew, Tokens) orelse is_token_expired(ExpiresAt) of
             true -> refresh_or_clear(Config, Tokens);
             false -> bearer_token(Tokens)
         end
@@ -1132,15 +1130,19 @@ initial_retries() ->
     #{otp => 0, otp_error => undefined, token => 0}.
 
 %% @private
-execute_with_retry(Config, Fun, AuthContext, Retries, Opts) ->
-    case Fun(Config) of
+%% Runs Fun with ApiKey. BaseConfig is the caller's config, kept apart from the
+%% credential so a renewal resolves from what the caller passed rather than
+%% from the key that was rejected.
+execute_with_retry(BaseConfig, ApiKey, Fun, AuthContext, Retries, Opts) ->
+    case Fun(BaseConfig#{api_key => ApiKey}) of
         {error, otp_required} ->
             handle_otp_retry(
-                Config, Fun, AuthContext, Retries, <<"Enter OTP code:">>, Opts
+                BaseConfig, ApiKey, Fun, AuthContext, Retries, <<"Enter OTP code:">>, Opts
             );
         {error, invalid_totp} ->
             handle_otp_retry(
-                Config,
+                BaseConfig,
+                ApiKey,
                 Fun,
                 AuthContext,
                 Retries,
@@ -1151,7 +1153,7 @@ execute_with_retry(Config, Fun, AuthContext, Retries, Opts) ->
             case detect_auth_error(Headers) of
                 otp_required ->
                     handle_otp_retry(
-                        Config, Fun, AuthContext, Retries, <<"Enter OTP code:">>, Opts
+                        BaseConfig, ApiKey, Fun, AuthContext, Retries, <<"Enter OTP code:">>, Opts
                     );
                 invalid_totp ->
                     Msg =
@@ -1159,9 +1161,11 @@ execute_with_retry(Config, Fun, AuthContext, Retries, Opts) ->
                             invalid_totp -> <<"Invalid OTP code. Please try again:">>;
                             _ -> <<"Enter OTP code:">>
                         end,
-                    handle_otp_retry(Config, Fun, AuthContext, Retries, Msg, Opts);
+                    handle_otp_retry(BaseConfig, ApiKey, Fun, AuthContext, Retries, Msg, Opts);
                 invalid_token ->
-                    handle_token_refresh_retry(Config, Fun, AuthContext, Retries, Response, Opts);
+                    handle_token_refresh_retry(
+                        BaseConfig, ApiKey, Fun, AuthContext, Retries, Response, Opts
+                    );
                 none ->
                     Response
             end;
@@ -1170,16 +1174,20 @@ execute_with_retry(Config, Fun, AuthContext, Retries, Opts) ->
     end.
 
 %% @private
-handle_otp_retry(_Config, _Fun, _AuthContext, #{otp := OtpRetries}, _Message, _Opts) when
+handle_otp_retry(
+    _BaseConfig, _ApiKey, _Fun, _AuthContext, #{otp := OtpRetries}, _Message, _Opts
+) when
     OtpRetries >= ?MAX_OTP_RETRIES
 ->
     {error, {auth_error, otp_max_retries}};
-handle_otp_retry(Config, Fun, AuthContext, #{otp := OtpRetries} = Retries, Message, Opts) ->
-    case call_callback(Config, prompt_otp, [Message]) of
+handle_otp_retry(
+    BaseConfig, ApiKey, Fun, AuthContext, #{otp := OtpRetries} = Retries, Message, Opts
+) ->
+    case call_callback(BaseConfig, prompt_otp, [Message]) of
         {ok, OtpCode} ->
-            NewConfig = Config#{api_otp => OtpCode},
+            NewConfig = BaseConfig#{api_otp => OtpCode},
             NewRetries = Retries#{otp := OtpRetries + 1, otp_error := invalid_totp},
-            execute_with_retry(NewConfig, Fun, AuthContext, NewRetries, Opts);
+            execute_with_retry(NewConfig, ApiKey, Fun, AuthContext, NewRetries, Opts);
         cancelled ->
             {error, {auth_error, otp_cancelled}}
     end.
@@ -1189,38 +1197,46 @@ handle_otp_retry(Config, Fun, AuthContext, #{otp := OtpRetries} = Retries, Messa
 %% at its source and running the request once more, the way a repository request
 %% is. The renewal is counted, so a server that answers invalid_token to every
 %% bearer we send it gets a bounded number of requests rather than a loop.
+%%
+%% A refresh that got no usable answer says nothing about the token, so it is
+%% returned rather than offering to authenticate again over the same network.
 handle_token_refresh_retry(
-    _Config, _Fun, _AuthContext, #{token := TokenRetries}, Response, _Opts
+    _BaseConfig, _ApiKey, _Fun, _AuthContext, #{token := TokenRetries}, Response, _Opts
 ) when
     TokenRetries >= ?MAX_TOKEN_RETRIES
 ->
     Response;
 handle_token_refresh_retry(
-    Config, Fun, AuthContext, #{token := TokenRetries} = Retries, _Response, Opts
+    BaseConfig, ApiKey, Fun, AuthContext, #{token := TokenRetries} = Retries, _Response, Opts
 ) ->
     NewRetries = Retries#{token := TokenRetries + 1},
     %% Only attempt refresh if we have a refresh token
     case maps:get(has_refresh_token, AuthContext, false) of
         true ->
-            case resolve_oauth_token_with_context(Config, true) of
+            case resolve_oauth_token_with_context(BaseConfig, {rejected, ApiKey}) of
                 {ok, NewBearerToken, NewAuthContext} ->
-                    NewConfig = Config#{api_key => NewBearerToken},
-                    execute_with_retry(NewConfig, Fun, NewAuthContext, NewRetries, Opts);
+                    execute_with_retry(
+                        BaseConfig, NewBearerToken, Fun, NewAuthContext, NewRetries, Opts
+                    );
+                {error, {auth_error, token_refresh_unavailable}} = Error ->
+                    Error;
                 {error, _} ->
-                    maybe_reauthenticate(Config, Fun, NewRetries, Opts)
+                    maybe_reauthenticate(BaseConfig, ApiKey, Fun, NewRetries, Opts)
             end;
         false ->
-            maybe_reauthenticate(Config, Fun, NewRetries, Opts)
+            maybe_reauthenticate(BaseConfig, ApiKey, Fun, NewRetries, Opts)
     end.
 
 %% @private
 %% After token refresh failure, prompt the user to re-authenticate via device auth
 %% (only when auth_inline is true). Mirrors Hex.OAuth.reauthenticate/1.
-maybe_reauthenticate(Config, Fun, Retries, Opts) ->
+maybe_reauthenticate(BaseConfig, ApiKey, Fun, Retries, Opts) ->
     AuthInline = proplists:get_value(auth_inline, Opts, true),
     case AuthInline of
         true ->
-            maybe_authenticate_and_retry(api, Config, Fun, token_refresh_failed, Retries, Opts);
+            maybe_authenticate_and_retry(
+                api, BaseConfig, ApiKey, Fun, token_refresh_failed, Retries, Opts
+            );
         false ->
             {error, {auth_error, token_refresh_failed}}
     end.
