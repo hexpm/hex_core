@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## Unreleased
+## v0.21.0 (2026-10-21)
 
 * Request the CI job's OIDC token only for the audience in the new `workload_identity_audience` config option, `hexpm` by default, and return `{error, {oidc_audience_not_allowed, Audience}}` when the API advertises a different one, so a configured API can't get a token that another service accepts.
 * Don't send the config's `api_key` with the device authorization, token and OIDC audience requests in `hex_api_oauth`. The server refuses a request carrying a credential it refuses, so renewing a refused API token had its refresh or device authorization refused too, and the refused refresh cleared the stored token.
