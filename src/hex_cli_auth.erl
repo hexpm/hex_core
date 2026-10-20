@@ -221,6 +221,9 @@
 -type workload_identity_error() ::
     hex_oidc:fetch_error()
     | {oidc_audience_failed, hex_api:response()}
+    %% The API advertised an audience other than the configured
+    %% workload_identity_audience
+    | {oidc_audience_not_allowed, Audience :: binary()}
     | {token_exchange_failed, hex_api:response()}.
 
 %% How much of each retry budget a request has already spent.
@@ -640,14 +643,20 @@ workload_identity_auth(Config, Scope) ->
 -spec authenticate_workload_identity(hex_core:config(), hex_oidc:provider(), binary()) ->
     {ok, oauth_tokens()} | {error, workload_identity_error()}.
 authenticate_workload_identity(Config, Provider, Scope) ->
+    Expected = maps:get(workload_identity_audience, Config, <<"hexpm">>),
     case hex_api_oauth:oidc_audience(Config) of
-        {ok, {200, _Headers, #{<<"audience">> := Audience}}} when is_binary(Audience) ->
-            case hex_oidc:fetch_token(Config, Provider, Audience) of
+        {ok, {200, _Headers, #{<<"audience">> := Expected}}} ->
+            case hex_oidc:fetch_token(Config, Provider, Expected) of
                 {ok, OidcToken} ->
                     exchange_workload_identity_token(Config, OidcToken, Scope);
                 {error, _Reason} = Error ->
                     Error
             end;
+        %% The CI provider issues the token for whatever audience is asked for,
+        %% so taking the API's word for it would let any configured API get a
+        %% token that another service trusting the job accepts.
+        {ok, {200, _Headers, #{<<"audience">> := Audience}}} when is_binary(Audience) ->
+            {error, {oidc_audience_not_allowed, Audience}};
         Response ->
             {error, {oidc_audience_failed, Response}}
     end.
