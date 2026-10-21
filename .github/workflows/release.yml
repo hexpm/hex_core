@@ -1,0 +1,80 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    # The GitHub environment that hex_core's workload identity on hex.pm names
+    environment: release
+    permissions:
+      contents: write # create the GitHub release
+      id-token: write # the OIDC token mix hex.publish exchanges with Workload Identity
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
+        with:
+          otp-version: "28"
+          elixir-version: "1.20"
+          rebar3-version: "3.27.3"
+          install-hex: false
+
+      # Hex 2.6.0-dev, the first version that publishes with Workload Identity
+      - name: Install Hex
+        run: mix archive.install github hexpm/hex ref 1d155e718aa76ab75d03f6f4bdcb0d8042f9a0ad --force
+
+      - name: Read the release notes from the changelog
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version=$(erl -noshell -eval '{ok, [{application, hex_core, App}]} = file:consult("src/hex_core.app.src"), io:put_chars(proplists:get_value(vsn, App)), halt().')
+
+          if [ "$TAG" != "v$version" ]; then
+            echo "::error::Tag $TAG doesn't match version $version in src/hex_core.app.src"
+            exit 1
+          fi
+
+          # The lines under "## $TAG (date)" up to the next "## " heading,
+          # without leading and trailing blank lines
+          awk -v heading="## $TAG " '
+            /^## / {
+              if (found) exit
+              found = index($0, heading) == 1
+              next
+            }
+            !found { next }
+            /^[[:space:]]*$/ { if (started) blank++; next }
+            {
+              for (; blank > 0; blank--) print ""
+              print
+              started = 1
+            }
+          ' CHANGELOG.md > "$RUNNER_TEMP/release_notes.md"
+
+          if [ ! -s "$RUNNER_TEMP/release_notes.md" ]; then
+            echo "::error::CHANGELOG.md has no section for $TAG"
+            exit 1
+          fi
+
+      - name: Publish to Hex
+        env:
+          MIX_EXS: publish.exs
+        run: mix hex.publish --yes
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: gh release create "$TAG" --title "$TAG" --verify-tag --notes-file "$RUNNER_TEMP/release_notes.md"
