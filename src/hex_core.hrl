@@ -1,1 +1,1 @@
--define(HEX_CORE_VERSION, "0.20.1").
+-define(HEX_CORE_VERSION, "0.21.0").
