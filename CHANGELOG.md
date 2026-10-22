@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v0.21.1 (2026-10-22)
+
+* Fix `hex_tarball:create/2,3` and `hex_tarball:create_docs/1,2` crashing with a `function_clause` error when a file name resolves to the root of the tarball, such as `"."`. A directory with such a name is skipped, as in v0.19.0, and a regular file or symlink returns `{error, {tarball, {unsafe_path, Name}}}`.
+
 ## v0.21.0 (2026-10-21)
 
 * Request the CI job's OIDC token only for the audience in the new `workload_identity_audience` config option, `hexpm` by default, and return `{error, {oidc_audience_not_allowed, Audience}}` when the API advertises a different one, so a configured API can't get a token that another service accepts.
