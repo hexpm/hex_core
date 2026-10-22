@@ -15,6 +15,7 @@ all() ->
         unicode_normalization_test,
         latin1_filename_encoding_test,
         empty_directories_test,
+        root_entries_test,
         read_only_cwd_test,
         read_only_output_parent_test,
         output_under_regular_file_test,
@@ -339,6 +340,50 @@ empty_directories_test(Config) ->
         [{"empty", directory}, {"listed/a.erl", regular}, {"unlisted", directory}],
         [{Name, Type} || {Name, Type, _Size, _Mtime, _Mode, _Uid, _Gid} <- Entries]
     ).
+
+root_entries_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    Dir = filename:absname(filename:join(BaseDir, "root_entries")),
+    ok = filelib:ensure_dir(filename:join([Dir, "api", "x"])),
+    ok = file:write_file(filename:join(Dir, "index.html"), <<"index">>),
+    ok = file:make_symlink("index.html", filename:join(Dir, "link")),
+
+    Metadata = #{<<"name">> => <<"foo">>, <<"version">> => <<"1.0.0">>},
+    CreateConfig = maps:put(tarball_files_root, Dir, hex_core:default_config()),
+    Files = [{"index.html", filename:join(Dir, "index.html")}, {"api", filename:join(Dir, "api")}],
+    {ok, Docs} = hex_tarball:create_docs(Files, CreateConfig),
+    {ok, #{tarball := Package}} = hex_tarball:create(Metadata, Files, CreateConfig),
+    ?assertEqual({ok, ["api", "index.html"]}, hex_erl_tar:table({binary, Docs}, [compressed])),
+
+    lists:foreach(
+        fun(RootFiles) ->
+            {ok, Docs} = hex_tarball:create_docs(RootFiles ++ Files, CreateConfig),
+            {ok, #{tarball := Package}} =
+                hex_tarball:create(Metadata, RootFiles ++ Files, CreateConfig)
+        end,
+        [
+            [{".", Dir}],
+            [{"./", Dir}],
+            [{"api/..", Dir}],
+            [{"", Dir}],
+            [{".", "."}],
+            [{".", Dir, #{executable => true}}],
+            [{".", Dir}, {"./", Dir}]
+        ]
+    ),
+
+    {error, {tarball, {unsafe_path, "."}}} = hex_tarball:create_docs([{".", <<"index">>}]),
+    {error, {tarball, {unsafe_path, "api/.."}}} =
+        hex_tarball:create(Metadata, [{"api/..", <<"index">>}]),
+    {error, {tarball, {unsafe_path, "."}}} =
+        hex_tarball:create_docs([{".", filename:join(Dir, "index.html")}], CreateConfig),
+    {error, {tarball, {unsafe_path, "."}}} =
+        hex_tarball:create(Metadata, [{".", filename:join(Dir, "index.html")}], CreateConfig),
+    {error, {tarball, {unsafe_path, "."}}} =
+        hex_tarball:create_docs([{".", filename:join(Dir, "link")}], CreateConfig),
+    {error, {tarball, {unsafe_path, "."}}} =
+        hex_tarball:create(Metadata, [{".", filename:join(Dir, "link")}], CreateConfig),
+    ok.
 
 read_only_cwd_test(Config) ->
     BaseDir = ?config(priv_dir, Config),
