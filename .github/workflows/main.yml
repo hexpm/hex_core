@@ -56,3 +56,5 @@ jobs:
       - run: rebar3 as test proper
       - run: rebar3 fmt --check
         if: ${{ matrix.pair.lint }}
+      - run: .github/workflows/check_version.sh
+        if: ${{ matrix.pair.lint }}

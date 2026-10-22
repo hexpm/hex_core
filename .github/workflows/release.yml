@@ -39,6 +39,9 @@ jobs:
       - name: Install Hex
         run: mix archive.install github hexpm/hex ref 1d155e718aa76ab75d03f6f4bdcb0d8042f9a0ad --force
 
+      - name: Check that every file names the same version
+        run: .github/workflows/check_version.sh
+
       - name: Read the version and its release notes from the changelog
         id: version
         run: |

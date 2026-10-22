@@ -19,3 +19,5 @@ src/hex_core.app.src
 src/hex_core.hrl
 README.md
 ```
+
+[`check_version.sh`](.github/workflows/check_version.sh) fails when `src/hex_core.hrl` or `README.md` names a different version than `src/hex_core.app.src`. CI runs it, and the Release workflow runs it before tagging.
