@@ -236,6 +236,16 @@ fixture(get, <<?TEST_API_URL, "/packages/nonexisting">>, _, _) ->
     },
     {ok, {404, api_headers(), term_to_binary(Payload)}};
 
+%% /staged-releases/:id
+
+fixture(get, <<?TEST_API_URL, "/staged-releases/42">>, #{<<"authorization">> := <<"dummy">>}, _) ->
+    Payload = #{<<"id">> => 42, <<"status">> => <<"staged">>},
+    {ok, {200, api_headers(), term_to_binary(Payload)}};
+
+fixture(get, <<?TEST_API_URL, "/repos/acme/staged-releases/42">>, #{<<"authorization">> := <<"dummy">>}, _) ->
+    Payload = #{<<"id">> => 42, <<"status">> => <<"approved">>},
+    {ok, {200, api_headers(), term_to_binary(Payload)}};
+
 %% /packages/:package/releases/:version
 
 fixture(get, <<?TEST_API_URL, "/packages/ecto/releases/1.0.0">>, _, _) ->
