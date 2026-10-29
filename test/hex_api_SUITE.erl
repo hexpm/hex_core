@@ -23,6 +23,7 @@ all() ->
         package_test,
         compressed_term_test,
         release_test,
+        staged_release_test,
         replace_test,
         user_test,
         owner_test,
@@ -79,6 +80,14 @@ release_test(_Config) ->
             <<"app">> := <<"decimal">>, <<"optional">> := false, <<"requirement">> := <<"~> 1.0">>
         }
     } = Requirements,
+    ok.
+
+staged_release_test(_Config) ->
+    {ok, {200, _, Staged}} = hex_api_release:get_staged(?CONFIG, <<"42">>),
+    #{<<"id">> := 42, <<"status">> := <<"staged">>} = Staged,
+    PrivateConfig = (?CONFIG)#{api_repository => <<"acme">>},
+    {ok, {200, _, Approved}} = hex_api_release:get_staged(PrivateConfig, <<"42">>),
+    #{<<"id">> := 42, <<"status">> := <<"approved">>} = Approved,
     ok.
 
 publish_test(_Config) ->

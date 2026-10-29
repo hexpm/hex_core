@@ -4,6 +4,7 @@
 -export([
     delete/3,
     get/3,
+    get_staged/2,
     publish/2,
     publish/3,
     retire/4,
@@ -43,6 +44,13 @@
 -spec get(hex_core:config(), binary(), binary()) -> hex_api:response().
 get(Config, Name, Version) when is_map(Config) and is_binary(Name) and is_binary(Version) ->
     Path = hex_api:build_repository_path(Config, ["packages", Name, "releases", Version]),
+    hex_api:get(Config, Path).
+
+%% @doc
+%% Gets a staged release and its approval status.
+-spec get_staged(hex_core:config(), binary()) -> hex_api:response().
+get_staged(Config, Id) when is_map(Config) and is_binary(Id) ->
+    Path = hex_api:build_repository_path(Config, ["staged-releases", Id]),
     hex_api:get(Config, Path).
 
 %% @doc
