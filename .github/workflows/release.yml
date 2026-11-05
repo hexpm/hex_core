@@ -32,12 +32,8 @@ jobs:
         with:
           otp-version: "28"
           elixir-version: "1.20"
-          rebar3-version: "3.27.3"
+          rebar3-version: "3.28.0"
           install-hex: false
-
-      # Hex 2.6.0-dev, the first version that publishes with Workload Identity
-      - name: Install Hex
-        run: mix archive.install github hexpm/hex ref 1d155e718aa76ab75d03f6f4bdcb0d8042f9a0ad --force
 
       - name: Check that every file names the same version
         run: .github/workflows/check_version.sh
@@ -92,7 +88,7 @@ jobs:
           if mix hex.info hex_core "$VERSION"; then
             echo "hex_core $VERSION is already published"
           else
-            mix hex.publish --yes
+            rebar3 hex publish --yes --wait
           fi
 
       - name: Create the GitHub release
