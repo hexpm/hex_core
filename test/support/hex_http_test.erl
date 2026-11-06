@@ -296,6 +296,12 @@ fixture(post, <<?TEST_API_URL, "/packages/ecto/releases?replace=false">>, _, _) 
     },
     {ok, {200, api_headers(), term_to_binary(Payload)}};
 
+%% /packages/:name/releases?replace=false&owner=acme
+
+fixture(post, <<?TEST_API_URL, "/packages/ecto/releases?replace=false&owner=acme">>, _, _) ->
+    Payload = #{<<"version">> => <<"1.0.0">>},
+    {ok, {201, api_headers(), term_to_binary(Payload)}};
+
 %% /packages/:name/releases?replace=true
 
 fixture(post, <<?TEST_API_URL, "/packages/ecto/releases?replace=true">>, _, _) ->

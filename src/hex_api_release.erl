@@ -12,7 +12,7 @@
 
 -export_type([publish_params/0, retirement_params/0]).
 
--type publish_params() :: [{replace, boolean()}].
+-type publish_params() :: [{replace, boolean()} | {owner, binary()}].
 
 -type retirement_params() :: #{binary() := binary()}.
 %% @doc
@@ -78,6 +78,8 @@ publish(Config, Tarball) -> publish(Config, Tarball, []).
 %%
 %% Supported query params :
 %%  - replace : boolean
+%%  - owner : binary, the organization that owns the package when the publish
+%%    creates it
 %%
 %% Examples:
 %%
@@ -108,8 +110,13 @@ publish(Config, Tarball, Params) when
     case hex_tarball:unpack(Tarball, memory) of
         {ok, #{metadata := Metadata}} ->
             PackageName = maps:get(<<"name">>, Metadata),
+            Owner =
+                case proplists:get_value(owner, Params) of
+                    undefined -> [];
+                    Value -> [{owner, Value}]
+                end,
             QueryString = hex_api:encode_query_string([
-                {replace, proplists:get_value(replace, Params, false)}
+                {replace, proplists:get_value(replace, Params, false)} | Owner
             ]),
             Path = hex_api:join_path_segments(
                 hex_api:build_repository_path(Config, ["packages", PackageName, "releases"])

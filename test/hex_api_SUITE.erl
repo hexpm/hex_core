@@ -24,6 +24,7 @@ all() ->
         compressed_term_test,
         release_test,
         replace_test,
+        publish_owner_test,
         user_test,
         owner_test,
         keys_test,
@@ -105,6 +106,15 @@ replace_test(_Config) ->
             <<"app">> := <<"decimal">>, <<"optional">> := false, <<"requirement">> := <<"~> 1.0">>
         }
     } = Requirements,
+    ok.
+
+publish_owner_test(_Config) ->
+    Metadata = #{<<"name">> => <<"ecto">>, <<"version">> => <<"1.0.0">>},
+    {ok, #{tarball := Tarball}} = hex_tarball:create(Metadata, []),
+    {ok, {201, _, Release}} = hex_api_release:publish(?CONFIG, Tarball, [
+        {owner, <<"acme">>}
+    ]),
+    #{<<"version">> := <<"1.0.0">>} = Release,
     ok.
 
 user_test(_Config) ->
