@@ -21,7 +21,7 @@ jobs:
     environment: release
     permissions:
       contents: write # push the version tag and create the GitHub release
-      id-token: write # the OIDC token mix hex.publish exchanges with Workload Identity
+      id-token: write # the OIDC token rebar3 hex publish exchanges with Workload Identity
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -82,14 +82,22 @@ jobs:
 
       - name: Publish to Hex
         env:
-          MIX_EXS: publish.exs
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          if mix hex.info hex_core "$VERSION"; then
-            echo "hex_core $VERSION is already published"
-          else
-            rebar3 hex publish --yes --wait
-          fi
+          status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "https://hex.pm/api/packages/hex_core/releases/$VERSION")
+
+          case "$status" in
+            200)
+              echo "hex_core $VERSION is already published"
+              ;;
+            404)
+              rebar3 hex publish --yes --wait
+              ;;
+            *)
+              echo "::error::hex.pm returned HTTP $status when checking if hex_core $VERSION is published"
+              exit 1
+              ;;
+          esac
 
       - name: Create the GitHub release
         env:
