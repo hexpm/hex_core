@@ -703,20 +703,22 @@ check_inner_checksum({error, _} = Error) ->
     Error;
 check_inner_checksum(#{files := Files} = State) ->
     ChecksumBase16 = maps:get("CHECKSUM", Files),
-    ExpectedChecksum = decode_base16(ChecksumBase16),
+    case re:run(ChecksumBase16, "\\A[0-9A-Fa-f]{64}\\z", [{capture, none}]) of
+        match ->
+            ExpectedChecksum = decode_base16(ChecksumBase16),
+            Version = maps:get("VERSION", Files),
+            MetadataBinary = maps:get("metadata.config", Files),
+            Contents = maps:get("contents.tar.gz", Files),
+            ActualChecksum = inner_checksum(Version, MetadataBinary, Contents),
 
-    Version = maps:get("VERSION", Files),
-    MetadataBinary = maps:get("metadata.config", Files),
-    Contents = maps:get("contents.tar.gz", Files),
-    ActualChecksum = inner_checksum(Version, MetadataBinary, Contents),
-
-    if
-        byte_size(ExpectedChecksum) /= 32 ->
-            {error, {tarball, invalid_inner_checksum}};
-        ExpectedChecksum == ActualChecksum ->
-            maps:put(inner_checksum, ExpectedChecksum, State);
-        true ->
-            {error, {tarball, {inner_checksum_mismatch, ExpectedChecksum, ActualChecksum}}}
+            if
+                ExpectedChecksum == ActualChecksum ->
+                    maps:put(inner_checksum, ExpectedChecksum, State);
+                true ->
+                    {error, {tarball, {inner_checksum_mismatch, ExpectedChecksum, ActualChecksum}}}
+            end;
+        nomatch ->
+            {error, {tarball, invalid_inner_checksum}}
     end.
 
 %% @private
