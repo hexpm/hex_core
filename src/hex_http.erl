@@ -5,7 +5,7 @@
 -ifdef(TEST).
 -export([user_agent/1]).
 -endif.
--include_lib("hex_core.hrl").
+-include("hex_core.hrl").
 
 -type method() :: get | post | put | patch | delete.
 -type status() :: non_neg_integer().
