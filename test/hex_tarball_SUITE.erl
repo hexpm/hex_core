@@ -1584,6 +1584,12 @@ unpack_error_handling_test(_Config) ->
     {error, {tarball, invalid_inner_checksum}} =
         unpack_files(OuterFiles#{"CHECKSUM" => <<"bad">>}),
 
+    {error, {tarball, invalid_inner_checksum}} =
+        unpack_files(OuterFiles#{"CHECKSUM" => <<"zz">>}),
+
+    {error, {tarball, invalid_inner_checksum}} =
+        unpack_files(OuterFiles#{"CHECKSUM" => <<"abcd">>}),
+
     {error, {tarball, {inner_checksum_mismatch, _, _}}} =
         unpack_files(OuterFiles#{"contents.tar.gz" => <<"">>}),
 
