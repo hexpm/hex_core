@@ -703,21 +703,19 @@ check_inner_checksum({error, _} = Error) ->
     Error;
 check_inner_checksum(#{files := Files} = State) ->
     ChecksumBase16 = maps:get("CHECKSUM", Files),
-    case re:run(ChecksumBase16, "\\A[0-9A-Fa-f]{64}\\z", [{capture, none}]) of
-        match ->
-            ExpectedChecksum = decode_base16(ChecksumBase16),
-            Version = maps:get("VERSION", Files),
-            MetadataBinary = maps:get("metadata.config", Files),
-            Contents = maps:get("contents.tar.gz", Files),
-            ActualChecksum = inner_checksum(Version, MetadataBinary, Contents),
+    Version = maps:get("VERSION", Files),
+    MetadataBinary = maps:get("metadata.config", Files),
+    Contents = maps:get("contents.tar.gz", Files),
 
-            if
-                ExpectedChecksum == ActualChecksum ->
+    case decode_base16(ChecksumBase16) of
+        {ok, <<_:32/binary>> = ExpectedChecksum} ->
+            case inner_checksum(Version, MetadataBinary, Contents) of
+                ExpectedChecksum ->
                     maps:put(inner_checksum, ExpectedChecksum, State);
-                true ->
+                ActualChecksum ->
                     {error, {tarball, {inner_checksum_mismatch, ExpectedChecksum, ActualChecksum}}}
             end;
-        nomatch ->
+        _ ->
             {error, {tarball, invalid_inner_checksum}}
     end.
 
@@ -1774,12 +1772,8 @@ encode_base16(Binary) ->
 
 %% @private
 decode_base16(Base16) ->
-    <<<<(unhex(H) bsl 4 + unhex(L))>> || <<H, L>> <= Base16>>.
-
-%% @private
-unhex(D) when $0 =< D andalso D =< $9 ->
-    D - $0;
-unhex(D) when $a =< D andalso D =< $f ->
-    10 + D - $a;
-unhex(D) when $A =< D andalso D =< $F ->
-    10 + D - $A.
+    try
+        {ok, binary:decode_hex(Base16)}
+    catch
+        error:badarg -> error
+    end.
